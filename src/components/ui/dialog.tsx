@@ -5,7 +5,7 @@ import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { X } from "lucide-react"
+import { XIcon } from "@phosphor-icons/react"
 
 function Dialog({
   ...props
@@ -74,7 +74,7 @@ function DialogContent({
               className="absolute top-2 right-2"
               size="icon-sm"
             >
-              <X
+              <XIcon
               />
               <span className="sr-only">Close</span>
             </Button>
@@ -129,7 +129,7 @@ function DialogTitle({
   return (
     <DialogPrimitive.Title
       data-slot="dialog-title"
-      className={cn("font-heading text-sm font-medium", className)}
+      className={cn("text-sm font-medium", className)}
       {...props}
     />
   )
