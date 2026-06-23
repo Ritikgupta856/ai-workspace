@@ -3,7 +3,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, MessageSquare, CheckSquare, Zap, Brain, Settings } from "lucide-react"
+import { HouseIcon, ChatCircleDotsIcon, CheckSquareIcon, LightningIcon, BrainIcon, GearIcon } from "@phosphor-icons/react"
 
 import { NavUser } from "@/components/nav-user"
 import {
@@ -20,15 +20,15 @@ import {
 } from "@/components/ui/sidebar"
 
 const navItems = [
-  { title: "Home",        url: "/dashboard",             icon: Home,          exact: true },
-  { title: "Chat",        url: "/dashboard/chat",        icon: MessageSquare, exact: false },
-  { title: "Tasks",       url: "/dashboard/tasks",       icon: CheckSquare,   exact: false },
-  { title: "Automations", url: "/dashboard/automations", icon: Zap,           exact: false },
-  { title: "Knowledge",   url: "/dashboard/knowledge",   icon: Brain,         exact: false },
+  { title: "Home",        url: "/home",                   icon: HouseIcon,          exact: true },
+  { title: "Chat",        url: "/chat",                   icon: ChatCircleDotsIcon, exact: false },
+  { title: "Tasks",       url: "/home/tasks",             icon: CheckSquareIcon,    exact: false },
+  { title: "Automations", url: "/home/automations",       icon: LightningIcon,      exact: false },
+  { title: "Knowledge",   url: "/home/knowledge",         icon: BrainIcon,          exact: false },
 ]
 
 const bottomNavItems = [
-  { title: "Settings", url: "/dashboard/settings", icon: Settings },
+  { title: "Settings", url: "/home/settings", icon: GearIcon },
 ]
 
 type AppSidebarUser = {
@@ -51,9 +51,9 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-violet-600 text-white">
-                  <Brain className="size-4" />
+              <Link href="/home">
+                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                  <BrainIcon className="size-4" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">Synapse</span>
@@ -77,7 +77,7 @@ export function AppSidebar({
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                     <Link href={item.url}>
-                      <item.icon />
+                      <item.icon className="size-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
@@ -95,7 +95,7 @@ export function AppSidebar({
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                     <Link href={item.url}>
-                      <item.icon />
+                      <item.icon className="size-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>

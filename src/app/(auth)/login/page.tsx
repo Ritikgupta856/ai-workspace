@@ -22,7 +22,7 @@ export default function LoginPage() {
         try {
             setLoading(true);
             await signIn.email({ email, password });
-            window.location.href = "/dashboard";
+            window.location.href = "/home";
         } catch (authError) {
             console.error(authError);
             setError("Invalid email or password.");
@@ -38,7 +38,7 @@ export default function LoginPage() {
             setGoogleLoading(true);
             await signIn.social({
                 provider: "google",
-                callbackURL: "/dashboard",
+                callbackURL: "/home",
             });
         } catch (authError) {
             console.error(authError);
@@ -49,20 +49,20 @@ export default function LoginPage() {
 
     return (
         <main className="flex min-h-screen items-center justify-center px-4 py-10">
-            <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_70px_rgba(48,28,112,0.12)] sm:p-8">
+            <section className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-lg sm:p-8">
                 <div className="mb-8 space-y-4 text-center">
-                    <Link href="/" className="mx-auto flex w-fit items-center gap-2 text-sm font-semibold text-violet-700">
-                        <span className="flex size-9 items-center justify-center rounded-2xl bg-violet-100">
+                    <Link href="/" className="mx-auto flex w-fit items-center gap-2 text-sm font-semibold text-primary">
+                        <span className="flex size-9 items-center justify-center rounded-2xl bg-primary/10">
                             <Compass className="size-4" />
                         </span>
                         synapse
                     </Link>
 
                     <div className="space-y-2">
-                        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+                        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
                             Welcome back
                         </h1>
-                        <p className="text-sm leading-6 text-slate-500">
+                        <p className="text-sm leading-6 text-muted-foreground">
                             Sign in to your AI workspace.
                         </p>
                     </div>
@@ -72,7 +72,7 @@ export default function LoginPage() {
                     <Button
                         type="button"
                         variant="outline"
-                        className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-semibold"
+                        className="h-12 w-full rounded-2xl border-border bg-card text-sm font-semibold"
                         onClick={handleGoogleSignIn}
                         disabled={googleLoading || loading}
                     >
@@ -82,16 +82,16 @@ export default function LoginPage() {
 
                     <div className="relative">
                         <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t border-slate-200" />
+                            <span className="w-full border-t border-border" />
                         </div>
                         <div className="relative flex justify-center text-xs uppercase tracking-[0.16em]">
-                            <span className="bg-white px-3 text-slate-400">or</span>
+                            <span className="bg-card px-3 text-muted-foreground">or</span>
                         </div>
                     </div>
 
                     <form className="space-y-4" onSubmit={handleEmailSignIn}>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-700" htmlFor="email">
+                            <label className="text-sm font-medium text-foreground" htmlFor="email">
                                 Email
                             </label>
                             <Input
@@ -102,16 +102,16 @@ export default function LoginPage() {
                                 placeholder="you@example.com"
                                 autoComplete="email"
                                 required
-                                className="h-12 rounded-2xl border-slate-200 bg-slate-50 text-sm focus-visible:bg-white"
+                                className="h-12 rounded-2xl border-border bg-muted text-sm focus-visible:bg-card"
                             />
                         </div>
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between gap-4">
-                                <label className="text-sm font-medium text-slate-700" htmlFor="password">
+                                <label className="text-sm font-medium text-foreground" htmlFor="password">
                                     Password
                                 </label>
-                                <Link href="/forgot-password" className="text-xs font-semibold text-violet-700 hover:text-violet-900">
+                                <Link href="/forgot-password" className="text-xs font-semibold text-primary hover:text-primary/80">
                                     Forgot password?
                                 </Link>
                             </div>
@@ -123,12 +123,12 @@ export default function LoginPage() {
                                 placeholder="Enter your password"
                                 autoComplete="current-password"
                                 required
-                                className="h-12 rounded-2xl border-slate-200 bg-slate-50 text-sm focus-visible:bg-white"
+                                className="h-12 rounded-2xl border-border bg-muted text-sm focus-visible:bg-card"
                             />
                         </div>
 
                         {error ? (
-                            <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+                            <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                                 {error}
                             </p>
                         ) : null}
@@ -136,7 +136,7 @@ export default function LoginPage() {
                         <Button
                             type="submit"
                             disabled={loading || googleLoading}
-                            className="h-12 w-full rounded-2xl bg-violet-700 text-sm font-semibold hover:bg-violet-800"
+                            className="h-12 w-full rounded-2xl bg-primary text-sm font-semibold hover:bg-primary/90"
                         >
                             {loading ? <Loader2 className="size-4 animate-spin" /> : null}
                             Sign in
@@ -144,9 +144,9 @@ export default function LoginPage() {
                     </form>
                 </div>
 
-                <p className="mt-6 text-center text-sm text-slate-500">
+                <p className="mt-6 text-center text-sm text-muted-foreground">
                     Don&apos;t have an account?{" "}
-                    <Link href="/sign-up" className="font-semibold text-violet-700 hover:text-violet-900">
+                    <Link href="/sign-up" className="font-semibold text-primary hover:text-primary/80">
                         Sign up
                     </Link>
                 </p>

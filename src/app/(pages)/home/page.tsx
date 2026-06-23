@@ -16,33 +16,29 @@ const quickActions = [
     title: "Start a Chat",
     description: "Ask your AI assistant anything",
     icon: MessageSquare,
-    href: "/dashboard/chat",
-    color: "bg-violet-500/10 text-violet-600",
+    href: "/chat",
   },
   {
     title: "Manage Tasks",
     description: "View and manage your AI-generated tasks",
     icon: CheckSquare,
-    href: "/dashboard/tasks",
-    color: "bg-blue-500/10 text-blue-600",
+    href: "/home/tasks",
   },
   {
     title: "Automations",
     description: "Set up automated AI workflows",
     icon: Zap,
-    href: "/dashboard/automations",
-    color: "bg-amber-500/10 text-amber-600",
+    href: "/home/automations",
   },
   {
     title: "Knowledge Base",
     description: "Upload docs for your AI to reference",
     icon: Brain,
-    href: "/dashboard/knowledge",
-    color: "bg-emerald-500/10 text-emerald-600",
+    href: "/home/knowledge",
   },
 ];
 
-export default async function DashboardPage() {
+export default async function HomePage() {
   const session = await auth.api.getSession({
     headers: await headers(),
   });
@@ -57,11 +53,10 @@ export default async function DashboardPage() {
           orientation="vertical"
           className="mr-2 data-vertical:h-4 data-vertical:self-auto"
         />
-        <span className="text-sm font-medium text-muted-foreground">Dashboard</span>
+        <span className="text-sm font-medium text-muted-foreground">Home</span>
       </header>
 
       <main className="flex flex-1 flex-col gap-6 p-6">
-        {/* Welcome */}
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
             Good to see you, {firstName} 👋
@@ -71,7 +66,6 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        {/* Quick Actions */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {quickActions.map((action) => (
             <Link
@@ -79,9 +73,7 @@ export default async function DashboardPage() {
               href={action.href}
               className="group flex flex-col gap-3 rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5"
             >
-              <div
-                className={`flex size-10 items-center justify-center rounded-lg ${action.color}`}
-              >
+              <div className="flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <action.icon className="size-5" />
               </div>
               <div className="flex-1">
@@ -98,7 +90,6 @@ export default async function DashboardPage() {
           ))}
         </div>
 
-        {/* Recent Activity placeholder */}
         <div className="rounded-xl border bg-card p-5 shadow-sm">
           <h2 className="font-semibold mb-1">Recent Activity</h2>
           <p className="text-sm text-muted-foreground">

@@ -50,20 +50,20 @@ export default function SignUpPage() {
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-10">
-      <section className="w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-6 shadow-[0_24px_70px_rgba(48,28,112,0.12)] sm:p-8">
+      <section className="w-full max-w-md rounded-3xl border border-border/80 bg-card p-6 shadow-lg sm:p-8">
         <div className="mb-8 space-y-4 text-center">
-          <Link href="/" className="mx-auto flex w-fit items-center gap-2 text-sm font-semibold text-violet-700">
-            <span className="flex size-9 items-center justify-center rounded-2xl bg-violet-100">
+          <Link href="/" className="mx-auto flex w-fit items-center gap-2 text-sm font-semibold text-primary">
+            <span className="flex size-9 items-center justify-center rounded-2xl bg-primary/10">
               <Compass className="size-4" />
             </span>
             synapse
           </Link>
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+            <h1 className="text-3xl font-semibold tracking-tight text-foreground">
               Create an account
             </h1>
-            <p className="text-sm leading-6 text-slate-500">
+            <p className="text-sm leading-6 text-muted-foreground">
               Start saving trips and generating itineraries.
             </p>
           </div>
@@ -73,7 +73,7 @@ export default function SignUpPage() {
           <Button
             type="button"
             variant="outline"
-            className="h-12 w-full rounded-2xl border-slate-200 bg-white text-sm font-semibold"
+            className="h-12 w-full rounded-2xl border-border bg-card text-sm font-semibold"
             onClick={handleGoogleSignIn}
             disabled={googleLoading || loading}
           >
@@ -83,16 +83,16 @@ export default function SignUpPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-slate-200" />
+              <span className="w-full border-t border-border" />
             </div>
             <div className="relative flex justify-center text-xs uppercase tracking-[0.16em]">
-              <span className="bg-white px-3 text-slate-400">or</span>
+              <span className="bg-card px-3 text-muted-foreground">or</span>
             </div>
           </div>
 
           <form className="space-y-4" onSubmit={handleEmailSignUp}>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700" htmlFor="name">
+              <label className="text-sm font-medium text-foreground" htmlFor="name">
                 Full name
               </label>
               <Input
@@ -103,12 +103,12 @@ export default function SignUpPage() {
                 placeholder="Ritik Gupta"
                 autoComplete="name"
                 required
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50 text-sm focus-visible:bg-white"
+                className="h-12 rounded-2xl border-border bg-muted text-sm focus-visible:bg-card"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700" htmlFor="email">
+              <label className="text-sm font-medium text-foreground" htmlFor="email">
                 Email
               </label>
               <Input
@@ -119,12 +119,12 @@ export default function SignUpPage() {
                 placeholder="you@example.com"
                 autoComplete="email"
                 required
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50 text-sm focus-visible:bg-white"
+                className="h-12 rounded-2xl border-border bg-muted text-sm focus-visible:bg-card"
               />
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700" htmlFor="password">
+              <label className="text-sm font-medium text-foreground" htmlFor="password">
                 Password
               </label>
               <Input
@@ -136,12 +136,12 @@ export default function SignUpPage() {
                 autoComplete="new-password"
                 minLength={8}
                 required
-                className="h-12 rounded-2xl border-slate-200 bg-slate-50 text-sm focus-visible:bg-white"
+                className="h-12 rounded-2xl border-border bg-muted text-sm focus-visible:bg-card"
               />
             </div>
 
             {error ? (
-              <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm font-medium text-destructive">
                 {error}
               </p>
             ) : null}
@@ -149,7 +149,7 @@ export default function SignUpPage() {
             <Button
               type="submit"
               disabled={loading || googleLoading}
-              className="h-12 w-full rounded-2xl bg-violet-700 text-sm font-semibold hover:bg-violet-800"
+              className="h-12 w-full rounded-2xl bg-primary text-sm font-semibold hover:bg-primary/90"
             >
               {loading ? <Loader2 className="size-4 animate-spin" /> : null}
               Create account
@@ -157,9 +157,9 @@ export default function SignUpPage() {
           </form>
         </div>
 
-        <p className="mt-6 text-center text-sm text-slate-500">
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-violet-700 hover:text-violet-900">
+          <Link href="/login" className="font-semibold text-primary hover:text-primary/80">
             Sign in
           </Link>
         </p>

@@ -18,23 +18,24 @@ export default function Error({
   return (
     <div className="flex items-center justify-center py-24">
       <div className="text-center max-w-sm">
-        <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="w-7 h-7 text-red-400" />
+        <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-7 h-7 text-destructive" />
         </div>
-        <h1 className="text-2xl font-black text-gray-900 mb-2">Something went wrong</h1>
-        <p className="text-sm text-gray-500 mb-8">
+        <h1 className="text-2xl font-black text-foreground mb-2">Something went wrong</h1>
+        <p className="text-sm text-muted-foreground mb-8">
           {error.message || "An unexpected error occurred. Please try again."}
         </p>
         <div className="flex gap-3 justify-center">
           <Button
             onClick={reset}
-            className="bg-violet-600 hover:bg-violet-500 text-white font-semibold"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
           >
             Try Again
           </Button>
           <Button
             onClick={() => window.history.back()}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold"
+            variant="outline"
+            className="font-semibold"
           >
             Go Back
           </Button>
