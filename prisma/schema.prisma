@@ -1,0 +1,278 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ──────────────────────────────────────
+// Enums
+// ──────────────────────────────────────
+
+enum OrganizationPlan {
+  FREE
+  PRO
+  TEAM
+}
+
+enum OrganizationRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum TaskStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// ──────────────────────────────────────
+// Auth (Better Auth)
+// ──────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String?
+  email         String?  @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Better Auth
+  sessions Session[]
+  accounts Account[]
+
+  // App
+  organizationMemberships OrganizationMember[]
+  chats                   Chat[]
+  messages                Message[]
+  notifications           Notification[]
+  assignedTasks           Task[]               @relation("TaskAssignee")
+  ownedOrganizations      Organization[]       @relation("OrganizationOwner")
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?   @db.Text
+  refreshToken          String?   @db.Text
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  idToken               String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ──────────────────────────────────────
+// Organization
+// ──────────────────────────────────────
+
+model Organization {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  logo      String?
+  plan      OrganizationPlan @default(FREE)
+  createdBy String
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  owner      User               @relation("OrganizationOwner", fields: [createdBy], references: [id])
+  members    OrganizationMember[]
+  workspaces Workspace[]
+
+  @@index([createdBy])
+  @@map("organization")
+}
+
+model OrganizationMember {
+  id             String           @id @default(cuid())
+  organizationId String
+  userId         String
+  role           OrganizationRole @default(MEMBER)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@map("organization_member")
+}
+
+// ──────────────────────────────────────
+// Workspace
+// ──────────────────────────────────────
+
+model Workspace {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?
+  icon           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  chats        Chat[]
+  tasks        Task[]
+  settings     WorkspaceSettings?
+
+  @@index([organizationId])
+  @@map("workspace")
+}
+
+model WorkspaceSettings {
+  id           String   @id @default(cuid())
+  workspaceId  String   @unique
+  aiProvider   String?
+  geminiModel  String?
+  temperature  Float?   @default(0.7)
+  systemPrompt String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@map("workspace_settings")
+}
+
+// ──────────────────────────────────────
+// Chat
+// ──────────────────────────────────────
+
+model Chat {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  title       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@map("chat")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  chatId    String
+  userId    String?
+  role      MessageRole
+  content   String      @db.Text
+  metadata  Json?
+  createdAt DateTime    @default(now())
+
+  chat Chat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([chatId])
+  @@map("message")
+}
+
+// ──────────────────────────────────────
+// Tasks
+// ──────────────────────────────────────
+
+model Task {
+  id          String       @id @default(cuid())
+  workspaceId String
+  title       String
+  description String?      @db.Text
+  status      TaskStatus   @default(BACKLOG)
+  priority    TaskPriority @default(MEDIUM)
+  assigneeId  String?
+  dueDate     DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  assignee  User?     @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+  @@index([workspaceId])
+  @@index([assigneeId])
+  @@map("task")
+}
+
+// ──────────────────────────────────────
+// Notifications
+// ──────────────────────────────────────
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  title       String
+  description String?
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notification")
+}
