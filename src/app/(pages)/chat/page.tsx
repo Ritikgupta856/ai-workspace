@@ -92,9 +92,6 @@ const PromptInputAttachmentsDisplay = () => {
   );
 };
 
-// Pull the input out into its own component so we can render it in two
-// different places (centered hero vs. pinned bottom bar) without duplicating
-// the JSX.
 function ChatPromptInput({
   isLoading,
   onSubmit,
@@ -137,31 +134,57 @@ export default function ChatPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = useCallback(async (content: string) => {
-    if (!content.trim() || isLoading) return;
+  const sendMessage = useCallback(
+    async (content: string) => {
+      if (!content.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: content.trim(),
-      createdAt: new Date(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-    setIsLoading(true);
-
-    setTimeout(() => {
-      const assistantMessage: Message = {
+      const userMessage: Message = {
         id: crypto.randomUUID(),
-        role: "assistant",
-        content:
-          "I'm Synapse, your AI workspace assistant. I'll be fully connected to Gemini soon — for now, this is a preview of the chat interface. How can I help you today?",
+        role: "user",
+        content: content.trim(),
         createdAt: new Date(),
       };
-      setMessages((prev) => [...prev, assistantMessage]);
-      setIsLoading(false);
-    }, 1200);
-  }, [isLoading]);
+
+      const updatedMessages = [...messages, userMessage];
+
+      setMessages(updatedMessages);
+      setIsLoading(true);
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            provider: "google",
+            model: "gemini-2.5-flash",
+            messages: updatedMessages,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to send message");
+        }
+
+        const data = await response.json();
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: data.message,
+          createdAt: new Date(),
+        };
+
+        setMessages((prev) => [...prev, assistantMessage]);
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [messages, isLoading]
+  );
 
   const handleSubmit = useCallback((message: PromptInputMessage) => {
     const hasText = Boolean(message.text);
