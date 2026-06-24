@@ -45,7 +45,7 @@ interface AttachmentItemProps {
     id: string;
     type: "file";
     filename?: string;
-    mediaType?: string;
+    mediaType: string;
     url: string;
   };
   onRemove: (id: string) => void;
