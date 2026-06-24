@@ -1,11 +1,15 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/layout/app-sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
-export default async function PagesLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -15,7 +19,7 @@ export default async function PagesLayout({
   });
 
   if (!session?.user) {
-    redirect("/login");
+    redirect("/sign-in");
   }
 
   const user = {
@@ -28,8 +32,15 @@ export default async function PagesLayout({
     <TooltipProvider>
       <SidebarProvider>
         <AppSidebar user={user} />
+
         <SidebarInset>
-          {children}
+          <header className="flex h-16 shrink-0 items-center border-b px-4">
+            <SidebarTrigger />
+          </header>
+
+          <div className="flex flex-1 flex-col gap-4 p-6">
+            {children}
+          </div>
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

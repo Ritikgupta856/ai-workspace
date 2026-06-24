@@ -23,7 +23,7 @@ export default function SignUpPage() {
     try {
       setLoading(true);
       await signUp.email({ name, email, password });
-      window.location.href = "/trips";
+      window.location.href = "/home";
     } catch (authError) {
       console.error(authError);
       setError("We couldn't create your account. Please try again.");
@@ -39,7 +39,7 @@ export default function SignUpPage() {
       setGoogleLoading(true);
       await signIn.social({
         provider: "google",
-        callbackURL: "/trips",
+        callbackURL: "/home",
       });
     } catch (authError) {
       console.error(authError);
@@ -159,7 +159,7 @@ export default function SignUpPage() {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-primary hover:text-primary/80">
+          <Link href="/sign-in" className="font-semibold text-primary hover:text-primary/80">
             Sign in
           </Link>
         </p>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, memo } from "react";
-import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Loader2, Bot, User, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -200,11 +199,7 @@ export default function ChatPage() {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex h-14 shrink-0 items-center gap-2 px-4">
-        <SidebarTrigger className="-ml-1" />
-      </header>
-
+    <div className="flex h-full flex-col">
       {isEmpty ? (
         // Empty state: hero + input centered together as one block
         <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
@@ -222,7 +217,7 @@ export default function ChatPage() {
               <button
                 key={prompt}
                 onClick={() => sendMessage(prompt)}
-                className="rounded-full border bg-background px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                className="rounded-full border bg-sidebar px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
               >
                 {prompt}
               </button>
@@ -281,7 +276,7 @@ export default function ChatPage() {
             </div>
           </div>
 
-          <div className="bg-background px-4 pb-4 pt-2">
+          <div className="bg-sidebar px-4 pb-4 pt-2">
             <div className="mx-auto max-w-3xl">
               <ChatPromptInput isLoading={isLoading} onSubmit={handleSubmit} />
             </div>
