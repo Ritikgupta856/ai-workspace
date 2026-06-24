@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
   SidebarInset,
@@ -20,6 +21,25 @@ export default async function DashboardLayout({
 
   if (!session?.user) {
     redirect("/sign-in");
+  }
+
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { userId: session.user.id },
+  })
+
+  if (!membership) {
+    const workspace = await prisma.workspace.create({
+      data: {
+        name: "Personal",
+        slug: `personal-${session.user.id.slice(0, 8)}`,
+        members: {
+          create: {
+            userId: session.user.id,
+            role: "OWNER",
+          },
+        },
+      },
+    })
   }
 
   const user = {

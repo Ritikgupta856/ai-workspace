@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, memo } from "react";
 import { Loader2, Bot, User, MessageSquare } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 import { cn } from "@/lib/utils";
 import {
   Attachment,
@@ -255,7 +256,26 @@ export default function ChatPage() {
                       msg.role === "user" && "text-right"
                     )}
                   >
-                    <p className="text-sm">{msg.content}</p>
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="text-sm">{children}</p>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 text-sm">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 text-sm">{children}</ol>,
+                        code: ({ children }) => (
+                          <code className="rounded bg-muted px-1 py-0.5 text-xs">{children}</code>
+                        ),
+                        pre: ({ children }) => (
+                          <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">{children}</pre>
+                        ),
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noreferrer" className="text-primary underline">
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   </div>
                 </div>
               ))}
