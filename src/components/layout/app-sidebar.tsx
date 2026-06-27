@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 
 import { NavUser } from "@/components/layout/nav-user"
+import { MEMBER_ROLE_CONFIG } from "@/lib/constants"
 import {
   Sidebar,
   SidebarContent,
@@ -41,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 const teams = [
-  { name: "Synapse Labs", abbr: "S", plan: "Owner" },
+  { name: "Synapse Labs", abbr: "S", plan: MEMBER_ROLE_CONFIG.OWNER.label },
   { name: "Personal", abbr: "P", plan: "Free Plan" },
 ]
 

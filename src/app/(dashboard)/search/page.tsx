@@ -1,13 +1,16 @@
 "use client"
 
 import { MagnifyingGlassIcon } from "@phosphor-icons/react"
+import { PageHeading } from "@/components/ui/page-heading"
 
 export default function SearchPage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center gap-4">
-      <MagnifyingGlassIcon className="size-12 text-muted-foreground/40" />
-      <h2 className="text-lg font-semibold">Search your workspace</h2>
-      <p className="text-sm text-muted-foreground">Search across chats, tasks, projects, and more.</p>
-    </main>
+    <div className="flex flex-1 flex-col gap-6">
+      <PageHeading
+        title="Search your workspace"
+        description="Search across chats, tasks, projects, and more."
+      />
+    </div>
+
   )
 }

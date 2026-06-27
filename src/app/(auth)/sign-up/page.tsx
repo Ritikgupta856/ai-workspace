@@ -56,7 +56,7 @@ export default function SignUpPage() {
             <span className="flex size-9 items-center justify-center rounded-2xl bg-primary/10">
               <Compass className="size-4" />
             </span>
-            synapse
+            Synapse
           </Link>
 
           <div className="space-y-2">

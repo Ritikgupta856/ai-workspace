@@ -5,6 +5,9 @@ import { getGitHubOAuthUrl } from "@/lib/github"
 import { redirect } from "next/navigation"
 import { Puzzle, CheckCircle, XCircle, ExternalLink } from "lucide-react"
 import Link from "next/link"
+import { PageHeading } from "@/components/ui/page-heading"
+import { StatusBadge } from "@/components/common/status-badge"
+import { INTEGRATION_STATUS_CONFIG } from "@/lib/constants"
 
 function GithubIcon({ className }: { className?: string }) {
   return (
@@ -50,13 +53,10 @@ export default async function IntegrationsPage(props: {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Integrations</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Connect your tools and services to Synapse.
-        </p>
-      </div>
+      <PageHeading
+        title="Integrations"
+        description="Connect your tools and services to Synapse."
+      />
 
       {/* Toast-like feedback */}
       {success && (
@@ -91,13 +91,17 @@ export default async function IntegrationsPage(props: {
               </p>
             </div>
             {existingGithub ? (
-              <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600">
-                Connected
-              </span>
+              <StatusBadge
+                label={INTEGRATION_STATUS_CONFIG.CONNECTED.label}
+                className={INTEGRATION_STATUS_CONFIG.CONNECTED.className}
+                icon={INTEGRATION_STATUS_CONFIG.CONNECTED.icon}
+              />
             ) : (
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                Disconnected
-              </span>
+              <StatusBadge
+                label={INTEGRATION_STATUS_CONFIG.DISCONNECTED.label}
+                className={INTEGRATION_STATUS_CONFIG.DISCONNECTED.className}
+                icon={INTEGRATION_STATUS_CONFIG.DISCONNECTED.icon}
+              />
             )}
           </div>
 
@@ -150,13 +154,17 @@ export default async function IntegrationsPage(props: {
                   <p className="text-xs text-muted-foreground">Coming soon</p>
                 </div>
                 {existing ? (
-                  <span className="shrink-0 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600">
-                    Connected
-                  </span>
+                  <StatusBadge
+                    label={INTEGRATION_STATUS_CONFIG.CONNECTED.label}
+                    className={INTEGRATION_STATUS_CONFIG.CONNECTED.className}
+                    icon={INTEGRATION_STATUS_CONFIG.CONNECTED.icon}
+                  />
                 ) : (
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                    Disconnected
-                  </span>
+                  <StatusBadge
+                    label={INTEGRATION_STATUS_CONFIG.DISCONNECTED.label}
+                    className={INTEGRATION_STATUS_CONFIG.DISCONNECTED.className}
+                    icon={INTEGRATION_STATUS_CONFIG.DISCONNECTED.icon}
+                  />
                 )}
               </div>
             </div>

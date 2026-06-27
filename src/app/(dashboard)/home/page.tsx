@@ -11,8 +11,15 @@ import {
   GitBranch,
   CheckCircle,
   RefreshCw,
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  AlertTriangle,
 } from "lucide-react";
+import { StatusBadge } from "@/components/common/status-badge"
+import { TASK_PRIORITY_CONFIG, INTEGRATION_STATUS_CONFIG } from "@/lib/constants"
 import Link from "next/link";
+import { PageHeading } from "@/components/ui/page-heading";
 
 const stats = [
   {
@@ -68,42 +75,47 @@ const projects = [
   },
 ];
 
+import { TASK_STATUS_CONFIG } from "@/lib/constants"
+
+const columnColorMap: Record<string, { dot: string; bar: string }> = {
+  TODO: { dot: "bg-muted-foreground/40", bar: "bg-muted-foreground/40" },
+  IN_PROGRESS: { dot: "bg-blue-500", bar: "bg-blue-500" },
+  IN_REVIEW: { dot: "bg-blue-300", bar: "bg-blue-300" },
+  DONE: { dot: "bg-green-500", bar: "bg-green-500" },
+}
+
 const taskColumns = [
   {
+    key: "TODO" as const,
     title: "To Do",
     count: 32,
-    dotColor: "bg-muted-foreground/40",
-    barColor: "bg-muted-foreground/40",
     tasks: [
       { title: "Add GitHub App installation", priority: "Medium" },
       { title: "Improve search ranking", priority: "Low" },
     ],
   },
   {
+    key: "IN_PROGRESS" as const,
     title: "In Progress",
     count: 48,
-    dotColor: "bg-blue-500",
-    barColor: "bg-blue-500",
     tasks: [
       { title: "AI chat with document context", priority: "High" },
       { title: "Sync Notion pages", priority: "Medium" },
     ],
   },
   {
+    key: "IN_REVIEW" as const,
     title: "In Review",
     count: 21,
-    dotColor: "bg-blue-300",
-    barColor: "bg-blue-300",
     tasks: [
       { title: "PR summary workflow", priority: "Medium" },
       { title: "Task generation from spec", priority: "High" },
     ],
   },
   {
+    key: "DONE" as const,
     title: "Done",
     count: 27,
-    dotColor: "bg-green-500",
-    barColor: "bg-green-500",
     tasks: [
       { title: "Workspace members API", priority: "Low" },
       { title: "Connect GitHub repositories", priority: "Medium" },
@@ -150,17 +162,9 @@ const integrations = [
   { name: "Linear", detail: "Team workspace" },
 ];
 
-function priorityClasses(priority: string) {
-  switch (priority) {
-    case "High":
-      return "bg-red-50 text-red-600";
-    case "Medium":
-      return "bg-blue-50 text-blue-600";
-    case "Low":
-      return "bg-muted text-muted-foreground";
-    default:
-      return "bg-muted text-muted-foreground";
-  }
+function priorityConfig(priority: string) {
+  const key = priority.toUpperCase().replace(" ", "_") as keyof typeof TASK_PRIORITY_CONFIG
+  return TASK_PRIORITY_CONFIG[key] ?? TASK_PRIORITY_CONFIG.LOW
 }
 
 export default async function DashboardPage() {
@@ -173,12 +177,10 @@ export default async function DashboardPage() {
   return (
     <div className="flex flex-1 flex-col gap-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Overview of your workspace
-        </p>
-      </div>
+      <PageHeading
+        title="Home"
+        description="Overview of your workspace"
+      />
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -280,7 +282,7 @@ export default async function DashboardPage() {
                   <p className="text-lg font-semibold">{col.count}</p>
                   <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                     <div
-                      className={`h-full ${col.barColor}`}
+                      className={`h-full ${columnColorMap[col.key].bar}`}
                       style={{
                         width: `${(col.count / 128) * 100}%`,
                       }}
@@ -297,7 +299,7 @@ export default async function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <span
-                        className={`size-2 rounded-full ${col.dotColor}`}
+                        className={`size-2 rounded-full ${columnColorMap[col.key].dot}`}
                       />
                       <p className="text-xs font-medium">{col.title}</p>
                     </div>
@@ -314,13 +316,11 @@ export default async function DashboardPage() {
                         <p className="text-xs font-medium leading-snug">
                           {task.title}
                         </p>
-                        <span
-                          className={`mt-2 inline-block rounded-md px-1.5 py-0.5 text-[10px] font-medium ${priorityClasses(
-                            task.priority
-                          )}`}
-                        >
-                          {task.priority}
-                        </span>
+                        <StatusBadge
+                          className={`mt-2 ${priorityConfig(task.priority).className}`}
+                          label={priorityConfig(task.priority).label}
+                          icon={priorityConfig(task.priority).icon}
+                        />
                       </div>
                     ))}
                   </div>
@@ -392,9 +392,11 @@ export default async function DashboardPage() {
                       {integration.detail}
                     </p>
                   </div>
-                  <span className="rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-600">
-                    Connected
-                  </span>
+                  <StatusBadge
+                    label={INTEGRATION_STATUS_CONFIG.CONNECTED.label}
+                    className={INTEGRATION_STATUS_CONFIG.CONNECTED.className}
+                    icon={INTEGRATION_STATUS_CONFIG.CONNECTED.icon}
+                  />
                 </div>
               ))}
             </div>

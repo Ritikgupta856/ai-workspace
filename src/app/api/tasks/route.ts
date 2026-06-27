@@ -2,9 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { TaskPriority, TaskStatus } from "@/generated/prisma/enums"
 
-export async function POST(req: Request) {
+export async function GET() {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -28,45 +27,16 @@ export async function POST(req: Request) {
       )
     }
 
-    const body = await req.json()
-    const {
-      title,
-      description,
-      projectId,
-      priority,
-      status,
-      assigneeId,
-      dueDate,
-      labels,
-    } = body
-
-    if (!title?.trim()) {
-      return NextResponse.json(
-        { success: false, error: "Title is required" },
-        { status: 400 }
-      )
-    }
-
-    const task = await prisma.task.create({
-      data: {
-        title: title.trim(),
-        description: description ?? null,
-        projectId: projectId ?? null,
-        priority: priority ?? TaskPriority.MEDIUM,
-        status: status ?? TaskStatus.TODO,
-        assigneeId: assigneeId ?? null,
-        dueDate: dueDate ? new Date(dueDate) : null,
-        workspaceId: membership.workspaceId,
-        createdById: session.user.id,
-        labels: labels ?? [],
-      },
+    const tasks = await prisma.task.findMany({
+      where: { workspaceId: membership.workspaceId },
       include: {
         project: { select: { name: true } },
         assignee: { select: { name: true } },
       },
+      orderBy: { createdAt: "desc" },
     })
 
-    const formatted = {
+    const formatted = tasks.map((task) => ({
       id: task.id,
       title: task.title,
       description: task.description ?? "",
@@ -77,16 +47,13 @@ export async function POST(req: Request) {
       labels: task.labels,
       dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
       updatedAt: task.updatedAt.toISOString(),
-    }
+    }))
 
-    return NextResponse.json(
-      { success: true, message: "Task created successfully.", task: formatted },
-      { status: 201 }
-    )
+    return NextResponse.json({ success: true, tasks: formatted })
   } catch (error) {
-    console.error("Create Task Error:", error)
+    console.error("Fetch Tasks Error:", error)
     return NextResponse.json(
-      { success: false, error: "Failed to create task." },
+      { success: false, error: "Failed to fetch tasks." },
       { status: 500 }
     )
   }

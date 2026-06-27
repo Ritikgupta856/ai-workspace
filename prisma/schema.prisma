@@ -181,6 +181,7 @@ model Task {
   assigneeId      String?
   createdById     String
   parentTaskId    String?
+  labels          String[]
   generatedByAI   Boolean             @default(false)
   sourceRef       String?
   dueDate         DateTime?

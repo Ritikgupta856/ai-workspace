@@ -3,6 +3,7 @@
 import { useParams } from "next/navigation"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
+import { PageHeading } from "@/components/ui/page-heading"
 
 export default function IntegrationDetailPage() {
   const { integrationId } = useParams<{ integrationId: string }>()
@@ -15,7 +16,7 @@ export default function IntegrationDetailPage() {
         <span className="text-sm font-medium text-muted-foreground">Integration</span>
       </header>
       <main className="flex flex-1 flex-col items-center justify-center gap-4">
-        <h2 className="text-lg font-semibold">Integration {integrationId}</h2>
+        <PageHeading title={`Integration ${integrationId}`} />
       </main>
     </>
   )
