@@ -19,6 +19,7 @@ import { TaskDialog } from "@/components/tasks/task-dialog"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
 import { fetchTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
 import { formatUpdatedDate, formatDueDate } from "@/lib/date"
+import { Spinner } from "@/components/ui/spinner"
 
 export type TaskStatus = keyof typeof TASK_STATUS_CONFIG
 export type TaskPriority = keyof typeof TASK_PRIORITY_CONFIG
@@ -445,8 +446,11 @@ export default function TasksPage() {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20 text-muted-foreground">
-          Loading tasks...
+        <div className="flex flex-1 items-center justify-center py-24">
+          <div className="flex flex-col items-center gap-3">
+            <Spinner className="size-6" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
         </div>
       ) : error ? (
         <div className="flex items-center justify-center py-20 text-destructive">

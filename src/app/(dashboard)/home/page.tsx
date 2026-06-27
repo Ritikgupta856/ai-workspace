@@ -108,7 +108,7 @@ const taskColumns = [
     title: "In Review",
     count: 21,
     tasks: [
-      { title: "PR summary workflow", priority: "Medium" },
+          { title: "Sprint planning", priority: "Medium" },
       { title: "Task generation from spec", priority: "High" },
     ],
   },
@@ -176,10 +176,9 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-6">
-      {/* Header */}
       <PageHeading
-        title="Home"
-        description="Overview of your workspace"
+        title={`Good morning, ${firstName}`}
+        description="Here's an overview of your workspace today"
       />
 
       {/* Stat cards */}

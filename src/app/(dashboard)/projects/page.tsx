@@ -43,7 +43,9 @@ import { ProjectDialog } from "@/components/projects/create-project-dialog"
 import { PROJECT_STATUS_CONFIG, type ProjectStatusKey } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { formatUpdatedDate } from "@/lib/date"
+import { fetchProjects, createProject, updateProject, deleteProject } from "@/lib/api/projects"
 import type { ProjectCardData } from "@/components/projects/project-card"
+import { Spinner } from "@/components/ui/spinner"
 
 export type ProjectTeamMember = {
   id: string
@@ -84,139 +86,6 @@ function FilterTrigger({
     </button>
   )
 }
-
-const initialProjects: Project[] = [
-  {
-    id: "1",
-    name: "Synapse",
-    description: "AI-first workspace platform with chat, tasks, documents, and integrations.",
-    status: "ACTIVE" as ProjectStatusKey,
-    progress: 72,
-    taskCount: 24,
-    documentCount: 12,
-    chatCount: 8,
-    integrationCount: 3,
-    members: [
-      { id: "u1", name: "Ritik Gupta" },
-      { id: "u2", name: "Priya Sharma" },
-      { id: "u3", name: "Arjun Patel" },
-      { id: "u4", name: "Meera Singh" },
-      { id: "u5", name: "Vikram Reddy" },
-    ],
-    updatedAt: "2026-06-27T10:30:00",
-    favorite: true,
-    icon: "🧠",
-  },
-  {
-    id: "2",
-    name: "Portfolio",
-    description: "Personal portfolio website with project showcase and blog.",
-    status: "ACTIVE" as ProjectStatusKey,
-    progress: 45,
-    taskCount: 14,
-    documentCount: 6,
-    chatCount: 3,
-    integrationCount: 1,
-    members: [
-      { id: "u1", name: "Ritik Gupta" },
-      { id: "u3", name: "Arjun Patel" },
-    ],
-    updatedAt: "2026-06-26T14:20:00",
-    favorite: false,
-    icon: "🖥️",
-  },
-  {
-    id: "3",
-    name: "BasicX Sports",
-    description: "E-commerce platform for sports equipment and apparel.",
-    status: "ON_HOLD" as ProjectStatusKey,
-    progress: 30,
-    taskCount: 8,
-    documentCount: 4,
-    chatCount: 2,
-    integrationCount: 2,
-    members: [
-      { id: "u2", name: "Priya Sharma" },
-      { id: "u4", name: "Meera Singh" },
-    ],
-    updatedAt: "2026-06-20T09:00:00",
-    favorite: false,
-    icon: "⚽",
-  },
-  {
-    id: "4",
-    name: "Design System",
-    description: "Internal UI component library and design tokens for all Synapse products.",
-    status: "ACTIVE" as ProjectStatusKey,
-    progress: 88,
-    taskCount: 32,
-    documentCount: 18,
-    chatCount: 10,
-    integrationCount: 2,
-    members: [
-      { id: "u1", name: "Ritik Gupta" },
-      { id: "u2", name: "Priya Sharma" },
-      { id: "u3", name: "Arjun Patel" },
-      { id: "u4", name: "Meera Singh" },
-    ],
-    updatedAt: "2026-06-27T08:15:00",
-    favorite: true,
-    icon: "🎨",
-  },
-  {
-    id: "5",
-    name: "Mobile App",
-    description: "React Native mobile client for Synapse with full feature parity.",
-    status: "COMPLETED" as ProjectStatusKey,
-    progress: 100,
-    taskCount: 56,
-    documentCount: 14,
-    chatCount: 6,
-    integrationCount: 0,
-    members: [
-      { id: "u3", name: "Arjun Patel" },
-      { id: "u5", name: "Vikram Reddy" },
-    ],
-    updatedAt: "2026-06-15T16:30:00",
-    favorite: false,
-    icon: "📱",
-  },
-  {
-    id: "6",
-    name: "Marketing Site",
-    description: "Company landing page, blog, and documentation hub.",
-    status: "ACTIVE" as ProjectStatusKey,
-    progress: 55,
-    taskCount: 18,
-    documentCount: 9,
-    chatCount: 4,
-    integrationCount: 1,
-    members: [
-      { id: "u4", name: "Meera Singh" },
-      { id: "u2", name: "Priya Sharma" },
-    ],
-    updatedAt: "2026-06-25T11:00:00",
-    favorite: false,
-    icon: "🌐",
-  },
-  {
-    id: "7",
-    name: "API Gateway",
-    description: "Centralized API gateway with rate limiting, auth, and monitoring.",
-    status: "ON_HOLD" as ProjectStatusKey,
-    progress: 20,
-    taskCount: 10,
-    documentCount: 3,
-    chatCount: 1,
-    integrationCount: 0,
-    members: [
-      { id: "u5", name: "Vikram Reddy" },
-    ],
-    updatedAt: "2026-06-10T13:45:00",
-    favorite: false,
-    icon: "🔌",
-  },
-]
 
 function getInitials(name: string): string {
   return name
@@ -353,7 +222,8 @@ let handleEditStatic = (_id: string) => {}
 
 export default function ProjectsPage() {
   const router = useRouter()
-  const [projectList] = React.useState<Project[]>(initialProjects)
+  const [projectList, setProjectList] = React.useState<Project[]>([])
+  const [loading, setLoading] = React.useState(true)
   const [search, setSearch] = React.useState("")
   const [projectTab, setProjectTab] = React.useState<ProjectTab>("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
@@ -362,6 +232,21 @@ export default function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create")
   const [editingProject, setEditingProject] = React.useState<Project | undefined>()
+
+  async function loadProjects() {
+    try {
+      const data = await fetchProjects()
+      setProjectList(data)
+    } catch (err) {
+      console.error("Failed to load projects:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  React.useEffect(() => {
+    loadProjects()
+  }, [])
 
   const filtered = React.useMemo(() => {
     let result = [...projectList]
@@ -422,14 +307,79 @@ export default function ProjectsPage() {
     setDialogOpen(true)
   }
 
-  function handleEditSuccess() {
-    // TODO: refresh from API
+  async function handleCreate(data: { name: string; description?: string }) {
+    const previous = [...projectList]
+    // optimistic
+    const tempId = `temp_${Date.now()}`
+    const optimistic: Project = {
+      id: tempId,
+      name: data.name,
+      description: data.description ?? "",
+      status: "ACTIVE" as ProjectStatusKey,
+      progress: 0,
+      taskCount: 0,
+      documentCount: 0,
+      chatCount: 0,
+      integrationCount: 0,
+      members: [],
+      updatedAt: new Date().toISOString(),
+      favorite: false,
+      icon: "📁",
+    }
+    setProjectList((prev) => [optimistic, ...prev])
+    try {
+      const created = await createProject(data)
+      setProjectList((prev) => prev.map((p) => (p.id === tempId ? created : p)))
+    } catch {
+      setProjectList(previous)
+    }
+  }
+
+  async function handleEdit(
+    id: string,
+    data: { name?: string; description?: string }
+  ) {
+    const previous = [...projectList]
+    setProjectList((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? { ...p, ...data, updatedAt: new Date().toISOString() }
+          : p
+      )
+    )
+    try {
+      const updated = await updateProject(id, data)
+      setProjectList((prev) => prev.map((p) => (p.id === id ? updated : p)))
+    } catch {
+      setProjectList(previous)
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const previous = [...projectList]
+    setProjectList((prev) => prev.filter((p) => p.id !== id))
+    try {
+      await deleteProject(id)
+    } catch {
+      setProjectList(previous)
+    }
+  }
+
+  async function handleDuplicate(id: string) {
+    const project = projectList.find((p) => p.id === id)
+    if (!project) return
+    await handleCreate({
+      name: `${project.name} (Copy)`,
+      description: project.description,
+    })
+  }
+
+  function handleDialogSuccess() {
+    loadProjects()
   }
 
   handleViewStatic = handleView
   handleEditStatic = handleOpenEdit
-
-  const hasProjects = projectList.length > 0
 
   return (
     <div className="flex flex-1 flex-col gap-6">
@@ -516,7 +466,14 @@ export default function ProjectsPage() {
         />
       </div>
 
-      {!hasProjects ? (
+      {loading ? (
+        <div className="flex flex-1 items-center justify-center py-24">
+          <div className="flex flex-col items-center gap-3">
+            <Spinner className="size-6" />
+            <p className="text-sm text-muted-foreground">Loading...</p>
+          </div>
+        </div>
+      ) : filtered.length === 0 && projectList.length === 0 ? (
         <ProjectEmptyState onCreate={handleOpenCreate} />
       ) : filtered.length === 0 ? (
         <div className="flex items-center justify-center py-20 text-sm text-muted-foreground">
@@ -527,6 +484,8 @@ export default function ProjectsPage() {
           projects={filtered}
           onView={handleView}
           onEdit={handleOpenEdit}
+          onDuplicate={handleDuplicate}
+          onDelete={handleDelete}
         />
       ) : (
         <DataTable columns={listColumns} data={filtered} />
@@ -537,7 +496,7 @@ export default function ProjectsPage() {
         onOpenChange={setDialogOpen}
         mode={dialogMode}
         project={editingProject}
-        onSuccess={handleEditSuccess}
+        onSuccess={handleDialogSuccess}
       />
     </div>
   )

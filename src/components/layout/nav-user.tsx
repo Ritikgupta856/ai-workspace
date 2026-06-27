@@ -20,6 +20,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { useRouter } from "next/navigation"
 import {
   ChevronsUpDown,
   Sparkles,
@@ -28,6 +29,7 @@ import {
   Bell,
   LogOut,
 } from "lucide-react"
+import { signOut } from "@/lib/auth-client"
 
 export function NavUser({
   user,
@@ -38,6 +40,7 @@ export function NavUser({
     avatar: string
   }
 }) {
+  const router = useRouter()
   const { isMobile } = useSidebar()
 
   return (
@@ -105,7 +108,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => signOut().then(() => { router.push("/") })}>
               <LogOut className="mr-2 size-4" />
               Log out
             </DropdownMenuItem>

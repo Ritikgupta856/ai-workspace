@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Compass, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ export default function SignUpPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const router = useRouter();
+
   const handleEmailSignUp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
@@ -23,7 +26,7 @@ export default function SignUpPage() {
     try {
       setLoading(true);
       await signUp.email({ name, email, password });
-      window.location.href = "/home";
+      router.push("/home");
     } catch (authError) {
       console.error(authError);
       setError("We couldn't create your account. Please try again.");

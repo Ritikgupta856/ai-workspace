@@ -28,6 +28,8 @@ import {
   PROJECT_STATUS_CONFIG,
   PROJECT_VISIBILITY_CONFIG,
 } from "@/lib/constants"
+import type { ProjectStatusKey } from "@/lib/constants"
+import { createProject, updateProject } from "@/lib/api/projects"
 import type { ProjectCardData } from "@/components/projects/project-card"
 
 const formSchema = z.object({
@@ -97,12 +99,26 @@ export function ProjectDialog({
   async function onSubmit(data: FormValues) {
     if (submitting) return
     setSubmitting(true)
-    // TODO: call API
-    await new Promise((r) => setTimeout(r, 500))
-    form.reset()
-    onOpenChange(false)
-    setSubmitting(false)
-    onSuccess?.()
+    try {
+      if (isEdit && project) {
+        await updateProject(project.id, {
+          name: data.name,
+          description: data.description,
+        })
+      } else {
+        await createProject({
+          name: data.name,
+          description: data.description,
+        })
+      }
+      form.reset()
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error) {
+      console.error("Project save error:", error)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   function handleCancel() {

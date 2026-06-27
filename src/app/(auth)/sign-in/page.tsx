@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Compass, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
+    const router = useRouter();
 
     const handleEmailSignIn = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -22,7 +24,7 @@ export default function LoginPage() {
         try {
             setLoading(true);
             await signIn.email({ email, password });
-            window.location.href = "/home";
+            router.push("/home");
         } catch (authError) {
             console.error(authError);
             setError("Invalid email or password.");

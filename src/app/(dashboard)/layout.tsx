@@ -9,6 +9,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SearchCommand } from "@/components/layout/search-command";
 
 export default async function DashboardLayout({
   children,
@@ -54,8 +55,9 @@ export default async function DashboardLayout({
         <AppSidebar user={user} />
 
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center border-b px-4">
+          <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
             <SidebarTrigger />
+            <SearchCommand />
           </header>
 
           <div className="flex flex-1 flex-col gap-4 p-6">

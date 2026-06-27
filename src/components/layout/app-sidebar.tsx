@@ -7,10 +7,8 @@ import { usePathname } from "next/navigation"
 import {
   Home,
   MessageCircle,
-  Search,
   FolderOpen,
   CheckSquare,
-  ArrowLeftRight,
   Puzzle,
   Users,
   Settings,
@@ -47,12 +45,10 @@ const teams = [
 ]
 
 const navMain = [
-  { title: "Dashboard", url: "/home", icon: Home },
-  { title: "Chats", url: "/chat", icon: MessageCircle },
+  { title: "Home", url: "/home", icon: Home },
+  { title: "Synapse AI", url: "/chat", icon: MessageCircle },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Search", url: "/search", icon: Search },
-  { title: "Workflows", url: "/workflows", icon: ArrowLeftRight },
   { title: "Integrations", url: "/integrations", icon: Puzzle },
   { title: "Members", url: "/members", icon: Users },
   { title: "Settings", url: "/settings", icon: Settings },
@@ -84,28 +80,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       {/* ── Logo ── */}
-      <SidebarHeader className="px-3 py-3">
-        <Link href="/home" className="flex h-8 items-center px-1">
-          {isCollapsed ? (
-            <Image src="/images/synapse-icon.svg" alt="Synapse" width={22} height={22} priority />
-          ) : (
-            <Image
-              src="/images/synapse-logo.svg"
-              alt="Synapse"
-              width={120}
-              height={60}
-              priority
-              className=""
-            />
-          )}
-        </Link>
+      <SidebarHeader className="py-3">
 
-        {/* ── Workspace switcher ── */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground mt-2"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2"
             >
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-[12px] font-bold">
                 {activeTeam.abbr}

@@ -9,8 +9,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Synapse - AI Workspace",
-  description: "Synapse is an AI workspace that helps you manage your AI agents, workflows, and data in one place. It provides a unified interface to interact with them, automate tasks, and visualize results.",
+  title: "Synapse — AI Workspace for Modern Teams",
+  description:
+    "Synapse is an AI-powered workspace that brings together projects, chats, documents, tasks, knowledge, and integrations in one intelligent platform.",
 };
 
 export default function RootLayout({

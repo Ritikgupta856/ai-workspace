@@ -10,11 +10,6 @@ export {
 export type { IntegrationStatusKey } from "./integration"
 
 export {
-  WORKFLOW_STATUS_CONFIG,
-} from "./workflow"
-export type { WorkflowStatusKey } from "./workflow"
-
-export {
   MEMBER_ROLE_CONFIG,
 } from "./member"
 export type { MemberRoleKey } from "./member"
