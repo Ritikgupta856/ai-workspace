@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { getGitHubOAuthUrl } from "@/lib/github"
+import { getGitHubOAuthUrl } from "@/lib/integrations/github/client"
 import { redirect } from "next/navigation"
 import { Puzzle, CheckCircle, XCircle, ExternalLink } from "lucide-react"
 import Link from "next/link"

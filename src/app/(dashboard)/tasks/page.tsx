@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { nanoid } from "nanoid"
+import Link from "next/link"
 import { LayoutList, Columns3, ListFilter, User, FolderKanban } from "lucide-react"
 import { PageHeading } from "@/components/ui/page-heading"
 import { SearchInput } from "@/components/ui/search-input"
@@ -73,6 +74,14 @@ export const columns: ColumnDef<Task>[] = [
   {
     accessorKey: "title",
     header: "Task",
+    cell: ({ row }) => (
+      <Link
+        href={`/tasks/${row.original.id}`}
+        className="font-medium text-foreground transition-colors hover:text-primary"
+      >
+        {row.original.title}
+      </Link>
+    ),
   },
   {
     accessorKey: "project",
@@ -164,7 +173,7 @@ export const columns: ColumnDef<Task>[] = [
       return (
         <TaskCardMenu
           taskId={row.original.id}
-          onView={(id) => console.log("View", id)}
+          onView={(id) => { window.location.href = `/tasks/${id}` }}
           onEdit={(id) => meta?.onEdit?.(id)}
           onDuplicate={(id) => meta?.onDuplicate?.(id)}
           onMove={(id) => console.log("Move", id)}
@@ -213,7 +222,7 @@ function TaskCard({
           <span className="text-[11px] text-muted-foreground">{task.assignee}</span>
           <TaskCardMenu
             taskId={task.id}
-            onView={(id) => console.log("View", id)}
+            onView={(id) => { window.location.href = `/tasks/${id}` }}
             onEdit={(id) => onEdit?.(task)}
             onDuplicate={(id) => console.log("Duplicate", id)}
             onMove={(id) => console.log("Move", id)}

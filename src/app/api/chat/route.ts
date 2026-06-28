@@ -3,8 +3,7 @@ import { getModel } from "@/lib/ai"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { createGitHubClient } from "@/lib/github"
-import { createGitHubTools } from "@/lib/github-tools"
+import { resolveWorkspaceTools } from "@/lib/integrations/registry"
 
 export async function POST(req: Request) {
   const { provider, model, messages } = await req.json()
@@ -20,26 +19,21 @@ export async function POST(req: Request) {
     headers: await headers(),
   })
 
-  let tools: ReturnType<typeof createGitHubTools> | undefined
+  let tools: Record<string, any> | undefined
+  let systemPrompt: string | undefined
 
   if (session?.user) {
     const membership = await prisma.workspaceMember.findFirst({
       where: { userId: session.user.id },
+      select: { workspaceId: true },
     })
 
     if (membership) {
-      const integration = await prisma.integration.findFirst({
-        where: {
-          workspaceId: membership.workspaceId,
-          type: "GITHUB",
-          status: "CONNECTED",
-        },
+      const result = await resolveWorkspaceTools(membership.workspaceId, {
+        userId: session.user.id,
       })
-
-      if (integration?.accessToken) {
-        const octokit = createGitHubClient(integration.accessToken)
-        tools = createGitHubTools(octokit)
-      }
+      tools = result.tools
+      systemPrompt = result.systemPrompt
     }
   }
 
@@ -50,15 +44,9 @@ export async function POST(req: Request) {
     })
   )
 
-  const system = tools
-    ? "You have access to the user's GitHub repositories through the available tools. " +
-      "Use them when the user asks about their repos, issues, pull requests, or code. " +
-      "You can list repositories, search code, view issues and PRs, read file contents, and more."
-    : undefined
-
   const { text } = await generateText({
     model: getModel(provider, model),
-    system,
+    system: systemPrompt,
     messages: modelMessages,
     tools,
     stopWhen: stepCountIs(10),

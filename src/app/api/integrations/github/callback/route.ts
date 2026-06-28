@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { exchangeGitHubCode } from "@/lib/github"
+import { exchangeGitHubCode } from "@/lib/integrations/github/client"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
