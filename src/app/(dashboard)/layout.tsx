@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -24,15 +24,30 @@ export default async function DashboardLayout({
     redirect("/sign-in");
   }
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  })
+  const cookieStore = await cookies();
+  const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value;
+
+  let membership = null;
+  if (activeWorkspaceId) {
+    membership = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: session.user.id,
+        workspaceId: activeWorkspaceId,
+      },
+    })
+  }
+
+  if (!membership) {
+    membership = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id },
+    })
+  }
 
   if (!membership) {
     const workspace = await prisma.workspace.create({
       data: {
-        name: "Personal",
-        slug: `personal-${session.user.id.slice(0, 8)}`,
+        name: `${session.user.name?.split(" ")[0] ?? "Personal"}'s workspace`,
+        slug: `${(session.user.name?.split(" ")[0] ?? "personal").toLowerCase()}-${session.user.id.slice(0, 8)}`,
         members: {
           create: {
             userId: session.user.id,

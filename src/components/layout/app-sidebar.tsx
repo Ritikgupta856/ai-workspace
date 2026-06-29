@@ -18,7 +18,8 @@ import {
 } from "lucide-react"
 
 import { NavUser } from "@/components/layout/nav-user"
-import { MEMBER_ROLE_CONFIG } from "@/lib/constants"
+import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
+import { cn } from "@/lib/utils"
 import {
   Sidebar,
   SidebarContent,
@@ -40,14 +41,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-const teams = [
-  { name: "Synapse Labs", abbr: "S", plan: MEMBER_ROLE_CONFIG.OWNER.label },
-  { name: "Personal", abbr: "P", plan: "Free Plan" },
-]
+export interface WorkspaceItem {
+  id: string
+  name: string
+  slug: string
+  role: MemberRoleKey
+}
+
+export interface AppSidebarProps {
+  user: {
+    name: string
+    email: string
+    avatar: string
+  }
+}
 
 const navMain = [
   { title: "Home", url: "/home", icon: Home },
-  { title: "Synapse AI", url: "/chat", icon: MessageCircle },
+  { title: "Chat", url: "/chat", icon: MessageCircle },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Notes", url: "/notes", icon: FileText },
@@ -56,21 +67,13 @@ const navMain = [
   { title: "Settings", url: "/settings", icon: Settings },
 ]
 
-type AppSidebarUser = {
-  name: string
-  email: string
-  avatar: string
-}
-
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user?: AppSidebarUser
-}
-
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  const [activeTeam, setActiveTeam] = React.useState(teams[0])
+  
+  const [workspaces, setWorkspaces] = React.useState<WorkspaceItem[]>([])
+  const [activeTeam, setActiveTeam] = React.useState<{ name: string; abbr: string; plan: string; id: string } | null>(null)
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
@@ -79,49 +82,109 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
     return pathname.startsWith(url)
   }
 
+  React.useEffect(() => {
+    async function loadWorkspaces() {
+      try {
+        const res = await fetch("/api/workspaces")
+        if (res.ok) {
+          const data = await res.json()
+          if (data.success && data.workspaces) {
+            const list: WorkspaceItem[] = data.workspaces
+            setWorkspaces(list)
+
+            // Determine active workspace from cookie
+            const activeId = document.cookie
+              .split("; ")
+              .find((row) => row.startsWith("activeWorkspaceId="))
+              ?.split("=")[1]
+
+            const active = list.find((w) => w.id === activeId) || list[0]
+            if (active) {
+              setActiveTeam({
+                id: active.id,
+                name: active.name,
+                abbr: active.name.charAt(0).toUpperCase(),
+                plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
+              })
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load workspaces in sidebar:", err)
+      }
+    }
+
+    loadWorkspaces()
+  }, [])
+
+  const handleSwitchWorkspace = async (w: WorkspaceItem) => {
+    try {
+      const res = await fetch("/api/workspaces", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ workspaceId: w.id }),
+      })
+      if (res.ok) {
+        window.location.reload()
+      }
+    } catch (err) {
+      console.error("Failed to switch workspace:", err)
+    }
+  }
+
   return (
     <Sidebar collapsible="icon" {...props}>
       {/* ── Logo ── */}
       <SidebarHeader className="py-3">
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2"
-            >
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-[12px] font-bold">
-                {activeTeam.abbr}
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-semibold">{activeTeam.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{activeTeam.plan}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56 rounded-lg">
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-            {teams.map((team) => (
-              <DropdownMenuItem key={team.name} onClick={() => setActiveTeam(team)} className="gap-2 p-2">
-                <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground text-[10px] font-bold">
-                  {team.abbr}
+        {activeTeam && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground gap-2"
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-[12px] font-bold">
+                  {activeTeam.abbr}
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[13px] font-medium">{team.name}</span>
-                  <span className="text-xs text-muted-foreground">{team.plan}</span>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">{activeTeam.name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{activeTeam.plan}</span>
                 </div>
+                <ChevronsUpDown className="ml-auto size-4 text-muted-foreground" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56 rounded-lg">
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
+              {workspaces.map((team) => (
+                <DropdownMenuItem
+                  key={team.id}
+                  onClick={() => handleSwitchWorkspace(team)}
+                  className={cn(
+                    "gap-2 p-2 cursor-pointer",
+                    activeTeam.id === team.id && "bg-sidebar-accent text-sidebar-accent-foreground"
+                  )}
+                >
+                  <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground text-[10px] font-bold">
+                    {team.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[13px] font-medium">{team.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {MEMBER_ROLE_CONFIG[team.role]?.label || "Member"}
+                    </span>
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className="gap-2 p-2">
+                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
+                  <Plus className="size-3.5" />
+                </div>
+                <span className="text-[13px] text-muted-foreground font-medium">Create workspace</span>
               </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-3.5" />
-              </div>
-              <span className="text-[13px] text-muted-foreground font-medium">Create workspace</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </SidebarHeader >
 
       {/* ── Main nav ── */}

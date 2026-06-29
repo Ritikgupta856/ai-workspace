@@ -24,6 +24,14 @@ enum TaskStatus {
   DONE
 }
 
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  CANCELLED
+}
+
 enum TaskPriority {
   LOW
   MEDIUM
@@ -83,6 +91,7 @@ model User {
   assignedTasks   Task[]              @relation("TaskAssignee")
   notes           Note[]
   workflowRuns    WorkflowRun[]
+  invitesSent     WorkspaceInvite[]   @relation("WorkspaceInviter")
   sessions        Session[]
   accounts        Account[]
 }
@@ -142,6 +151,7 @@ model Workspace {
   integrations    Integration[]
   documents       Document[]
   workflows       Workflow[]
+  invites         WorkspaceInvite[]
 }
 
 model WorkspaceMember {
@@ -155,6 +165,33 @@ model WorkspaceMember {
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
+}
+
+model WorkspaceInvite {
+  id          String   @id @default(cuid())
+
+  workspaceId String
+  email       String
+  role        Role
+  message     String?
+  acceptedAt  DateTime?
+
+  token       String   @unique
+
+  invitedById String
+
+  status      InviteStatus @default(PENDING)
+
+  expiresAt   DateTime
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User @relation("WorkspaceInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, email])
+  @@index([email])
 }
 
 model Project {

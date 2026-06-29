@@ -1,21 +1,23 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Compass, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn } from "@/lib/auth-client";
 
-export default function LoginPage() {
+function LoginForm() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const [error, setError] = useState("");
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const callbackUrl = searchParams.get("callbackUrl") || "/home";
 
     const handleEmailSignIn = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -24,7 +26,7 @@ export default function LoginPage() {
         try {
             setLoading(true);
             await signIn.email({ email, password });
-            router.push("/home");
+            router.push(callbackUrl);
         } catch (authError) {
             console.error(authError);
             setError("Invalid email or password.");
@@ -40,7 +42,7 @@ export default function LoginPage() {
             setGoogleLoading(true);
             await signIn.social({
                 provider: "google",
-                callbackURL: "/home",
+                callbackURL: callbackUrl,
             });
         } catch (authError) {
             console.error(authError);
@@ -154,5 +156,13 @@ export default function LoginPage() {
                 </p>
             </section>
         </main>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense>
+            <LoginForm />
+        </Suspense>
     );
 }

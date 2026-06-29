@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Compass, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { signIn, signUp } from "@/lib/auth-client";
 
-export default function SignUpPage() {
+function SignUpForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +18,8 @@ export default function SignUpPage() {
   const [error, setError] = useState("");
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/home";
 
   const handleEmailSignUp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -26,7 +28,7 @@ export default function SignUpPage() {
     try {
       setLoading(true);
       await signUp.email({ name, email, password });
-      router.push("/home");
+      router.push(callbackUrl);
     } catch (authError) {
       console.error(authError);
       setError("We couldn't create your account. Please try again.");
@@ -42,7 +44,7 @@ export default function SignUpPage() {
       setGoogleLoading(true);
       await signIn.social({
         provider: "google",
-        callbackURL: "/home",
+        callbackURL: callbackUrl,
       });
     } catch (authError) {
       console.error(authError);
@@ -168,5 +170,13 @@ export default function SignUpPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense>
+      <SignUpForm />
+    </Suspense>
   );
 }
