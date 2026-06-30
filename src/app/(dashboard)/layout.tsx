@@ -66,7 +66,7 @@ export default async function DashboardLayout({
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
+        <SidebarProvider className="overflow-hidden max-h-dvh">
         <AppSidebar user={user} />
 
         <SidebarInset>
@@ -75,7 +75,7 @@ export default async function DashboardLayout({
             <SearchCommand />
           </header>
 
-          <div className="flex flex-1 flex-col gap-4 p-6">
+          <div className="flex flex-1 flex-col gap-4 p-6 min-h-0">
             {children}
           </div>
         </SidebarInset>
