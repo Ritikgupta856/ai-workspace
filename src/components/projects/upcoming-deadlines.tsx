@@ -5,20 +5,13 @@ import { CalendarDays } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
-interface DeadlineData {
+export interface DeadlineData {
   id: string
-  date: string
   taskName: string
   dueDate: string
-  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT"
+  dueDateLabel: string
+  priority: string
 }
-
-const deadlines: DeadlineData[] = [
-  { id: "dl1", date: "Today", taskName: "Design system audit", dueDate: "Jun 27", priority: "HIGH" },
-  { id: "dl2", date: "Tomorrow", taskName: "API rate limiting", dueDate: "Jun 28", priority: "URGENT" },
-  { id: "dl3", date: "Jun 29", taskName: "User auth flow", dueDate: "Jun 29", priority: "MEDIUM" },
-  { id: "dl4", date: "Jul 1", taskName: "Component library docs", dueDate: "Jul 1", priority: "LOW" },
-]
 
 const priorityConfig: Record<string, { label: string; className: string }> = {
   URGENT: {
@@ -39,22 +32,33 @@ const priorityConfig: Record<string, { label: string; className: string }> = {
   },
 }
 
-export function UpcomingDeadlines() {
+export function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineData[] }) {
+  if (deadlines.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Upcoming Deadlines</h3>
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No upcoming deadlines. All clear!
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
       <h3 className="mb-4 text-sm font-semibold text-foreground">Upcoming Deadlines</h3>
       <div className="space-y-3">
         {deadlines.map((dl) => {
-          const config = priorityConfig[dl.priority]
+          const config = priorityConfig[dl.priority] || priorityConfig.LOW
           return (
             <div key={dl.id} className="flex items-start gap-3">
               <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
                 <CalendarDays className="size-4 text-muted-foreground" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-muted-foreground">{dl.date}</p>
+                <p className="text-xs text-muted-foreground">{dl.dueDateLabel}</p>
                 <p className="truncate text-sm font-medium text-foreground">{dl.taskName}</p>
-                <p className="text-xs text-muted-foreground">Due {dl.dueDate}</p>
+                <p className="text-xs text-muted-foreground">Due {dl.dueDateLabel}</p>
               </div>
               <Badge
                 variant="secondary"

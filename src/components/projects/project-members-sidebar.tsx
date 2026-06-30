@@ -4,24 +4,18 @@ import * as React from "react"
 import { ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
+import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
 
-interface MemberData {
+export interface TeamMemberData {
   id: string
   name: string
-  initials: string
+  email: string
+  image?: string | null
   role: string
   online: boolean
 }
-
-const members: MemberData[] = [
-  { id: "m1", name: "Ritik Gupta", initials: "RG", role: "Owner", online: true },
-  { id: "m2", name: "Priya Sharma", initials: "PS", role: "Admin", online: true },
-  { id: "m3", name: "Arjun Patel", initials: "AP", role: "Member", online: false },
-  { id: "m4", name: "Meera Singh", initials: "MS", role: "Member", online: true },
-  { id: "m5", name: "Vikram Reddy", initials: "VR", role: "Member", online: false },
-]
 
 function getInitials(name: string): string {
   return name
@@ -32,13 +26,10 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-const roleStyles: Record<string, string> = {
-  Owner: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400",
-  Admin: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  Member: "bg-muted text-muted-foreground",
-}
+export function ProjectMembersSidebar({ members }: { members: TeamMemberData[] }) {
+  const visibleMembers = members.slice(0, 4)
+  const remaining = members.length - 4
 
-export function ProjectMembersSidebar() {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
@@ -52,34 +43,41 @@ export function ProjectMembersSidebar() {
         </Button>
       </div>
       <div className="space-y-3">
-        {members.slice(0, 4).map((member) => (
-          <div key={member.id} className="flex items-center gap-3">
-            <div className="relative shrink-0">
-              <Avatar className="size-9">
-                <AvatarFallback className="text-xs">{member.initials}</AvatarFallback>
-              </Avatar>
-              <span
+        {visibleMembers.map((member) => {
+          const roleConfig = MEMBER_ROLE_CONFIG[member.role as MemberRoleKey]
+          return (
+            <div key={member.id} className="flex items-center gap-3">
+              <div className="relative shrink-0">
+                <Avatar className="size-9">
+                  <AvatarImage src={member.image || undefined} />
+                  <AvatarFallback className="text-xs">{getInitials(member.name)}</AvatarFallback>
+                </Avatar>
+                <span
+                  className={cn(
+                    "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card",
+                    member.online ? "bg-emerald-500" : "bg-muted-foreground"
+                  )}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-foreground">{member.name}</p>
+              </div>
+              <Badge
+                variant="secondary"
                 className={cn(
-                  "absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-card",
-                  member.online ? "bg-emerald-500" : "bg-muted-foreground"
+                  "px-2 py-0.5 text-[10px] font-medium shrink-0",
+                  roleConfig?.className || "bg-muted text-muted-foreground"
                 )}
-              />
+              >
+                {roleConfig?.label || member.role}
+              </Badge>
             </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-foreground">{member.name}</p>
-            </div>
-            <Badge
-              variant="secondary"
-              className={cn("px-2 py-0.5 text-[10px] font-medium shrink-0", roleStyles[member.role])}
-            >
-              {member.role}
-            </Badge>
-          </div>
-        ))}
+          )
+        })}
       </div>
-      {members.length > 4 && (
+      {remaining > 0 && (
         <Button variant="ghost" size="sm" className="mt-3 w-full text-xs text-muted-foreground">
-          +{members.length - 4} more members
+          +{remaining} more member{remaining === 1 ? "" : "s"}
         </Button>
       )}
     </div>

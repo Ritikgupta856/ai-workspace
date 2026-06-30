@@ -6,6 +6,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import type { FileUIPart, SourceDocumentUIPart } from "ai";
 import {
@@ -164,7 +165,7 @@ export const Attachments = ({
         className={cn(
           "flex items-start",
           variant === "list" ? "flex-col gap-2" : "flex-wrap gap-2",
-          variant === "grid" && "ml-auto w-fit",
+          variant === "grid" && "w-fit",
           className
         )}
         {...props}
@@ -231,10 +232,12 @@ export const Attachment = ({
 
 export type AttachmentPreviewProps = HTMLAttributes<HTMLDivElement> & {
   fallbackIcon?: ReactNode;
+  loading?: boolean;
 };
 
 export const AttachmentPreview = ({
   fallbackIcon,
+  loading,
   className,
   ...props
 }: AttachmentPreviewProps) => {
@@ -247,6 +250,10 @@ export const AttachmentPreview = ({
   );
 
   const renderContent = () => {
+    if (loading) {
+      return <Spinner className={cn(iconSize)} />;
+    }
+
     if (mediaCategory === "image" && data.type === "file" && data.url) {
       return renderAttachmentImage(data.url, data.filename, variant === "grid");
     }

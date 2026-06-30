@@ -1,9 +1,10 @@
-import { generateText, stepCountIs, type ModelMessage } from "ai"
+import { streamText, stepCountIs } from "ai"
 import { getModel } from "@/lib/ai"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { resolveWorkspaceTools } from "@/lib/integrations/registry"
+import { buildChatContext } from "@/lib/ai/context-builder"
 
 export async function POST(req: Request) {
   const { provider, model, messages } = await req.json()
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   })
 
   let tools: Record<string, any> | undefined
-  let systemPrompt: string | undefined
+  let workspaceSystemPrompt: string | undefined
 
   if (session?.user) {
     const membership = await prisma.workspaceMember.findFirst({
@@ -33,24 +34,26 @@ export async function POST(req: Request) {
         userId: session.user.id,
       })
       tools = result.tools
-      systemPrompt = result.systemPrompt
+      workspaceSystemPrompt = result.systemPrompt
     }
   }
 
-  const modelMessages: ModelMessage[] = messages.map(
-    (m: { role: "user" | "assistant"; content: string }) => ({
-      role: m.role,
-      content: m.content,
-    })
-  )
+  const context = await buildChatContext({
+    workspaceSystemPrompt,
+    messages,
+  })
 
-  const { text } = await generateText({
+  if (context.type === "skip") {
+    return Response.json({ message: context.message })
+  }
+
+  const result = streamText({
     model: getModel(provider, model),
-    system: systemPrompt,
-    messages: modelMessages,
+    system: context.systemPrompt,
+    messages: context.messages,
     tools,
     stopWhen: stepCountIs(10),
   })
 
-  return Response.json({ message: text })
+  return result.toTextStreamResponse()
 }

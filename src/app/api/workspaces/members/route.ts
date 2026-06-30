@@ -64,6 +64,7 @@ export async function GET() {
 
     const formattedMembers = members.map((m) => ({
       id: m.id,
+      userId: m.userId,
       name: m.user.name || m.user.email.split("@")[0],
       email: m.user.email,
       role: m.role,

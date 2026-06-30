@@ -18,6 +18,7 @@ import {
 } from "lucide-react"
 
 import { NavUser } from "@/components/layout/nav-user"
+import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog"
 import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import {
@@ -71,9 +72,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
-  
+
   const [workspaces, setWorkspaces] = React.useState<WorkspaceItem[]>([])
   const [activeTeam, setActiveTeam] = React.useState<{ name: string; abbr: string; plan: string; id: string } | null>(null)
+  const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
@@ -82,40 +84,40 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
     return pathname.startsWith(url)
   }
 
-  React.useEffect(() => {
-    async function loadWorkspaces() {
-      try {
-        const res = await fetch("/api/workspaces")
-        if (res.ok) {
-          const data = await res.json()
-          if (data.success && data.workspaces) {
-            const list: WorkspaceItem[] = data.workspaces
-            setWorkspaces(list)
+  const loadWorkspaces = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/workspaces")
+      if (res.ok) {
+        const data = await res.json()
+        if (data.success && data.workspaces) {
+          const list: WorkspaceItem[] = data.workspaces
+          setWorkspaces(list)
 
-            // Determine active workspace from cookie
-            const activeId = document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("activeWorkspaceId="))
-              ?.split("=")[1]
+          // Determine active workspace from cookie
+          const activeId = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("activeWorkspaceId="))
+            ?.split("=")[1]
 
-            const active = list.find((w) => w.id === activeId) || list[0]
-            if (active) {
-              setActiveTeam({
-                id: active.id,
-                name: active.name,
-                abbr: active.name.charAt(0).toUpperCase(),
-                plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
-              })
-            }
+          const active = list.find((w) => w.id === activeId) || list[0]
+          if (active) {
+            setActiveTeam({
+              id: active.id,
+              name: active.name,
+              abbr: active.name.charAt(0).toUpperCase(),
+              plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
+            })
           }
         }
-      } catch (err) {
-        console.error("Failed to load workspaces in sidebar:", err)
       }
+    } catch (err) {
+      console.error("Failed to load workspaces in sidebar:", err)
     }
-
-    loadWorkspaces()
   }, [])
+
+  React.useEffect(() => {
+    loadWorkspaces()
+  }, [loadWorkspaces])
 
   const handleSwitchWorkspace = async (w: WorkspaceItem) => {
     try {
@@ -176,7 +178,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
                 </DropdownMenuItem>
               ))}
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="gap-2 p-2">
+              <DropdownMenuItem
+                className="gap-2 p-2 cursor-pointer"
+                onClick={() => setCreateDialogOpen(true)}
+              >
                 <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                   <Plus className="size-3.5" />
                 </div>
@@ -226,6 +231,15 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       </SidebarFooter>
 
       <SidebarRail />
+
+      <CreateWorkspaceDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onSuccess={() => {
+          // Reload workspaces list after creation
+          loadWorkspaces()
+        }}
+      />
     </Sidebar >
   )
 }

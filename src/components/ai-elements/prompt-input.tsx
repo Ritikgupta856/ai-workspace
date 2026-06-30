@@ -193,9 +193,20 @@ export interface TextInputContext {
   clear: () => void;
 }
 
+export type UploadState =
+  | { status: "uploading" }
+  | { status: "done"; documentId: string; documentUrl: string; filename: string; mediaType: string }
+  | { status: "error"; error: string };
+
+export interface UploadContextValue {
+  states: Record<string, UploadState>;
+  isUploading: boolean;
+}
+
 export interface PromptInputControllerProps {
   textInput: TextInputContext;
   attachments: AttachmentsContext;
+  upload: UploadContextValue;
   /** INTERNAL: Allows PromptInput to register its file textInput + "open" callback */
   __registerFileInput: (
     ref: RefObject<HTMLInputElement | null>,
@@ -209,6 +220,7 @@ const PromptInputController = createContext<PromptInputControllerProps | null>(
 const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(
   null
 );
+const UploadContext = createContext<UploadContextValue | null>(null);
 
 export const usePromptInputController = () => {
   const ctx = useContext(PromptInputController);
@@ -223,6 +235,18 @@ export const usePromptInputController = () => {
 // Optional variants (do NOT throw). Useful for dual-mode components.
 const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
+
+export const useUploadContext = () => {
+  const ctx = useContext(UploadContext);
+  if (!ctx) {
+    throw new Error(
+      "Wrap your component inside <PromptInputProvider> to use useUploadContext()."
+    );
+  }
+  return ctx;
+};
+
+export const useOptionalUploadContext = () => useContext(UploadContext);
 
 export const useProviderAttachments = () => {
   const ctx = useContext(ProviderAttachmentsContext);
@@ -245,6 +269,8 @@ export type PromptInputProviderProps = PropsWithChildren<{
  * Optional global provider that lifts PromptInput state outside of PromptInput.
  * If you don't use it, PromptInput stays fully self-managed.
  */
+const UPLOAD_ENDPOINT = "/api/upload";
+
 export const PromptInputProvider = ({
   initialInput: initialTextInput = "",
   children,
@@ -261,25 +287,84 @@ export const PromptInputProvider = ({
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {});
 
-  const add = useCallback((files: File[] | FileList) => {
-    const incoming = [...files];
-    if (incoming.length === 0) {
-      return;
-    }
+  // ----- upload state
+  const [uploadStates, setUploadStates] = useState<
+    Record<string, UploadState>
+  >({});
+  const fileMapRef = useRef<Map<string, File>>(new Map());
 
-    setAttachmentFiles((prev) => [
+  const uploadFile = useCallback(async (localId: string) => {
+    const file = fileMapRef.current.get(localId);
+    if (!file) return;
+
+    setUploadStates((prev) => ({
       ...prev,
-      ...incoming.map((file) => ({
+      [localId]: { status: "uploading" },
+    }));
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(UPLOAD_ENDPOINT, {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      const data = await res.json();
+
+      setUploadStates((prev) => ({
+        ...prev,
+        [localId]: {
+          status: "done",
+          documentId: data.id,
+          documentUrl: data.url,
+          filename: data.filename ?? file.name,
+          mediaType: data.mediaType ?? file.type,
+        },
+      }));
+    } catch (err) {
+      setUploadStates((prev) => ({
+        ...prev,
+        [localId]: {
+          status: "error",
+          error: (err as Error).message,
+        },
+      }));
+    } finally {
+      fileMapRef.current.delete(localId);
+    }
+  }, []);
+
+  const add = useCallback(
+    (files: File[] | FileList) => {
+      const incoming = [...files];
+      if (incoming.length === 0) {
+        return;
+      }
+
+      const newItems = incoming.map((file) => ({
         filename: file.name,
         id: nanoid(),
         mediaType: file.type,
         type: "file" as const,
         url: URL.createObjectURL(file),
-      })),
-    ]);
-  }, []);
+      }));
+
+      for (let i = 0; i < incoming.length; i++) {
+        fileMapRef.current.set(newItems[i].id, incoming[i]);
+      }
+
+      setAttachmentFiles((prev) => [...prev, ...newItems]);
+
+      for (const item of newItems) {
+        uploadFile(item.id);
+      }
+    },
+    [uploadFile]
+  );
 
   const remove = useCallback((id: string) => {
+    fileMapRef.current.delete(id);
     setAttachmentFiles((prev) => {
       const found = prev.find((f) => f.id === id);
       if (found?.url) {
@@ -287,9 +372,15 @@ export const PromptInputProvider = ({
       }
       return prev.filter((f) => f.id !== id);
     });
+    setUploadStates((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
   }, []);
 
   const clear = useCallback(() => {
+    fileMapRef.current.clear();
     setAttachmentFiles((prev) => {
       for (const f of prev) {
         if (f.url) {
@@ -298,6 +389,7 @@ export const PromptInputProvider = ({
       }
       return [];
     });
+    setUploadStates({});
   }, []);
 
   // Keep a ref to attachments for cleanup on unmount (avoids stale closure)
@@ -343,24 +435,38 @@ export const PromptInputProvider = ({
     []
   );
 
+  const isUploading = useMemo(
+    () =>
+      Object.values(uploadStates).some((s) => s.status === "uploading"),
+    [uploadStates]
+  );
+
+  const uploadContext = useMemo<UploadContextValue>(
+    () => ({ isUploading, states: uploadStates }),
+    [isUploading, uploadStates]
+  );
+
   const controller = useMemo<PromptInputControllerProps>(
     () => ({
       __registerFileInput,
       attachments,
+      upload: uploadContext,
       textInput: {
         clear: clearInput,
         setInput: setTextInput,
         value: textInput,
       },
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [textInput, clearInput, attachments, __registerFileInput, uploadContext]
   );
 
   return (
     <PromptInputController.Provider value={controller}>
-      <ProviderAttachmentsContext.Provider value={attachments}>
-        {children}
-      </ProviderAttachmentsContext.Provider>
+      <UploadContext.Provider value={uploadContext}>
+        <ProviderAttachmentsContext.Provider value={attachments}>
+          {children}
+        </ProviderAttachmentsContext.Provider>
+      </UploadContext.Provider>
     </PromptInputController.Provider>
   );
 };
@@ -481,9 +587,17 @@ export const PromptInputActionAddScreenshot = ({
   );
 };
 
+export interface UploadResult {
+  id: string;
+  url: string;
+  filename: string;
+  mediaType: string;
+}
+
 export interface PromptInputMessage {
   text: string;
   files: FileUIPart[];
+  uploads?: UploadResult[];
 }
 
 export type PromptInputProps = Omit<
@@ -875,7 +989,25 @@ export const PromptInput = ({
           })
         );
 
-        const result = onSubmit({ files: convertedFiles, text }, event);
+        // Gather upload results from provider
+        const uploadResults: UploadResult[] | undefined = usingProvider
+          ? Object.entries(controller.upload.states)
+              .filter(
+                (entry): entry is [string, { status: "done"; documentId: string; documentUrl: string; filename: string; mediaType: string }] =>
+                  entry[1].status === "done"
+              )
+              .map(([, state]) => ({
+                id: state.documentId,
+                url: state.documentUrl,
+                filename: state.filename,
+                mediaType: state.mediaType,
+              }))
+          : undefined;
+
+        const result = onSubmit(
+          { files: convertedFiles, text, uploads: uploadResults },
+          event
+        );
 
         // Handle both sync and async onSubmit
         if (result instanceof Promise) {
@@ -1214,6 +1346,7 @@ export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
 };
 
 export const PromptInputSubmit = ({
+  disabled,
   className,
   variant = "default",
   size = "icon-sm",
@@ -1223,7 +1356,10 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
+  const controller = useOptionalPromptInputController();
+  const isUploading = controller?.upload.isUploading ?? false;
   const isGenerating = status === "submitted" || status === "streaming";
+  const isDisabled = disabled || isUploading;
 
   let Icon = <CornerDownLeftIcon className="size-4" />;
 
@@ -1251,6 +1387,7 @@ export const PromptInputSubmit = ({
     <InputGroupButton
       aria-label={isGenerating ? "Stop" : "Submit"}
       className={cn(className)}
+      disabled={isDisabled}
       onClick={handleClick}
       size={size}
       type={isGenerating && onStop ? "button" : "submit"}

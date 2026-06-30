@@ -9,6 +9,7 @@ const nextConfig: NextConfig = {
       { hostname: "avatars.githubusercontent.com" },
     ],
   },
+  serverExternalPackages: ["pdfjs-dist"],
 };
 
 export default nextConfig;

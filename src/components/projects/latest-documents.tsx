@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { FileText, ChevronRight, MoreHorizontal } from "lucide-react"
+import { FileText, ChevronRight, MoreHorizontal, FileImage, FileCode } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -10,20 +10,34 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
-interface DocumentItemData {
+export interface DocumentItem {
   id: string
   name: string
+  contentType: string
   updatedAt: string
 }
 
-const documents: DocumentItemData[] = [
-  { id: "d1", name: "Q3 Roadmap.md", updatedAt: "2 hours ago" },
-  { id: "d2", name: "API Design Spec.pdf", updatedAt: "Yesterday" },
-  { id: "d3", name: "User Research Findings.docx", updatedAt: "2 days ago" },
-  { id: "d4", name: "Architecture Overview.png", updatedAt: "3 days ago" },
-]
+const contentTypeIcon: Record<string, React.ReactNode> = {
+  DOC: <FileText className="size-4 text-blue-600" />,
+  ISSUE: <FileCode className="size-4 text-red-600" />,
+  PR: <FileCode className="size-4 text-emerald-600" />,
+  NOTE: <FileText className="size-4 text-violet-600" />,
+  CHAT: <FileText className="size-4 text-amber-600" />,
+  CODE: <FileCode className="size-4 text-cyan-600" />,
+}
 
-export function LatestDocuments() {
+export function LatestDocuments({ documents }: { documents: DocumentItem[] }) {
+  if (documents.length === 0) {
+    return (
+      <div className="rounded-xl border bg-card p-5 shadow-sm">
+        <h3 className="mb-4 text-sm font-semibold text-foreground">Latest Documents</h3>
+        <p className="py-6 text-center text-sm text-muted-foreground">
+          No documents yet. Upload your first document.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border bg-card p-5 shadow-sm">
       <div className="mb-4 flex items-center justify-between">
@@ -34,14 +48,14 @@ export function LatestDocuments() {
         </Button>
       </div>
       <div className="space-y-1">
-        {documents.map((doc) => (
+        {documents.slice(0, 5).map((doc) => (
           <div
             key={doc.id}
             className="group flex items-center justify-between rounded-lg px-2 py-2 transition-colors hover:bg-accent/50"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
-                <FileText className="size-4 text-muted-foreground" />
+                {contentTypeIcon[doc.contentType] || <FileText className="size-4 text-muted-foreground" />}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-foreground">{doc.name}</p>

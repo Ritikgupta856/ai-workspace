@@ -30,9 +30,11 @@ export type Task = {
   title: string
   description: string
   project: string | null
+  projectId: string | null
   status: TaskStatus
   priority: TaskPriority
   assignee: string
+  assigneeId: string | null
   labels: string[]
   dueDate: string | null
   updatedAt: string

@@ -47,6 +47,7 @@ import {
 } from "@/lib/constants"
 import type { TaskStatus, TaskPriority, Task } from "@/app/(dashboard)/tasks/page"
 import { createTask, updateTask } from "@/lib/api/tasks"
+import { fetchProjects } from "@/lib/api/projects"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -63,19 +64,20 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
-const projects = [
-  { id: "synapse", name: "Synapse" },
-  { id: "portfolio", name: "Portfolio" },
-  { id: "workspace", name: "Workspace" },
-  { id: "basicx-sports", name: "BasicX Sports" },
-]
+type MemberOption = {
+  userId: string
+  name: string
+  avatar: string | null
+}
 
-const assignees = [
-  { id: "ritik", name: "Ritik Gupta", initials: "RG" },
-  { id: "priya", name: "Priya Sharma", initials: "PS" },
-  { id: "arjun", name: "Arjun Patel", initials: "AP" },
-  { id: "meera", name: "Meera Singh", initials: "MS" },
-]
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
+}
 
 const availableLabels = [
   "Backend", "Auth", "AI", "Frontend", "Bug", "Design",
@@ -234,6 +236,10 @@ export function TaskDialog({
   task,
   onSuccess,
 }: TaskDialogProps) {
+  const [projectsList, setProjectsList] = React.useState<{ id: string; name: string }[]>([])
+  const [membersList, setMembersList] = React.useState<MemberOption[]>([])
+  const [loadingOptions, setLoadingOptions] = React.useState(false)
+
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -256,12 +262,29 @@ export function TaskDialog({
 
   React.useEffect(() => {
     if (!open) return
+    setLoadingOptions(true)
+    Promise.all([
+      fetchProjects().catch(() => []),
+      fetch("/api/workspaces/members")
+        .then((r) => r.json())
+        .then((j) => (j.success ? j.members : []) as MemberOption[])
+        .catch(() => []),
+    ])
+      .then(([projects, members]) => {
+        setProjectsList(projects.map((p) => ({ id: p.id, name: p.name })))
+        setMembersList(members)
+      })
+      .finally(() => setLoadingOptions(false))
+  }, [open])
+
+  React.useEffect(() => {
+    if (!open) return
     if (isEdit && task) {
       form.reset({
         title: task.title,
         description: task.description ?? "",
-        projectId: projects.find((p) => p.name === task.project)?.id ?? "",
-        assigneeId: assignees.find((a) => a.name === task.assignee)?.id ?? "",
+        projectId: task.projectId ?? "",
+        assigneeId: task.assigneeId ?? "",
         status: task.status,
         priority: task.priority,
         labels: task.labels,
@@ -293,6 +316,8 @@ export function TaskDialog({
         await updateTask(task.id, {
           title: data.title,
           description: data.description ?? "",
+          projectId: data.projectId || undefined,
+          assigneeId: data.assigneeId || undefined,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
           labels: data.labels ?? [],
@@ -302,6 +327,8 @@ export function TaskDialog({
         await createTask({
           title: data.title,
           description: data.description ?? "",
+          projectId: data.projectId || undefined,
+          assigneeId: data.assigneeId || undefined,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
           labels: data.labels ?? [],
@@ -399,15 +426,20 @@ export function TaskDialog({
                 {/* Project */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Project</label>
-                  <Select value={form.watch("projectId")} onValueChange={(v) => form.setValue("projectId", v)}>
+                  <Select
+                    value={form.watch("projectId")}
+                    onValueChange={(v) => form.setValue("projectId", v)}
+                    disabled={loadingOptions}
+                  >
                     <SelectTrigger className="w-full">
                       <div className="flex items-center gap-2 min-w-0">
                         <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
-                        <SelectValue placeholder="Select project..." />
+                        <SelectValue placeholder={loadingOptions ? "Loading..." : "Select project..."} />
                       </div>
                     </SelectTrigger>
                     <SelectContent>
-                      {projects.map((p) => (
+                      <SelectItem value="">No project</SelectItem>
+                      {projectsList.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -417,18 +449,27 @@ export function TaskDialog({
                 {/* Assignee */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Assignee</label>
-                  <Select value={form.watch("assigneeId")} onValueChange={(v) => form.setValue("assigneeId", v)}>
+                  <Select
+                    value={form.watch("assigneeId")}
+                    onValueChange={(v) => form.setValue("assigneeId", v)}
+                    disabled={loadingOptions}
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Assign to..." />
+                      <SelectValue placeholder={loadingOptions ? "Loading..." : "Assign to..."} />
                     </SelectTrigger>
                     <SelectContent>
-                      {assignees.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
+                      <SelectItem value="">Unassigned</SelectItem>
+                      {membersList.map((m) => (
+                        <SelectItem key={m.userId} value={m.userId}>
                           <div className="flex items-center gap-2">
                             <Avatar className="size-6 shrink-0">
-                              <AvatarFallback className="text-[10px]">{a.initials}</AvatarFallback>
+                              {m.avatar ? (
+                                <img src={m.avatar} alt={m.name} className="size-full rounded-full object-cover" />
+                              ) : (
+                                <AvatarFallback className="text-[10px]">{getInitials(m.name)}</AvatarFallback>
+                              )}
                             </Avatar>
-                            {a.name}
+                            {m.name}
                           </div>
                         </SelectItem>
                       ))}
