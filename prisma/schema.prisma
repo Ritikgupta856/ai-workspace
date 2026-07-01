@@ -368,7 +368,7 @@ model KnowledgeChunk {
   sourceId    String
   title       String?
   content     String
-  embedding   Unsupported("vector(1536)")
+  embedding   Unsupported("vector(768)")
   chunkIndex  Int
   metadata    Json?
   createdAt   DateTime       @default(now())

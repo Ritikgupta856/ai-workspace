@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { searchKnowledge } from "@/lib/knowledge/ingest"
 
 type CoreMessage = any
 type CoreUserMessage = any
@@ -33,6 +34,7 @@ export type BuildChatContextResult =
 export interface BuildChatContextParams {
   workspaceSystemPrompt: string | undefined
   messages: IncomingMessage[]
+  workspaceId?: string
 }
 
 const DOCUMENT_BEHAVIOR_INSTRUCTIONS = `Document Context Instructions
@@ -107,7 +109,7 @@ function buildLegacyDocumentPrompt(docs: { title: string; extractedText: string 
 export async function buildChatContext(
   params: BuildChatContextParams
 ): Promise<BuildChatContextResult> {
-  const { workspaceSystemPrompt, messages } = params
+  const { workspaceSystemPrompt, messages, workspaceId } = params
 
   let finalSystemPrompt = workspaceSystemPrompt
   const modelMessages: CoreMessage[] = []
@@ -209,6 +211,40 @@ export async function buildChatContext(
       }
     } else {
       modelMessages.push({ role: m.role, content: m.content })
+    }
+  }
+
+  if (workspaceId) {
+    const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")
+    if (lastUserMsg?.content.trim()) {
+      console.log(`[RAG] 🔎 Auto-RAG: searching knowledge for query="${lastUserMsg.content.slice(0, 80)}"`)
+      try {
+        const chunks = await searchKnowledge(workspaceId, lastUserMsg.content, 3)
+        if (chunks.length > 0) {
+          const knowledgeContext = chunks
+            .map(
+              (c, i) =>
+                `[Knowledge ${i + 1}] (${c.sourceType})${c.title ? ` ${c.title}:` : ""}\n${c.content}`
+            )
+            .join("\n\n")
+
+          const ragPrompt =
+            `\n\n---\nRelevant Knowledge Base Context:\n${knowledgeContext}\n---\n` +
+            `Use the above knowledge base excerpts when relevant to answer the user's question. ` +
+            `If the information is insufficient, use your general knowledge or available tools.`
+
+          if (finalSystemPrompt) {
+            finalSystemPrompt += ragPrompt
+          } else {
+            finalSystemPrompt = ragPrompt
+          }
+          console.log(`[RAG] ✅ Auto-RAG: injected ${chunks.length} chunks into system prompt`)
+        } else {
+          console.log(`[RAG] ℹ️ Auto-RAG: no relevant chunks found for query`)
+        }
+      } catch (err) {
+        console.error(`[RAG] ⚠️ Auto-RAG search failed:`, err)
+      }
     }
   }
 

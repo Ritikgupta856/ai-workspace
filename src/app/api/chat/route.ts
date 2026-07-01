@@ -22,6 +22,7 @@ export async function POST(req: Request) {
 
   let tools: Record<string, any> | undefined
   let workspaceSystemPrompt: string | undefined
+  let workspaceId: string | undefined
 
   if (session?.user) {
     const membership = await prisma.workspaceMember.findFirst({
@@ -30,7 +31,8 @@ export async function POST(req: Request) {
     })
 
     if (membership) {
-      const result = await resolveWorkspaceTools(membership.workspaceId, {
+      workspaceId = membership.workspaceId
+      const result = await resolveWorkspaceTools(workspaceId, {
         userId: session.user.id,
       })
       tools = result.tools
@@ -41,6 +43,7 @@ export async function POST(req: Request) {
   const context = await buildChatContext({
     workspaceSystemPrompt,
     messages,
+    workspaceId,
   })
 
   if (context.type === "skip") {

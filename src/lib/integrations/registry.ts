@@ -3,6 +3,7 @@ import { githubProvider } from "./github/provider"
 import { tasksProvider } from "./tasks/provider"
 import { notesProvider } from "./notes/provider"
 import { projectsProvider } from "./projects/provider"
+import { knowledgeProvider } from "./knowledge/provider"
 import type { IntegrationProvider, ProviderContext } from "./types"
 
 export const providers: IntegrationProvider[] = [
@@ -10,6 +11,7 @@ export const providers: IntegrationProvider[] = [
   tasksProvider,
   notesProvider,
   projectsProvider,
+  knowledgeProvider,
 ]
 
 export async function resolveWorkspaceTools(

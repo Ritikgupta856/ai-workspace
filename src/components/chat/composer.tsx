@@ -2,26 +2,62 @@
 
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Paperclip, Square, RotateCcw, Mic } from "lucide-react"
+import { Paperclip, Square, RotateCcw, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useChatContext } from "./chat-provider"
+
+type AttachmentState = {
+  id: string
+  filename: string
+  mediaType: string
+  url: string
+  uploadStatus: "uploading" | "done" | "error"
+  documentId?: string
+}
 
 export function Composer() {
   const { phase, sendMessage, stopGeneration, retryLast, messages } = useChatContext()
   const [input, setInput] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [attachments, setAttachments] = useState<{ id: string; type: "file"; filename: string; mediaType: string; url: string }[]>([])
+  const [attachments, setAttachments] = useState<AttachmentState[]>([])
   const [isDragging, setIsDragging] = useState(false)
 
   const isGenerating = phase.type === "thinking" || phase.type === "streaming"
   const hasMessages = messages.length > 0
   const hasError = phase.type === "error"
-  const canSend = (input.trim() || attachments.length > 0) && !isGenerating
+  const isUploading = attachments.some((a) => a.uploadStatus === "uploading")
+  const canSend = (input.trim() || attachments.length > 0) && !isGenerating && !isUploading
+
+  const uploadFile = useCallback(async (file: File, localId: string) => {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+      const res = await fetch("/api/upload", { method: "POST", body: formData })
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`)
+      const data = await res.json()
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === localId
+            ? { ...a, uploadStatus: "done" as const, documentId: data.id }
+            : a
+        )
+      )
+    } catch {
+      setAttachments((prev) =>
+        prev.map((a) =>
+          a.id === localId ? { ...a, uploadStatus: "error" as const } : a
+        )
+      )
+    }
+  }, [])
 
   const handleSubmit = useCallback(() => {
     if (!canSend) return
-    sendMessage(input.trim(), attachments.length > 0 ? attachments : undefined)
+    const uploaded = attachments
+      .filter((a) => a.uploadStatus === "done" && a.documentId)
+      .map((a) => ({ id: a.documentId!, type: "file" as const, filename: a.filename, mediaType: a.mediaType, url: a.url }))
+    sendMessage(input.trim(), uploaded.length > 0 ? uploaded : undefined)
     setInput("")
     setAttachments([])
     if (textareaRef.current) {
@@ -46,17 +82,31 @@ export function Composer() {
     el.style.height = `${Math.min(el.scrollHeight, 200)}px`
   }, [])
 
-  const handleFileSelect = useCallback((files: FileList | null) => {
-    if (!files) return
-    const newAttachments = Array.from(files).map((file) => ({
-      id: crypto.randomUUID(),
-      type: "file" as const,
-      filename: file.name,
-      mediaType: file.type,
-      url: URL.createObjectURL(file),
-    }))
-    setAttachments((prev) => [...prev, ...newAttachments])
-  }, [])
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const newItems = Array.from(files).map((file) => {
+        const id = crypto.randomUUID()
+        return {
+          id,
+          filename: file.name,
+          mediaType: file.type,
+          url: URL.createObjectURL(file),
+          uploadStatus: "uploading" as const,
+        }
+      })
+      setAttachments((prev) => [...prev, ...newItems])
+      Array.from(files).forEach((file, i) => uploadFile(file, newItems[i].id))
+    },
+    [uploadFile]
+  )
+
+  const handleFileSelect = useCallback(
+    (files: FileList | null) => {
+      if (!files) return
+      addFiles(files)
+    },
+    [addFiles]
+  )
 
   const removeAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id))
@@ -76,9 +126,9 @@ export function Composer() {
     (e: React.DragEvent) => {
       e.preventDefault()
       setIsDragging(false)
-      handleFileSelect(e.dataTransfer.files)
+      if (e.dataTransfer.files) addFiles(e.dataTransfer.files)
     },
-    [handleFileSelect]
+    [addFiles]
   )
 
   const handlePaste = useCallback(
@@ -94,20 +144,10 @@ export function Composer() {
       }
       if (files.length > 0) {
         e.preventDefault()
-        handleFileSelect(new DataTransfer().files)
-        // This is tricky - DataTransfer constructor may not work in all browsers
-        // Let's just set attachments directly
-        const newAttachments = files.map((file) => ({
-          id: crypto.randomUUID(),
-          type: "file" as const,
-          filename: file.name,
-          mediaType: file.type,
-          url: URL.createObjectURL(file),
-        }))
-        setAttachments((prev) => [...prev, ...newAttachments])
+        addFiles(files)
       }
     },
-    []
+    [addFiles]
   )
 
   return (
@@ -132,9 +172,20 @@ export function Composer() {
               {attachments.map((att) => (
                 <div
                   key={att.id}
-                  className="group flex items-center gap-2 rounded-lg border bg-muted/30 px-2.5 py-1.5"
+                  className={cn(
+                    "group flex items-center gap-2 rounded-lg border px-2.5 py-1.5",
+                    att.uploadStatus === "error"
+                      ? "bg-destructive/10 border-destructive/30"
+                      : "bg-muted/30"
+                  )}
                 >
-                  <span className="text-xs text-muted-foreground">📄</span>
+                  {att.uploadStatus === "uploading" ? (
+                    <Loader2 className="size-3 animate-spin text-muted-foreground" />
+                  ) : att.uploadStatus === "error" ? (
+                    <span className="text-xs text-destructive">⚠</span>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">📄</span>
+                  )}
                   <span className="max-w-28 truncate text-xs">{att.filename}</span>
                   <button
                     onClick={() => removeAttachment(att.id)}

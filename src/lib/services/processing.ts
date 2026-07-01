@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma"
 import { PDFParse } from "pdf-parse"
 import mammoth from "mammoth"
 import { cloudinary } from "@/lib/cloudinary"
+import { ingestDocumentKnowledge } from "@/lib/knowledge/ingest"
 
 export async function extractTextFromFile(
   buffer: Buffer,
@@ -46,8 +47,8 @@ export async function processDocumentBackground(
   filename: string,
   buffer: Buffer
 ): Promise<void> {
+  console.log(`[RAG] 📝 Processing: documentId=${documentId} filename="${filename}" mediaType=${mediaType}`)
   try {
-    // 1. Mark as PROCESSING
     await prisma.document.update({
       where: { id: documentId },
       data: {
@@ -55,20 +56,34 @@ export async function processDocumentBackground(
       },
     })
 
-    // 2. Extract text based on file type directly from the passed buffer
     const extractedText = await extractTextFromFile(buffer, mediaType, filename)
+    console.log(`[RAG] ✅ Text extraction complete: documentId=${documentId} chars=${extractedText.length}`)
 
-    // 3. Update Document
-    await prisma.document.update({
+    const doc = await prisma.document.update({
       where: { id: documentId },
       data: {
         extractedText,
         processingStatus: "COMPLETED",
         processedAt: new Date(),
       },
+      select: { id: true, workspaceId: true, title: true, extractedText: true },
     })
+
+    if (doc.extractedText?.trim()) {
+      console.log(`[RAG] 🔗 Triggering knowledge ingestion: documentId=${doc.id} workspaceId=${doc.workspaceId}`)
+      await ingestDocumentKnowledge(
+        doc.workspaceId,
+        doc.id,
+        "DOCUMENT",
+        doc.title,
+        doc.extractedText,
+      )
+      console.log(`[RAG] ✅ Knowledge ingestion complete: documentId=${doc.id}`)
+    } else {
+      console.log(`[RAG] ⏭️ Skipping knowledge ingestion: no extractable text for documentId=${documentId}`)
+    }
   } catch (error: any) {
-    console.error(`Error processing document ${documentId}:`, error)
+    console.error(`[RAG] ❌ Error processing document ${documentId}:`, error)
     await prisma.document.update({
       where: { id: documentId },
       data: {

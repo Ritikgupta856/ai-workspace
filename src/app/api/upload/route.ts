@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Start background processing - fire-and-forget
+    console.log(`[RAG] 📄 Document created: id=${document.id} filename="${file.name}" mediaType=${file.type} workspaceId=${membership.workspaceId}`)
+
     void processDocumentBackground(document.id, file.type, file.name, buffer)
 
     return NextResponse.json({
