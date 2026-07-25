@@ -24,19 +24,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  PROJECT_STATUS_CONFIG,
-  PROJECT_VISIBILITY_CONFIG,
-} from "@/lib/constants"
-import type { ProjectStatusKey } from "@/lib/constants"
+import { toast } from "sonner"
+import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
+// PROJECT_STATUS_CONFIG is typed as Record<string, …>, so its key type widens
+// to `string`. ProjectStatus is the narrow union the API actually validates.
+import type { ProjectStatus } from "@/lib/projects"
 import { createProject, updateProject } from "@/lib/api/projects"
 import type { ProjectCardData } from "@/components/projects/project-card"
+
+const ICONS = ["📁", "🚀", "🎯", "⚙️", "📊", "🧪", "🎨", "🔐", "📦", "🛠️"]
 
 const formSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   description: z.string().optional(),
   status: z.string().optional(),
-  visibility: z.string().optional(),
+  icon: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -45,16 +47,13 @@ const statusOptions = Object.entries(PROJECT_STATUS_CONFIG).map(
   ([value, config]) => ({ value, ...config })
 )
 
-const visibilityOptions = Object.entries(PROJECT_VISIBILITY_CONFIG).map(
-  ([value, config]) => ({ value, ...config })
-)
-
 export interface ProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   mode: "create" | "edit"
   project?: ProjectCardData
-  onSuccess?: () => void
+  /** Receives the saved project so the caller can update in place. */
+  onSuccess?: (project: ProjectCardData) => void
 }
 
 export function ProjectDialog({
@@ -70,28 +69,30 @@ export function ProjectDialog({
       name: "",
       description: "",
       status: "ACTIVE",
-      visibility: "PRIVATE",
+      icon: "📁",
     },
   })
 
   const [submitting, setSubmitting] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
   const isEdit = mode === "edit"
 
   React.useEffect(() => {
     if (!open) return
+    setError(null)
     if (isEdit && project) {
       form.reset({
         name: project.name,
         description: project.description,
         status: project.status,
-        visibility: "PRIVATE",
+        icon: project.icon,
       })
     } else {
       form.reset({
         name: "",
         description: "",
         status: "ACTIVE",
-        visibility: "PRIVATE",
+        icon: "📁",
       })
     }
   }, [open, isEdit, project, form])
@@ -99,23 +100,31 @@ export function ProjectDialog({
   async function onSubmit(data: FormValues) {
     if (submitting) return
     setSubmitting(true)
+    setError(null)
     try {
-      if (isEdit && project) {
-        await updateProject(project.id, {
-          name: data.name,
-          description: data.description,
-        })
-      } else {
-        await createProject({
-          name: data.name,
-          description: data.description,
-        })
+      // Status and icon are sent now — the form collected them before but the
+      // request body dropped them on the floor.
+      const payload = {
+        name: data.name,
+        description: data.description ?? "",
+        status: data.status as ProjectStatus,
+        icon: data.icon || "📁",
       }
+
+      const saved =
+        isEdit && project
+          ? await updateProject(project.id, payload)
+          : await createProject(payload)
+
       form.reset()
       onOpenChange(false)
-      onSuccess?.()
-    } catch (error) {
-      console.error("Project save error:", error)
+      onSuccess?.(saved)
+      toast.success(isEdit ? "Project updated" : "Project created")
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to save project"
+      setError(message)
+      toast.error(message)
     } finally {
       setSubmitting(false)
     }
@@ -193,59 +202,64 @@ export function ProjectDialog({
                 />
               </div>
 
-              {/* Status + Visibility */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select
-                    value={form.watch("status")}
-                    onValueChange={(v) => form.setValue("status", v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((opt) => {
-                        const Icon = opt.icon
-                        return (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            <div className="flex items-center gap-2">
-                              <Icon className="size-4 shrink-0" />
-                              {opt.label}
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Status */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Status</label>
+                <Select
+                  value={form.watch("status")}
+                  onValueChange={(v) => form.setValue("status", v)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map((opt) => {
+                      const Icon = opt.icon
+                      return (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          <div className="flex items-center gap-2">
+                            <Icon className="size-4 shrink-0" />
+                            {opt.label}
+                          </div>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Visibility</label>
-                  <Select
-                    value={form.watch("visibility")}
-                    onValueChange={(v) => form.setValue("visibility", v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select visibility..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {visibilityOptions.map((opt) => {
-                        const Icon = opt.icon
-                        return (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            <div className="flex items-center gap-2">
-                              <Icon className="size-4 shrink-0" />
-                              {opt.label}
-                            </div>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
+              {/* Icon — replaces the old Visibility control, which had no
+                  column behind it and could never be saved. */}
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Icon</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ICONS.map((emoji) => {
+                    const selected = form.watch("icon") === emoji
+                    return (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => form.setValue("icon", emoji)}
+                        aria-pressed={selected}
+                        className={cn(
+                          "flex size-9 items-center justify-center rounded-lg border text-lg transition-colors",
+                          selected
+                            ? "border-primary bg-primary/10"
+                            : "hover:bg-accent"
+                        )}
+                      >
+                        {emoji}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
+              {error && (
+                <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                  {error}
+                </p>
+              )}
             </div>
           </div>
 

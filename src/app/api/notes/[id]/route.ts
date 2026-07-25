@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { formatNote, noteInclude } from "@/lib/notes"
+import { logActivity } from "@/lib/activity"
 
 export async function GET(
   _req: Request,
@@ -34,9 +36,7 @@ export async function GET(
 
     const note = await prisma.note.findFirst({
       where: { id, workspaceId: membership.workspaceId },
-      include: {
-        author: { select: { name: true } },
-      },
+      include: noteInclude,
     })
 
     if (!note) {
@@ -46,18 +46,7 @@ export async function GET(
       )
     }
 
-    const formatted = {
-      id: note.id,
-      title: note.title,
-      preview: note.content.slice(0, 200),
-      content: note.content,
-      tags: note.tags,
-      author: note.author.name ?? "Unknown",
-      pinned: note.pinned,
-      updatedAt: note.updatedAt.toISOString(),
-    }
-
-    return NextResponse.json({ success: true, note: formatted })
+    return NextResponse.json({ success: true, note: formatNote(note) })
   } catch (error) {
     console.error("Fetch Note Error:", error)
     return NextResponse.json(
@@ -118,23 +107,10 @@ export async function PATCH(
         ...(tags !== undefined && { tags }),
         ...(pinned !== undefined && { pinned }),
       },
-      include: {
-        author: { select: { name: true } },
-      },
+      include: noteInclude,
     })
 
-    const formatted = {
-      id: note.id,
-      title: note.title,
-      preview: note.content.slice(0, 200),
-      content: note.content,
-      tags: note.tags,
-      author: note.author.name ?? "Unknown",
-      pinned: note.pinned,
-      updatedAt: note.updatedAt.toISOString(),
-    }
-
-    return NextResponse.json({ success: true, note: formatted })
+    return NextResponse.json({ success: true, note: formatNote(note) })
   } catch (error) {
     console.error("Update Note Error:", error)
     return NextResponse.json(
@@ -185,6 +161,13 @@ export async function DELETE(
     }
 
     await prisma.note.delete({ where: { id } })
+
+    await logActivity({
+      type: "NOTE_DELETED",
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      metadata: { target: existing.title },
+    })
 
     return NextResponse.json({ success: true, message: "Note deleted." })
   } catch (error) {

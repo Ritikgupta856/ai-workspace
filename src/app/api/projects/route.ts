@@ -3,6 +3,11 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity"
+import {
+  formatProject,
+  isProjectStatus,
+  projectInclude,
+} from "@/lib/projects"
 
 export async function GET() {
   try {
@@ -28,43 +33,48 @@ export async function GET() {
       )
     }
 
-    const projects = await prisma.project.findMany({
-      where: { workspaceId: membership.workspaceId },
-      include: {
-        _count: {
-          select: {
-            tasks: true,
-            documents: true,
-            chats: true,
-          },
+    const workspaceId = membership.workspaceId
+
+    const [projects, doneGroups, members, integrationCount] = await Promise.all([
+      prisma.project.findMany({
+        where: { workspaceId },
+        include: projectInclude,
+        orderBy: { updatedAt: "desc" },
+      }),
+      // One grouped count instead of a per-project query in a loop.
+      prisma.task.groupBy({
+        by: ["projectId"],
+        where: { workspaceId, status: "DONE", projectId: { not: null } },
+        _count: { _all: true },
+      }),
+      prisma.workspaceMember.findMany({
+        where: { workspaceId },
+        include: {
+          user: { select: { id: true, name: true, email: true, image: true } },
         },
-      },
-      orderBy: { updatedAt: "desc" },
-    })
+      }),
+      prisma.integration.count({ where: { workspaceId } }),
+    ])
 
-    const formatted = await Promise.all(
-      projects.map(async (project) => {
-        const doneTasks = await prisma.task.count({
-          where: { projectId: project.id, status: "DONE" },
-        })
-        const totalTasks = project._count.tasks
-        const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
+    const doneByProject = new Map(
+      doneGroups.map((g) => [g.projectId as string, g._count._all])
+    )
 
-        return {
-          id: project.id,
-          name: project.name,
-          description: project.description ?? "",
-          status: project.status || "ACTIVE",
-          progress,
-          taskCount: project._count.tasks,
-          documentCount: project._count.documents,
-          chatCount: project._count.chats,
-          integrationCount: 0,
-          members: [],
-          updatedAt: project.updatedAt.toISOString(),
-          favorite: false,
-          icon: project.icon || "📁",
-        }
+    // Access is workspace-wide in the current schema, so every member can see
+    // every project. Surfacing them here keeps the avatars on the card honest.
+    const memberSummaries = members.map((m) => ({
+      id: m.user.id,
+      name: m.user.name || m.user.email,
+      email: m.user.email,
+      image: m.user.image,
+      role: m.role,
+    }))
+
+    const formatted = projects.map((project) =>
+      formatProject(project, {
+        doneTasks: doneByProject.get(project.id) ?? 0,
+        members: memberSummaries,
+        integrationCount,
       })
     )
 
@@ -112,14 +122,22 @@ export async function POST(req: Request) {
       )
     }
 
+    if (status !== undefined && !isProjectStatus(status)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid project status" },
+        { status: 400 }
+      )
+    }
+
     const project = await prisma.project.create({
       data: {
         name: name.trim(),
-        description: description ?? null,
-        icon: icon ?? null,
+        description: description?.trim() || null,
+        icon: icon || null,
         status: status || "ACTIVE",
         workspaceId: membership.workspaceId,
       },
+      include: projectInclude,
     })
 
     await logActivity({
@@ -127,24 +145,30 @@ export async function POST(req: Request) {
       workspaceId: membership.workspaceId,
       userId: session.user.id,
       projectId: project.id,
-      metadata: { name: project.name },
+      description: `created project ${project.name}`,
+      metadata: { name: project.name, target: project.name },
     })
 
-    const formatted = {
-      id: project.id,
-      name: project.name,
-      description: project.description ?? "",
-      status: project.status || "ACTIVE",
-      progress: 0,
-      taskCount: 0,
-      documentCount: 0,
-      chatCount: 0,
-      integrationCount: 0,
-      members: [],
-      updatedAt: project.updatedAt.toISOString(),
-      favorite: false,
-      icon: project.icon || "📁",
-    }
+    const members = await prisma.workspaceMember.findMany({
+      where: { workspaceId: membership.workspaceId },
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+    })
+
+    const formatted = formatProject(project, {
+      doneTasks: 0,
+      members: members.map((m) => ({
+        id: m.user.id,
+        name: m.user.name || m.user.email,
+        email: m.user.email,
+        image: m.user.image,
+        role: m.role,
+      })),
+      integrationCount: await prisma.integration.count({
+        where: { workspaceId: membership.workspaceId },
+      }),
+    })
 
     return NextResponse.json(
       { success: true, project: formatted },

@@ -1,95 +1,156 @@
 "use client"
 
 import Image from "next/image"
-import { Globe, MessageCircle, Link, Mail } from "lucide-react"
+import { Mail } from "lucide-react"
+import {
+  GitHubMono,
+  XMono,
+  LinkedInMono,
+} from "@/components/landing/brand-logos"
 
-const footerLinks = {
-  Product: ["Features", "Pricing", "Integrations", "Changelog"],
-  Resources: ["Docs", "API Reference", "Guides", "Status"],
-  Company: ["About", "Blog", "Careers", "Contact"],
-  Legal: ["Privacy", "Terms", "Security", "Cookies"],
-}
+/**
+ * Footer. The Product column points at real anchors on this page; everything
+ * marked `soon` renders as plain text rather than a link, so nothing here
+ * promises a page that doesn't exist yet.
+ */
+
+type Link = { label: string; href?: string }
+
+const columns: { heading: string; links: Link[] }[] = [
+  {
+    heading: "Product",
+    links: [
+      { label: "Features", href: "#features" },
+      { label: "How it works", href: "#how-it-works" },
+      { label: "Synapse AI", href: "#ai-workspace" },
+      { label: "Integrations", href: "#integrations" },
+      { label: "Pricing", href: "#pricing" },
+    ],
+  },
+  {
+    heading: "Get started",
+    links: [
+      { label: "Create an account", href: "/sign-up" },
+      { label: "Sign in", href: "/sign-in" },
+      { label: "Open workspace", href: "/home" },
+    ],
+  },
+  {
+    heading: "Resources",
+    links: [
+      { label: "Documentation" },
+      { label: "API reference" },
+      { label: "Changelog" },
+      { label: "Support" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "About" },
+      { label: "Contact", href: "mailto:hello@synapse.so" },
+      { label: "Privacy" },
+      { label: "Terms" },
+    ],
+  },
+]
+
+const socials = [
+  { label: "GitHub", href: "https://github.com", Icon: GitHubMono },
+  { label: "X", href: "https://x.com", Icon: XMono },
+  { label: "LinkedIn", href: "https://linkedin.com", Icon: LinkedInMono },
+  { label: "Email", href: "mailto:hello@synapse.so", Icon: Mail },
+]
 
 export function Footer() {
   return (
-    <footer className="border-t border-border/30 py-16">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-6">
-          {/* Brand column */}
-          <div className="lg:col-span-2">
-            <a href="/" className="flex items-center gap-2">
+    <footer className="bg-surface-1 relative">
+      <div className="lp-rule absolute inset-x-0 top-0" />
+
+      <div className="mx-auto w-full max-w-6xl px-5 pt-16 pb-10 sm:px-6 lg:px-8">
+        <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
+          {/* ── Brand ────────────────────────────────────────── */}
+          <div className="lg:col-span-4">
+            <a href="/" className="inline-flex items-center" aria-label="Synapse home">
               <Image
                 src="/images/synapse-logo.svg"
                 alt="Synapse"
                 width={120}
                 height={40}
-                className="h-9 w-auto"
-                priority
+                className="h-8 w-auto"
               />
             </a>
-            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              The AI-first workspace platform that unifies your tools, teams,
-              into one intelligent space.
+
+            <p className="text-ink-soft mt-4 max-w-xs text-[13.5px] leading-[1.65]">
+              One workspace that reads your projects, docs and repositories — so
+              the answer is already there when someone asks.
             </p>
 
-            {/* Social icons */}
-            <div className="mt-6 flex items-center gap-4">
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="GitHub"
-              >
-                <Globe className="size-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="Twitter"
-              >
-                <MessageCircle className="size-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="LinkedIn"
-              >
-                <Link className="size-5" />
-              </a>
-              <a
-                href="#"
-                className="text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="Email"
-              >
-                <Mail className="size-5" />
-              </a>
+            <div className="mt-6 flex items-center gap-2">
+              {socials.map(({ label, href, Icon }) => (
+                <a
+                  key={label}
+                  href={href}
+                  aria-label={label}
+                  target={href.startsWith("http") ? "_blank" : undefined}
+                  rel={href.startsWith("http") ? "noreferrer" : undefined}
+                  className="border-line text-ink-faint hover:text-ink hover:border-brand-line flex size-9 items-center justify-center rounded-lg border bg-white transition-colors"
+                >
+                  <Icon className="size-4" />
+                </a>
+              ))}
+            </div>
+
+            <div className="border-line text-ink-soft mt-6 inline-flex items-center gap-2 rounded-full border bg-white py-1.5 pr-3 pl-2.5 text-[12px]">
+              <span className="relative flex size-2">
+                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />
+                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
+              </span>
+              All systems operational
             </div>
           </div>
 
-          {/* Link columns */}
-          {Object.entries(footerLinks).map(([category, links]) => (
-            <div key={category}>
-              <h4 className="mb-4 text-sm font-semibold text-foreground">
-                {category}
-              </h4>
-              <ul className="flex flex-col gap-2">
-                {links.map((link) => (
-                  <li key={link}>
-                    <a
-                      href="#"
-                      className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      {link}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {/* ── Link columns ─────────────────────────────────── */}
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:col-span-8">
+            {columns.map(({ heading, links }) => (
+              <div key={heading}>
+                <h3 className="text-ink text-[13px] font-semibold tracking-[-0.01em]">
+                  {heading}
+                </h3>
+                <ul className="mt-4 flex flex-col gap-2.5">
+                  {links.map(({ label, href }) => (
+                    <li key={label}>
+                      {href ? (
+                        <a
+                          href={href}
+                          className="text-ink-soft hover:text-ink text-[13.5px] transition-colors"
+                        >
+                          {label}
+                        </a>
+                      ) : (
+                        <span className="text-ink-faint inline-flex items-center gap-1.5 text-[13.5px]">
+                          {label}
+                          <span className="border-line rounded border px-1 py-px text-[9px] font-medium tracking-[0.06em] uppercase">
+                            Soon
+                          </span>
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-12 border-t border-border/30 pt-8">
-          <p className="text-center text-xs text-muted-foreground">
+        {/* ── Bottom bar ─────────────────────────────────────── */}
+        <div className="border-line-soft mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row">
+          <p className="text-ink-faint text-[12.5px]">
             &copy; {new Date().getFullYear()} Synapse. All rights reserved.
+          </p>
+          <p className="text-ink-faint text-[12.5px]">
+            Third-party names and logos are trademarks of their respective
+            owners.
           </p>
         </div>
       </div>

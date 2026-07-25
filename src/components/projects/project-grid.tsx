@@ -1,14 +1,17 @@
 "use client"
 
-import { ProjectCard, type ProjectCardProps } from "@/components/projects/project-card"
+import {
+  ProjectCard,
+  type ProjectCardData,
+} from "@/components/projects/project-card"
+import type { ProjectStatus } from "@/lib/projects"
 
 export interface ProjectGridProps {
-  projects: ProjectCardProps["project"][]
+  projects: ProjectCardData[]
   onView?: (id: string) => void
   onEdit?: (id: string) => void
   onDuplicate?: (id: string) => void
-  onFavorite?: (id: string) => void
-  onArchive?: (id: string) => void
+  onStatusChange?: (id: string, status: ProjectStatus) => void
   onDelete?: (id: string) => void
 }
 
@@ -17,8 +20,7 @@ export function ProjectGrid({
   onView,
   onEdit,
   onDuplicate,
-  onFavorite,
-  onArchive,
+  onStatusChange,
   onDelete,
 }: ProjectGridProps) {
   return (
@@ -30,8 +32,7 @@ export function ProjectGrid({
           onView={onView}
           onEdit={onEdit}
           onDuplicate={onDuplicate}
-          onFavorite={onFavorite}
-          onArchive={onArchive}
+          onStatusChange={onStatusChange}
           onDelete={onDelete}
         />
       ))}

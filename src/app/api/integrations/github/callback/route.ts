@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { exchangeGitHubCode } from "@/lib/integrations/github/client"
+import { logActivity } from "@/lib/activity"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
@@ -96,6 +97,13 @@ export async function GET(req: Request) {
       },
     })
   }
+
+  await logActivity({
+    type: "INTEGRATION_CONNECTED",
+    workspaceId: statePayload.workspaceId,
+    userId: statePayload.userId,
+    metadata: { target: `GitHub (${ghUser.login})`, integration: "GitHub" },
+  })
 
   return NextResponse.redirect(new URL("/integrations?success=github", req.url))
 }

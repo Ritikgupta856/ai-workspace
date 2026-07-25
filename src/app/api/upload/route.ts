@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { processDocumentBackground } from "@/lib/services/processing"
+import { logActivity } from "@/lib/activity"
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,6 +51,14 @@ export async function POST(req: NextRequest) {
     })
 
     console.log(`[RAG] 📄 Document created: id=${document.id} filename="${file.name}" mediaType=${file.type} workspaceId=${membership.workspaceId}`)
+
+    await logActivity({
+      type: "DOCUMENT_UPLOADED",
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      projectId: document.projectId ?? undefined,
+      metadata: { target: document.title },
+    })
 
     void processDocumentBackground(document.id, file.type, file.name, buffer)
 

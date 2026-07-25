@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { formatNote, noteInclude } from "@/lib/notes"
+import { logActivity } from "@/lib/activity"
 
 export async function GET() {
   try {
@@ -29,24 +31,16 @@ export async function GET() {
 
     const notes = await prisma.note.findMany({
       where: { workspaceId: membership.workspaceId },
-      include: {
-        author: { select: { name: true } },
-      },
+      include: noteInclude,
       orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
     })
 
-    const formatted = notes.map((note) => ({
-      id: note.id,
-      title: note.title,
-      preview: note.content.slice(0, 200),
-      content: note.content,
-      tags: note.tags,
-      author: note.author.name ?? "Unknown",
-      pinned: note.pinned,
-      updatedAt: note.updatedAt.toISOString(),
-    }))
-
-    return NextResponse.json({ success: true, notes: formatted })
+    return NextResponse.json({
+      success: true,
+      notes: notes.map(formatNote),
+      // Lets the client resolve "My notes" without guessing at display names.
+      currentUserId: session.user.id,
+    })
   } catch (error) {
     console.error("Fetch Notes Error:", error)
     return NextResponse.json(
@@ -81,7 +75,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { title, tags } = body
+    const { title, tags, content } = body
 
     if (!title?.trim()) {
       return NextResponse.json(
@@ -93,28 +87,28 @@ export async function POST(req: Request) {
     const note = await prisma.note.create({
       data: {
         title: title.trim(),
-        tags: tags ?? [],
+        // `content` is supplied when duplicating an existing note.
+        content: typeof content === "string" ? content : "",
+        tags: Array.isArray(tags) ? tags : [],
         workspaceId: membership.workspaceId,
         authorId: session.user.id,
       },
-      include: {
-        author: { select: { name: true } },
-      },
+      include: noteInclude,
     })
 
-    const formatted = {
-      id: note.id,
-      title: note.title,
-      preview: "",
-      content: "",
-      tags: note.tags,
-      author: note.author.name ?? "Unknown",
-      pinned: note.pinned,
-      updatedAt: note.updatedAt.toISOString(),
-    }
+    await logActivity({
+      type: "NOTE_CREATED",
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      metadata: { target: note.title },
+    })
 
     return NextResponse.json(
-      { success: true, message: "Note created successfully.", note: formatted },
+      {
+        success: true,
+        message: "Note created successfully.",
+        note: formatNote(note),
+      },
       { status: 201 }
     )
   } catch (error) {

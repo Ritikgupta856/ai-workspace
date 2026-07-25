@@ -69,13 +69,16 @@ export default async function DashboardLayout({
         <SidebarProvider className="overflow-hidden max-h-dvh">
         <AppSidebar user={user} />
 
-        <SidebarInset>
+        {/* min-h-0 lets the inset respect the provider's max-h-dvh instead of
+            growing past it — without it the scroll container below never gets
+            a bounded height and tall pages just get clipped. */}
+        <SidebarInset className="min-h-0">
           <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
             <SidebarTrigger />
             <SearchCommand />
           </header>
 
-          <div className="flex flex-1 flex-col gap-4 p-6 min-h-0">
+          <div className="flex flex-1 flex-col gap-4 p-6 min-h-0 overflow-y-auto">
             {children}
           </div>
         </SidebarInset>

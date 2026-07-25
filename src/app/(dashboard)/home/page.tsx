@@ -1,431 +1,562 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers"
+import { redirect } from "next/navigation"
+import Link from "next/link"
 import {
-  FolderKanban,
-  CheckCircle2,
-  MessageSquare,
-  Database,
-  TrendingUp,
-  MoreHorizontal,
-  GitPullRequest,
-  GitBranch,
-  CheckCircle,
-  RefreshCw,
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
   AlertTriangle,
-} from "lucide-react";
+  ArrowRight,
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  FileText,
+  FolderKanban,
+  Minus,
+  NotebookPen,
+  Plug,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
+  UserRound,
+} from "lucide-react"
+
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { getDashboardData, type Delta, type FocusTask } from "@/lib/dashboard"
+import {
+  TASK_PRIORITY_CONFIG,
+  TASK_STATUS_CONFIG,
+  INTEGRATION_STATUS_CONFIG,
+  type IntegrationStatusKey,
+  type TaskPriorityKey,
+  type TaskStatusKey,
+} from "@/lib/constants"
+import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
 import { StatusBadge } from "@/components/common/status-badge"
-import { TASK_PRIORITY_CONFIG, INTEGRATION_STATUS_CONFIG } from "@/lib/constants"
-import Link from "next/link";
-import { PageHeading } from "@/components/ui/page-heading";
+import { ActivityFeed } from "@/components/activity/activity-feed"
+import { Button } from "@/components/ui/button"
+import { Progress } from "@/components/ui/progress"
+import { formatDueDate, formatUpdatedDate } from "@/lib/date"
+import { cn } from "@/lib/utils"
 
-const stats = [
-  {
-    label: "Projects",
-    value: "12",
-    change: "20%",
-    icon: FolderKanban,
-  },
-  {
-    label: "Tasks",
-    value: "128",
-    change: "18%",
-    icon: CheckCircle2,
-  },
-  {
-    label: "Chats",
-    value: "86",
-    change: "24%",
-    icon: MessageSquare,
-  },
-  {
-    label: "Documents",
-    value: "1,245",
-    change: "30%",
-    icon: Database,
-  },
-];
+/* ── Small presentational helpers, local to this page ───────── */
 
-const projects = [
-  {
-    name: "Synapse",
-    description: "The main platform repository",
-    icon: "github",
-    stat1: 42,
-    stat2: 18,
-    updated: "Updated 2h ago",
-  },
-  {
-    name: "Synapse Docs",
-    description: "Documentation and guides",
-    icon: "docs",
-    stat1: 23,
-    stat2: 8,
-    updated: "Updated 5h ago",
-  },
-  {
-    name: "Synapse Web",
-    description: "Landing page and marketing site",
-    icon: "web",
-    stat1: 16,
-    stat2: 6,
-    updated: "Updated 1d ago",
-  },
-];
-
-import { TASK_STATUS_CONFIG } from "@/lib/constants"
-
-const columnColorMap: Record<string, { dot: string; bar: string }> = {
-  TODO: { dot: "bg-muted-foreground/40", bar: "bg-muted-foreground/40" },
-  IN_PROGRESS: { dot: "bg-blue-500", bar: "bg-blue-500" },
-  IN_REVIEW: { dot: "bg-blue-300", bar: "bg-blue-300" },
-  DONE: { dot: "bg-green-500", bar: "bg-green-500" },
+function Card({
+  title,
+  href,
+  linkLabel = "View all",
+  children,
+  className,
+  action,
+}: {
+  title: string
+  href?: string
+  linkLabel?: string
+  children: React.ReactNode
+  className?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <section className={cn("rounded-xl border bg-card shadow-sm", className)}>
+      <div className="flex items-center justify-between border-b px-5 py-3.5">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {action ??
+          (href && (
+            <Link
+              href={href}
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {linkLabel}
+              <ArrowUpRight className="size-3" />
+            </Link>
+          ))}
+      </div>
+      {children}
+    </section>
+  )
 }
 
-const taskColumns = [
-  {
-    key: "TODO" as const,
-    title: "To Do",
-    count: 32,
-    tasks: [
-      { title: "Add GitHub App installation", priority: "Medium" },
-      { title: "Improve search ranking", priority: "Low" },
-    ],
-  },
-  {
-    key: "IN_PROGRESS" as const,
-    title: "In Progress",
-    count: 48,
-    tasks: [
-      { title: "AI chat with document context", priority: "High" },
-      { title: "Sync Notion pages", priority: "Medium" },
-    ],
-  },
-  {
-    key: "IN_REVIEW" as const,
-    title: "In Review",
-    count: 21,
-    tasks: [
-          { title: "Sprint planning", priority: "Medium" },
-      { title: "Task generation from spec", priority: "High" },
-    ],
-  },
-  {
-    key: "DONE" as const,
-    title: "Done",
-    count: 27,
-    tasks: [
-      { title: "Workspace members API", priority: "Low" },
-      { title: "Connect GitHub repositories", priority: "Medium" },
-    ],
-  },
-];
-
-const recentActivity = [
-  {
-    icon: GitPullRequest,
-    title: "PR #342 was merged in synapse/synapse",
-    subtitle: "by Ritik Verma",
-    time: "2h ago",
-  },
-  {
-    icon: CheckCircle,
-    title: 'Task "Implement AI search" completed',
-    subtitle: "by John Doe",
-    time: "3h ago",
-  },
-  {
-    icon: RefreshCw,
-    title: "README.md was synced from GitHub",
-    subtitle: "synapse/synapse",
-    time: "5h ago",
-  },
-  {
-    icon: MessageSquare,
-    title: 'New chat "How does auth work?"',
-    subtitle: "by Sarah Wilson",
-    time: "6h ago",
-  },
-  {
-    icon: GitBranch,
-    title: "Branch feat/integrations created",
-    subtitle: "in synapse/synapse",
-    time: "1d ago",
-  },
-];
-
-const integrations = [
-  { name: "GitHub", detail: "12 repositories" },
-  { name: "Notion", detail: "8 pages" },
-  { name: "Linear", detail: "Team workspace" },
-];
-
-function priorityConfig(priority: string) {
-  const key = priority.toUpperCase().replace(" ", "_") as keyof typeof TASK_PRIORITY_CONFIG
-  return TASK_PRIORITY_CONFIG[key] ?? TASK_PRIORITY_CONFIG.LOW
+function DeltaChip({ delta }: { delta: Delta }) {
+  // Nothing to compare against — say nothing rather than imply growth.
+  if (!delta) {
+    return <span className="text-xs text-muted-foreground">No prior data</span>
+  }
+  if (delta.direction === "flat") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <Minus className="size-3" />
+        Flat vs last week
+      </span>
+    )
+  }
+  const up = delta.direction === "up"
+  const Icon = up ? TrendingUp : TrendingDown
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 text-xs font-medium",
+        up ? "text-emerald-600" : "text-muted-foreground"
+      )}
+    >
+      <Icon className="size-3" />
+      {delta.percent}%
+      <span className="font-normal text-muted-foreground">vs last week</span>
+    </span>
+  )
 }
 
-export default async function DashboardPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+function MetricCard({
+  label,
+  value,
+  delta,
+  icon: Icon,
+  href,
+}: {
+  label: string
+  value: number
+  delta: Delta
+  icon: typeof FolderKanban
+  href: string
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/30"
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
+          <Icon className="size-4" />
+        </div>
+        <ArrowUpRight className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </div>
+      <p className="mt-3 text-2xl font-semibold leading-none tabular-nums">
+        {value.toLocaleString()}
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
+      <div className="mt-2.5">
+        <DeltaChip delta={delta} />
+      </div>
+    </Link>
+  )
+}
 
-  const firstName = session?.user?.name ?? "Workspace";
+function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
+  const priority =
+    TASK_PRIORITY_CONFIG[task.priority as TaskPriorityKey] ??
+    TASK_PRIORITY_CONFIG.LOW
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <PageHeading
-        title={`Good morning, ${firstName}`}
-        description="Here's an overview of your workspace today"
+    <Link
+      href={`/tasks/${task.id}`}
+      className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-accent/40"
+    >
+      <span
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          tone === "overdue" ? "bg-destructive" : "bg-muted-foreground/40"
+        )}
       />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-medium">{task.title}</p>
+        <p className="truncate text-xs text-muted-foreground">
+          {task.project ? `${task.project.icon ?? "📁"} ${task.project.name}` : "No project"}
+        </p>
+      </div>
+      {task.dueDate && (
+        <span
+          className={cn(
+            "shrink-0 text-xs",
+            tone === "overdue"
+              ? "font-medium text-destructive"
+              : "text-muted-foreground"
+          )}
+        >
+          {formatDueDate(task.dueDate)}
+        </span>
+      )}
+      <StatusBadge
+        label={priority.label}
+        className={cn("shrink-0", priority.className)}
+        icon={priority.icon}
+      />
+    </Link>
+  )
+}
 
-      {/* Stat cards */}
+function greeting() {
+  const hour = new Date().getHours()
+  if (hour < 12) return "Good morning"
+  if (hour < 18) return "Good afternoon"
+  return "Good evening"
+}
+
+/* ── Page ───────────────────────────────────────────────────── */
+
+export default async function DashboardPage() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect("/sign-in")
+
+  const cookieStore = await cookies()
+  const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value
+
+  const membership =
+    (activeWorkspaceId
+      ? await prisma.workspaceMember.findFirst({
+          where: { userId: session.user.id, workspaceId: activeWorkspaceId },
+        })
+      : null) ??
+    (await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id },
+    }))
+
+  if (!membership) redirect("/projects")
+
+  const data = await getDashboardData(session.user.id, membership.workspaceId)
+
+  const firstName = session.user.name?.split(" ")[0] ?? "there"
+  const { focus, attention, taskBoard } = data
+
+  const alerts = [
+    attention.overdueCount > 0 && {
+      icon: AlertTriangle,
+      label: `${attention.overdueCount} of your tasks ${attention.overdueCount === 1 ? "is" : "are"} overdue`,
+      href: "/tasks",
+      tone: "danger" as const,
+    },
+    attention.unassignedCount > 0 && {
+      icon: UserRound,
+      label: `${attention.unassignedCount} task${attention.unassignedCount === 1 ? "" : "s"} unassigned`,
+      href: "/tasks",
+      tone: "warn" as const,
+    },
+    attention.failedDocs > 0 && {
+      icon: FileText,
+      label: `${attention.failedDocs} document${attention.failedDocs === 1 ? "" : "s"} failed to process`,
+      href: "/projects",
+      tone: "warn" as const,
+    },
+  ].filter(Boolean) as {
+    icon: typeof AlertTriangle
+    label: string
+    href: string
+    tone: "danger" | "warn"
+  }[]
+
+  return (
+    <div className="flex flex-1 flex-col gap-5">
+      {/* Header */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {greeting()}, {firstName}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {focus.totalAssigned > 0
+              ? `You have ${focus.totalAssigned} task${focus.totalAssigned === 1 ? "" : "s"} on your plate.`
+              : "Nothing assigned to you right now."}{" "}
+            {taskBoard.completedThisWeek > 0 &&
+              `${taskBoard.completedThisWeek} completed across the workspace this week.`}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/chat">
+              <Sparkles className="size-4" />
+              Ask Synapse
+            </Link>
+          </Button>
+          <Button size="sm" asChild>
+            <Link href="/projects">
+              New project
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      {/* Needs attention — only rendered when something is actually wrong */}
+      {alerts.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {alerts.map((alert) => (
+            <Link
+              key={alert.label}
+              href={alert.href}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                alert.tone === "danger"
+                  ? "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10"
+                  : "border-amber-500/30 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+              )}
+            >
+              <alert.icon className="size-3.5" />
+              {alert.label}
+              <ArrowRight className="size-3" />
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Metrics */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border bg-card p-5 shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                <stat.icon className="size-5" />
+        <MetricCard
+          label="Projects"
+          value={data.metrics.projects.value}
+          delta={data.metrics.projects.delta}
+          icon={FolderKanban}
+          href="/projects"
+        />
+        <MetricCard
+          label="Tasks"
+          value={data.metrics.tasks.value}
+          delta={data.metrics.tasks.delta}
+          icon={CheckCircle2}
+          href="/tasks"
+        />
+        <MetricCard
+          label="Documents"
+          value={data.metrics.documents.value}
+          delta={data.metrics.documents.delta}
+          icon={FileText}
+          href="/projects"
+        />
+        <MetricCard
+          label="Notes"
+          value={data.metrics.notes.value}
+          delta={data.metrics.notes.delta}
+          icon={NotebookPen}
+          href="/notes"
+        />
+      </div>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        {/* ── Left ────────────────────────────────────────── */}
+        <div className="flex flex-col gap-5 lg:col-span-2">
+          {/* Your focus — the thing a dashboard exists for */}
+          <Card title="Your focus" href="/tasks" linkLabel="All tasks">
+            {focus.totalAssigned === 0 ? (
+              <div className="flex flex-col items-center px-5 py-10 text-center">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
+                  <CheckCircle2 className="size-4 text-muted-foreground" />
+                </div>
+                <p className="mt-3 text-sm font-medium">You&rsquo;re all clear</p>
+                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                  No open tasks are assigned to you. Pick something up from the
+                  board when you&rsquo;re ready.
+                </p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/tasks">Browse tasks</Link>
+                </Button>
               </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{stat.label}</p>
-                <p className="text-2xl font-semibold leading-tight">
-                  {stat.value}
+            ) : (
+              <div className="divide-y">
+                {focus.overdue.length > 0 && (
+                  <div className="py-1.5">
+                    <p className="flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-destructive">
+                      <AlertTriangle className="size-3" />
+                      Overdue
+                    </p>
+                    {focus.overdue.map((task) => (
+                      <TaskRow key={task.id} task={task} tone="overdue" />
+                    ))}
+                  </div>
+                )}
+                {focus.dueToday.length > 0 && (
+                  <div className="py-1.5">
+                    <p className="flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <CalendarClock className="size-3" />
+                      Due today
+                    </p>
+                    {focus.dueToday.map((task) => (
+                      <TaskRow key={task.id} task={task} />
+                    ))}
+                  </div>
+                )}
+                {focus.upcoming.length > 0 && (
+                  <div className="py-1.5">
+                    <p className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Up next
+                    </p>
+                    {focus.upcoming.map((task) => (
+                      <TaskRow key={task.id} task={task} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+
+          {/* Task distribution — real counts, proportional bars */}
+          <Card title="Task overview" href="/tasks" linkLabel="Open board">
+            <div className="p-5">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {(
+                  Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]
+                ).map((key) => {
+                  const config = TASK_STATUS_CONFIG[key]
+                  const count = taskBoard.byStatus[key] ?? 0
+                  const pct =
+                    taskBoard.total > 0
+                      ? Math.round((count / taskBoard.total) * 100)
+                      : 0
+                  return (
+                    <div key={key}>
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                        <config.icon className="size-3.5" />
+                        {config.label}
+                      </p>
+                      <p className="mt-1 text-xl font-semibold tabular-nums">
+                        {count}
+                      </p>
+                      <Progress value={pct} className="mt-2 h-1.5" />
+                      <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
+                        {pct}% of all tasks
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {taskBoard.total === 0 && (
+                <p className="mt-5 text-center text-sm text-muted-foreground">
+                  No tasks yet. Create one to see the breakdown here.
+                </p>
+              )}
+            </div>
+          </Card>
+
+          {/* Active projects */}
+          <Card title="Active projects" href="/projects">
+            {data.projects.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+                No active projects. Create one to get started.
+              </p>
+            ) : (
+              <div className="divide-y">
+                {data.projects.map((project) => {
+                  const status =
+                    PROJECT_STATUS_CONFIG[project.status] ??
+                    PROJECT_STATUS_CONFIG.ACTIVE
+                  return (
+                    <Link
+                      key={project.id}
+                      href={`/projects/${project.id}`}
+                      className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40"
+                    >
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-base">
+                        {project.icon}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {project.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {project.doneCount}/{project.taskCount} tasks ·
+                          updated {formatUpdatedDate(project.updatedAt)}
+                        </p>
+                      </div>
+                      <div className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
+                        <Progress value={project.progress} className="h-1.5" />
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {project.progress}%
+                        </span>
+                      </div>
+                      <StatusBadge
+                        label={status.label}
+                        className={cn("shrink-0", status.className)}
+                        icon={status.icon}
+                      />
+                    </Link>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* ── Right ───────────────────────────────────────── */}
+        <div className="flex flex-col gap-5">
+          {/* Real feed, server-rendered so there's no client waterfall */}
+          <ActivityFeed
+            variant="card"
+            items={data.activity}
+            limit={8}
+            title="Recent activity"
+            emptyMessage="No activity yet. Events appear as your team works."
+          />
+
+          <Card title="Integrations" href="/integrations">
+            {data.integrations.length === 0 ? (
+              <div className="flex flex-col items-center px-5 py-8 text-center">
+                <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
+                  <Plug className="size-4 text-muted-foreground" />
+                </div>
+                <p className="mt-3 text-sm font-medium">Nothing connected</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Connect GitHub to pull work in automatically.
+                </p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/integrations">Connect a tool</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {data.integrations.map((integration) => {
+                  const status =
+                    INTEGRATION_STATUS_CONFIG[
+                      integration.status as IntegrationStatusKey
+                    ] ?? INTEGRATION_STATUS_CONFIG.DISCONNECTED
+                  return (
+                    <div
+                      key={integration.id}
+                      className="flex items-center gap-3 px-5 py-3"
+                    >
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
+                        <Plug className="size-4 text-muted-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {integration.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {integration.documentCount} document
+                          {integration.documentCount === 1 ? "" : "s"}
+                          {integration.lastSyncAt &&
+                            ` · synced ${formatUpdatedDate(integration.lastSyncAt)}`}
+                        </p>
+                      </div>
+                      <StatusBadge
+                        label={status.label}
+                        className={cn("shrink-0", status.className)}
+                        icon={status.icon}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </Card>
+
+          {/* Replaces the old "AI Usage" card, which had no data behind it */}
+          <Card title="Workspace" href="/members" linkLabel="Manage">
+            <div className="grid grid-cols-2 divide-x">
+              <div className="px-5 py-4">
+                <p className="text-2xl font-semibold tabular-nums">
+                  {data.memberCount}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {data.memberCount === 1 ? "Member" : "Members"}
+                </p>
+              </div>
+              <div className="px-5 py-4">
+                <p className="text-2xl font-semibold tabular-nums">
+                  {taskBoard.completedThisWeek}
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Done this week
                 </p>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-1 text-xs">
-              <TrendingUp className="size-3.5 text-green-600" />
-              <span className="font-medium text-green-600">
-                {stat.change}
-              </span>
-              <span className="text-muted-foreground">vs last week</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Main grid: left (projects + tasks) / right (activity + integrations + usage) */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left column */}
-        <div className="flex flex-col gap-6 lg:col-span-2">
-          {/* Projects */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Projects</h2>
-              <Link
-                href="/projects"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-            <div className="mt-4 flex flex-col gap-2">
-              {projects.map((project) => (
-                <div
-                  key={project.name}
-                  className="flex items-center gap-3 rounded-lg border p-3"
-                >
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                    <FolderKanban className="size-4 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{project.name}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {project.description}
-                    </p>
-                  </div>
-                  <div className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
-                    <TrendingUp className="size-3.5" />
-                    {project.stat1}
-                  </div>
-                  <div className="hidden items-center gap-1 text-xs text-muted-foreground sm:flex">
-                    <CheckCircle2 className="size-3.5" />
-                    {project.stat2}
-                  </div>
-                  <div className="hidden text-xs text-muted-foreground md:block">
-                    {project.updated}
-                  </div>
-                  <button className="rounded-md p-1 text-muted-foreground hover:bg-muted">
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Task overview */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Task Overview</h2>
-              <Link
-                href="/tasks"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all tasks
-              </Link>
-            </div>
-
-            {/* Summary bars */}
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {taskColumns.map((col) => (
-                <div key={col.title}>
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {col.title}
-                  </p>
-                  <p className="text-lg font-semibold">{col.count}</p>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                    <div
-                      className={`h-full ${columnColorMap[col.key].bar}`}
-                      style={{
-                        width: `${(col.count / 128) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Kanban-ish columns */}
-            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {taskColumns.map((col) => (
-                <div key={col.title} className="rounded-lg border p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className={`size-2 rounded-full ${columnColorMap[col.key].dot}`}
-                      />
-                      <p className="text-xs font-medium">{col.title}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {col.count}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex flex-col gap-2">
-                    {col.tasks.map((task) => (
-                      <div
-                        key={task.title}
-                        className="rounded-lg border bg-background p-2.5"
-                      >
-                        <p className="text-xs font-medium leading-snug">
-                          {task.title}
-                        </p>
-                        <StatusBadge
-                          className={`mt-2 ${priorityConfig(task.priority).className}`}
-                          label={priorityConfig(task.priority).label}
-                          icon={priorityConfig(task.priority).icon}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <button className="mt-2 text-xs font-medium text-muted-foreground hover:text-foreground">
-                    + Add task
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right column */}
-        <div className="flex flex-col gap-6">
-          {/* Recent activity */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Recent Activity</h2>
-              <Link
-                href="/activity"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-            <div className="mt-4 flex flex-col gap-4">
-              {recentActivity.map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="flex size-7 items-center justify-center rounded-full bg-muted">
-                    <item.icon className="size-3.5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm leading-snug">{item.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.subtitle}
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {item.time}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Integrations */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">Integrations</h2>
-              <Link
-                href="/integrations"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View all
-              </Link>
-            </div>
-            <div className="mt-4 flex flex-col gap-3">
-              {integrations.map((integration) => (
-                <div
-                  key={integration.name}
-                  className="flex items-center gap-3"
-                >
-                  <div className="flex size-9 items-center justify-center rounded-lg bg-muted">
-                    <Database className="size-4 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium">{integration.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {integration.detail}
-                    </p>
-                  </div>
-                  <StatusBadge
-                    label={INTEGRATION_STATUS_CONFIG.CONNECTED.label}
-                    className={INTEGRATION_STATUS_CONFIG.CONNECTED.className}
-                    icon={INTEGRATION_STATUS_CONFIG.CONNECTED.icon}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* AI Usage */}
-          <div className="rounded-xl border bg-card p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-semibold">AI Usage</h2>
-              <Link
-                href="/settings/usage"
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                View details
-              </Link>
-            </div>
-            <p className="mt-3 text-xs text-muted-foreground">This Month</p>
-            <p className="mt-1 text-sm font-medium">
-              82% of 500K tokens used
-            </p>
-            <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full w-[82%] rounded-full bg-blue-500" />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-              <span>Resets in 12 days</span>
-              <span>412K / 500K</span>
-            </div>
-          </div>
+          </Card>
         </div>
       </div>
     </div>
-  );
+  )
 }

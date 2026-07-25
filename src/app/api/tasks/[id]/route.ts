@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { logActivity } from "@/lib/activity"
 
 export async function PATCH(
   req: Request,
@@ -73,6 +74,42 @@ export async function PATCH(
       },
     })
 
+    // Emit the most specific event the change represents, so the task
+    // timeline reads as a story rather than a wall of "updated task".
+    const base = {
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      projectId: task.projectId ?? undefined,
+      taskId: task.id,
+    }
+
+    if (status !== undefined && status !== existing.status) {
+      await logActivity({
+        ...base,
+        type: status === "DONE" ? "TASK_COMPLETED" : "TASK_STATUS_CHANGED",
+        metadata: {
+          target: task.title,
+          from: existing.status,
+          to: status,
+        },
+      })
+    } else if (assigneeId !== undefined && assigneeId !== existing.assigneeId) {
+      await logActivity({
+        ...base,
+        type: "TASK_ASSIGNED",
+        metadata: {
+          target: task.title,
+          to: task.assignee?.name ?? undefined,
+        },
+      })
+    } else {
+      await logActivity({
+        ...base,
+        type: "TASK_UPDATED",
+        metadata: { target: task.title },
+      })
+    }
+
     const formatted = {
       id: task.id,
       title: task.title,
@@ -139,6 +176,15 @@ export async function DELETE(
     }
 
     await prisma.task.delete({ where: { id } })
+
+    await logActivity({
+      type: "TASK_DELETED",
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      projectId: existing.projectId ?? undefined,
+      taskId: existing.id,
+      metadata: { target: existing.title },
+    })
 
     return NextResponse.json({ success: true, message: "Task deleted." })
   } catch (error) {

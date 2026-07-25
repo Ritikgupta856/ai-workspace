@@ -122,66 +122,7 @@ export default function TaskDetailsPage() {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
-              <TaskActivityTimeline
-                activities={[
-                  {
-                    id: "a1",
-                    type: "status_change",
-                    actor: "Ritik Gupta",
-                    description: "changed status from Todo to In Progress",
-                    timestamp: "2026-06-27T10:30:00",
-                  },
-                  {
-                    id: "a2",
-                    type: "pr_linked",
-                    actor: "Ritik Gupta",
-                    description: "linked PR #214 - Fix auth rate-limiting conflict",
-                    timestamp: "2026-06-27T10:25:00",
-                  },
-                  {
-                    id: "a3",
-                    type: "comment_added",
-                    actor: "Arjun Patel",
-                    description: "commented on this task",
-                    timestamp: "2026-06-26T09:15:00",
-                  },
-                  {
-                    id: "a4",
-                    type: "comment_added",
-                    actor: "Priya Sharma",
-                    description: "commented on this task",
-                    timestamp: "2026-06-25T14:30:00",
-                  },
-                  {
-                    id: "a5",
-                    type: "document_uploaded",
-                    actor: "Ritik Gupta",
-                    description: "uploaded auth-flow-diagram.pdf",
-                    timestamp: "2026-06-24T16:00:00",
-                  },
-                  {
-                    id: "a6",
-                    type: "ai_generated",
-                    actor: "Synapse AI",
-                    description: "generated subtasks for this task",
-                    timestamp: "2026-06-24T11:00:00",
-                  },
-                  {
-                    id: "a7",
-                    type: "due_date_updated",
-                    actor: "Ritik Gupta",
-                    description: "set due date to Jul 5",
-                    timestamp: "2026-06-23T14:00:00",
-                  },
-                  {
-                    id: "a8",
-                    type: "task_completed",
-                    actor: "Ritik Gupta",
-                    description: "completed subtask: Reproduce issue locally",
-                    timestamp: "2026-06-23T10:00:00",
-                  },
-                ]}
-              />
+            <TaskActivityTimeline taskId={taskId} />
             </TabsContent>
 
             <TabsContent value="attachments" className="mt-6">

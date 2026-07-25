@@ -1,9 +1,16 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { ArrowRight, Check } from "lucide-react"
+import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { HeroBackdrop } from "@/components/landing/illustrations"
+import { EASE } from "@/components/landing/section"
+
+const rise = (delay: number) => ({
+  initial: { opacity: 0, y: 14 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.65, delay, ease: EASE },
+})
 
 import {
   MessageCircle,
@@ -13,6 +20,8 @@ import {
   Calendar,
   Sparkles,
 } from "lucide-react"
+
+
 
 const floatingIcons = [
   {
@@ -55,8 +64,9 @@ const floatingIcons = [
 
 export function Hero() {
   return (
-    <section className="relative flex min-h-[80vh] items-center justify-center overflow-hidden pt-16">
-      {floatingIcons.map(({ icon: Icon, label, className, delay }, index) => (
+    <section className="relative isolate overflow-hidden pt-28 pb-16 md:pt-36 md:pb-20">
+
+            {floatingIcons.map(({ icon: Icon, label, className, delay }, index) => (
         <motion.div
           key={index}
           initial={{ opacity: 0, y: 16, scale: 0.85 }}
@@ -79,59 +89,81 @@ export function Hero() {
           <span className="text-xs font-medium text-slate-500">{label}</span>
         </motion.div>
       ))}
+      {/* Backdrop — one wash plus one field-line pattern, both masked so
+          nothing bleeds into the section below. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-140">
+        <div className="lp-mask-radial absolute inset-0 opacity-70">
+          <HeroBackdrop className="h-full w-full" />
+        </div>
+        <div className="absolute top-[-260px] left-1/2 h-130 w-[900px] -translate-x-1/2 rounded-full bg-brand/12 blur-[110px]" />
+      </div>
 
-      {/* Hero content */}
-      <div className="relative z-10 mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Badge variant="secondary" className="mb-6 px-4 py-1.5 text-sm">
-            <Sparkles className="mr-1.5 size-3.5 text-primary" />
-            AI Workspace for Modern Teams
-          </Badge>
-        </motion.div>
+      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
+        <div className="mx-auto flex flex-col items-center text-center">
+          {/* Announcement — points at a real section instead of decorating */}
+          <motion.a
+            {...rise(0)}
+            href="#ai-workspace"
+            className="lp-surface group text-ink-soft hover:text-ink hover:border-brand-line inline-flex items-center gap-2 rounded-full py-1.5 pr-3 pl-2 text-[13px] transition-colors"
+          >
+            <span className="bg-brand-wash text-brand-ink flex h-5 items-center rounded-full px-2 text-[11px] font-semibold">
+              New
+            </span>
+            Ask questions across every connected tool
+            <ArrowRight className="text-ink-faint size-3.5 transition-transform group-hover:translate-x-0.5" />
+          </motion.a>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl md:text-6xl lg:text-7xl"
-        >
-          All your work in
+          <motion.h1
+            {...rise(0.06)}
+            className="text-ink mt-7 text-[40px] leading-[1.06] font-semibold tracking-[-0.035em] text-balance sm:text-[56px] md:text-[68px]"
+          >
+            All your work in
           <br />
           one{" "}
           <span className="bg-gradient-to-r from-primary to-primary bg-clip-text text-transparent">
             intelligent workspace.
           </span>
-        </motion.h1>
+       
+       
+          </motion.h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground"
-        >
-          Plan projects, manage tasks, collaborate with your team, write docs, and automate workflows with AI—all from a single workspace.
-        </motion.p>
+          <motion.p
+            {...rise(0.12)}
+            className="text-ink-soft mt-6 max-w-xl text-[16px] leading-[1.65] text-pretty md:text-[17px]"
+          >
+            Synapse reads your projects, docs, tasks and repositories, then
+            answers in context — with citations you can click and tasks it can
+            write back.
+          </motion.p>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row"
-        >
-          <Button size="lg" className="gap-2 text-base" asChild>
-            <a href="/sign-up">
-              Get Started Free
-              <ArrowRight className="size-4" />
-            </a>
-          </Button>
-          <Button variant="outline" size="lg" className="text-base" asChild>
-            <a href="#demo">Live Demo</a>
-          </Button>
-        </motion.div>
+          <motion.div
+            {...rise(0.18)}
+            className="mt-9 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row"
+          >
+            <Button
+              size="lg"
+              className="h-11 w-full gap-2 rounded-lg px-6 text-[15px] font-medium shadow-rest sm:w-auto"
+              asChild
+            >
+              <a href="/sign-up">
+                Start for free
+                <ArrowRight className="size-4" />
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-line text-ink hover:bg-surface-1 h-11 w-full rounded-lg bg-white px-6 text-[15px] font-medium shadow-rest sm:w-auto"
+              asChild
+            >
+              <a href="#product">See it in action</a>
+            </Button>
+          </motion.div>
+
+          <motion.p {...rise(0.24)} className="text-ink-faint mt-6 text-[13px]">
+            Free plan, no card required · Connect your first tool in a minute
+          </motion.p>
+        </div>
       </div>
     </section>
   )

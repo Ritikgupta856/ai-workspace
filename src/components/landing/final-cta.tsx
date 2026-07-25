@@ -19,24 +19,24 @@ export function FinalCta() {
         className="relative z-10 mx-auto max-w-6xl px-4 text-center sm:px-6 lg:px-8"
       >
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl md:text-5xl">
-          Ready to build smarter?
+          Stop searching six tools for one answer.
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-muted-foreground">
-          Get started with Synapse today and transform how your team works with
-          AI.
+          Connect a source and ask Synapse about work your team did last month.
+          That&rsquo;s the whole demo.
         </p>
 
         <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button size="lg" className="gap-2 text-base" asChild>
             <a href="/sign-up">
-              Get Started Free
+              Start for free
               <ArrowRight className="size-4" />
             </a>
           </Button>
           <Button variant="outline" size="lg" className="gap-2 text-base" asChild>
-            <a href="#demo">
+            <a href="#pricing">
               <Play className="size-4" />
-              Book Demo
+              Compare plans
             </a>
           </Button>
         </div>

@@ -1,50 +1,70 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { BRANDS, type BrandKey } from "@/components/landing/brand-logos"
+import { reveal } from "@/components/landing/section"
 
-const logos = [
-  { name: "GitHub", color: "currentColor" },
-  { name: "Vercel", color: "currentColor" },
-  { name: "Notion", color: "currentColor" },
-  { name: "Linear", color: "currentColor" },
-  { name: "Slack", color: "currentColor" },
-  { name: "Figma", color: "currentColor" },
+/**
+ * A logo strip that claims what's true: these are the tools Synapse connects
+ * to, not customers we can't name. Monochrome marks at one optical size so the
+ * row reads as a single band rather than eight competing brands.
+ */
+
+const ORDER: BrandKey[] = [
+  "github",
+  "slack",
+  "notion",
+  "linear",
+  "figma",
+  "drive",
+  "asana",
+  "discord",
+  "vercel",
 ]
+
+function LogoRow({ ariaHidden }: { ariaHidden?: boolean }) {
+  return (
+    <div
+      className="flex shrink-0 items-center"
+      aria-hidden={ariaHidden || undefined}
+    >
+      {ORDER.map((key) => {
+        const { name, Mono } = BRANDS[key]
+        return (
+          <div
+            key={key}
+            className="text-ink-faint hover:text-ink flex items-center gap-2.5 px-7 transition-colors duration-300"
+          >
+            <Mono className="size-5 shrink-0" />
+            <span className="text-[15px] font-medium tracking-[-0.01em] whitespace-nowrap">
+              {name}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
 export function TrustedBy() {
   return (
-    <section className="border-y border-border/30 py-12">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <motion.p
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          viewport={{ once: true }}
-          className="mb-8 text-center text-sm text-muted-foreground"
-        >
-          Trusted by developers and modern teams
-        </motion.p>
+    <section className="relative py-14 md:py-16">
+      <div className="lp-rule absolute inset-x-0 top-0" />
+      <div className="lp-rule absolute inset-x-0 bottom-0" />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="flex flex-wrap items-center justify-center gap-x-12 gap-y-6"
-        >
-          {logos.map((logo, i) => (
-            <motion.div
-              key={logo.name}
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
-              className="opacity-40 transition-opacity hover:opacity-70"
-            >
-              <span className="text-lg font-semibold tracking-tight text-foreground/60">
-                {logo.name}
-              </span>
-            </motion.div>
-          ))}
-        </motion.div>
+      <motion.p
+        {...reveal}
+        className="text-ink-faint mb-9 text-center text-[13px] tracking-[-0.005em]"
+      >
+        Connects to the tools your team already works in
+      </motion.p>
+
+      <div className="lp-marquee lp-mask-x overflow-hidden">
+        <div className="lp-marquee-track">
+          <LogoRow />
+          {/* Duplicate for the seamless -50% loop; hidden from a11y tree. */}
+          <LogoRow ariaHidden />
+        </div>
       </div>
     </section>
   )

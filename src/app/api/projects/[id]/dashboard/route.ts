@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { formatUpdatedDate, formatDueDate } from "@/lib/date"
+import { activityInclude, formatActivity } from "@/lib/activity"
 import type { ProjectStatusKey } from "@/lib/constants"
 
 export async function GET(
@@ -124,9 +125,7 @@ export async function GET(
       where: { projectId },
       orderBy: { createdAt: "desc" },
       take: 10,
-      include: {
-        user: { select: { id: true, name: true, image: true } },
-      },
+      include: activityInclude,
     })
 
     // ── Latest documents ──
@@ -202,8 +201,8 @@ export async function GET(
         chatCount: project._count.chats,
         integrationCount: integrations.length,
         members: teamMembers.slice(0, 10),
+        createdAt: project.createdAt.toISOString(),
         updatedAt: project.updatedAt.toISOString(),
-        favorite: false,
       },
       stats: {
         tasks: {
@@ -233,20 +232,9 @@ export async function GET(
         documentsUpdated: documentsUpdatedThisWeek,
         score: healthScore as "excellent" | "good" | "needsAttention" | "atRisk",
       },
-      recentActivity: recentActivity.map((a) => ({
-        id: a.id,
-        user: {
-          id: a.user.id,
-          name: a.user.name || "Unknown",
-          image: a.user.image,
-        },
-        action: a.type,
-        description: a.description || "",
-        target: (a.metadata as any)?.target || "",
-        timestamp: formatUpdatedDate(a.createdAt),
-        createdAt: a.createdAt.toISOString(),
-        type: a.type,
-      })),
+      // Same DTO the /api/activity endpoint returns, so the overview card and
+      // the activity tab render identical rows.
+      recentActivity: recentActivity.map(formatActivity),
       latestDocuments: latestDocuments.map((d) => ({
         id: d.id,
         name: d.title,

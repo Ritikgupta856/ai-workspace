@@ -2,115 +2,178 @@
 
 import { motion } from "framer-motion"
 import {
-  Bot,
+  Sparkles,
   FolderKanban,
-  CheckSquare,
+  ListChecks,
   BookOpen,
   FileText,
-  Puzzle,
+  Plug,
   Search,
+  type LucideIcon,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { Section, SectionHeading, EASE } from "@/components/landing/section"
 
-const features = [
+/**
+ * Bento grid. Icons are monochrome by default — the brand hue is reserved for
+ * the one card we want read first. A rainbow of per-card colours is the fastest
+ * way to make a page look generated, so the palette stays locked.
+ */
+
+type Feature = {
+  icon: LucideIcon
+  title: string
+  body: string
+  span: string
+  /** Only the lead card gets the accent treatment. */
+  lead?: boolean
+  visual?: "answer" | "search"
+}
+
+const features: Feature[] = [
   {
-    icon: Bot,
-    title: "AI Workspace",
-    description:
-      "Built-in AI assistant that understands your projects, code, and documents. Get answers, generate content, and automate tasks.",
-    bg: "bg-blue-500/10",
-    color: "text-blue-500",
+    icon: Sparkles,
+    title: "An assistant with your context loaded",
+    body: "Ask in plain language. Synapse retrieves from the projects, documents and threads it has indexed, then answers with the sources attached.",
+    span: "md:col-span-4",
+    lead: true,
+    visual: "answer",
+  },
+  {
+    icon: Search,
+    title: "One search across everything",
+    body: "Projects, tasks, notes, documents and chat history behind a single ⌘K.",
+    span: "md:col-span-2",
+    visual: "search",
   },
   {
     icon: FolderKanban,
     title: "Projects",
-    description:
-      "Organize work into projects with milestones, timelines, and team collaboration. Keep everything in one place.",
-    bg: "bg-amber-500/10",
-    color: "text-amber-500",
+    body: "Milestones, owners and health in one view, so status meetings get shorter.",
+    span: "md:col-span-2",
   },
   {
-    icon: CheckSquare,
+    icon: ListChecks,
     title: "Tasks",
-    description:
-      "Track tasks with Kanban boards, lists, and calendars. Prioritize, assign, and monitor progress in real time.",
-    bg: "bg-emerald-500/10",
-    color: "text-emerald-500",
-  },
-  {
-    icon: BookOpen,
-    title: "Knowledge Base",
-    description:
-      "Create and share a team wiki. Document processes, decisions, and best practices that your AI can reference.",
-    bg: "bg-violet-500/10",
-    color: "text-violet-500",
+    body: "Board, list and calendar views over the same tasks. Drag to reprioritise.",
+    span: "md:col-span-2",
   },
   {
     icon: FileText,
     title: "Documents",
-    description:
-      "Write and collaborate on documents with real-time editing, comments, and AI-powered suggestions.",
-    bg: "bg-sky-500/10",
-    color: "text-sky-500",
+    body: "Upload specs and PDFs. They're parsed, chunked and searchable in seconds.",
+    span: "md:col-span-2",
   },
   {
-    icon: Puzzle,
-    title: "Integrations",
-    description:
-      "Connect GitHub, Slack, Notion, Linear, and more. Sync data and trigger automations across your toolchain.",
-    bg: "bg-teal-500/10",
-    color: "text-teal-500",
+    icon: BookOpen,
+    title: "Notes and knowledge",
+    body: "Write decisions down once. Every future answer can cite them instead of guessing.",
+    span: "md:col-span-3",
   },
   {
-    icon: Search,
-    title: "Search Everything",
-    description:
-      "Universal search across projects, tasks, documents, chats, and code. Find anything in an instant.",
-    bg: "bg-rose-500/10",
-    color: "text-rose-500",
+    icon: Plug,
+    title: "Integrations that sync both ways",
+    body: "Pull work in from GitHub, Slack, Notion and Linear — and push tasks back out.",
+    span: "md:col-span-3",
   },
 ]
 
-export function Features() {
-  return (
-    <section id="features" className="relative py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-16 text-center"
-        >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Everything you need to run your work.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Synapse brings together AI, project management, documentation, and
-            automation in one seamless experience.
-          </p>
-        </motion.div>
+/* ── Inline visuals: small, literal, drawn to the same grid ── */
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {features.map((feature, i) => (
-            <motion.div
-              key={feature.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.05 }}
-              whileHover={{ y: -4 }}
-              className="group relative rounded-xl border border-border/50 bg-card p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_0_30px_rgba(var(--primary),0.08)]"
-            >
-              <div className={`mb-4 flex size-10 items-center justify-center rounded-lg ${feature.bg} ${feature.color}`}>
-                <feature.icon className="size-5" />
-              </div>
-              <h3 className="mb-2 text-base font-semibold">{feature.title}</h3>
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                {feature.description}
-              </p>
-            </motion.div>
-          ))}
+function AnswerVisual() {
+  return (
+    <div className="border-line-soft bg-surface-1/60 mt-6 rounded-lg border p-3">
+      <div className="border-line-soft flex items-center gap-2 rounded-md border bg-white px-2.5 py-2">
+        <Search className="text-ink-faint size-3.5 shrink-0" strokeWidth={2.25} />
+        <span className="text-ink-soft truncate text-[12px]">
+          Why did we drop the queue worker?
+        </span>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <span className="bg-brand mt-1.5 h-11 w-[2px] shrink-0 rounded-full" />
+        <div className="min-w-0 flex-1">
+          <div className="bg-line h-[3px] w-full rounded-full" />
+          <div className="bg-line mt-2 h-[3px] w-[86%] rounded-full" />
+          <div className="bg-line mt-2 h-[3px] w-[62%] rounded-full" />
+          <div className="mt-3 flex items-center gap-1.5">
+            <span className="border-brand-line bg-brand-wash text-brand-ink rounded border px-1.5 py-0.5 text-[10px] font-medium">
+              ADR-014
+            </span>
+            <span className="border-line text-ink-faint rounded border px-1.5 py-0.5 text-[10px] font-medium">
+              PR #291
+            </span>
+          </div>
         </div>
       </div>
-    </section>
+    </div>
+  )
+}
+
+function SearchVisual() {
+  const rows = [
+    { label: "Tasks", w: "w-[58%]" },
+    { label: "Docs", w: "w-[74%]" },
+    { label: "Notes", w: "w-[44%]" },
+  ]
+  return (
+    <div className="border-line-soft mt-6 divide-y divide-line-soft rounded-lg border bg-white">
+      {rows.map(({ label, w }) => (
+        <div key={label} className="flex items-center gap-2.5 px-3 py-2.5">
+          <span className="text-ink-faint w-9 shrink-0 text-[10px] font-medium tracking-[0.06em] uppercase">
+            {label}
+          </span>
+          <span className={cn("bg-line h-[3px] rounded-full", w)} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function Features() {
+  return (
+    <Section id="features" divider>
+      <SectionHeading
+        eyebrow="The workspace"
+        title="Everything your team already does — in one place that understands it."
+        lede="Synapse isn't another silo. It indexes the work you're doing so the assistant, the search bar and the board are all looking at the same thing."
+      />
+
+      <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 md:mt-16 md:grid-cols-6">
+        {features.map(({ icon: Icon, title, body, span, lead, visual }, i) => (
+          <motion.article
+            key={title}
+            initial={{ opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-60px" }}
+            transition={{ duration: 0.55, delay: i * 0.04, ease: EASE }}
+            className={cn(
+              "lp-surface lp-lift group flex flex-col rounded-xl p-6",
+              span,
+            )}
+          >
+            <span
+              className={cn(
+                "flex size-9 items-center justify-center rounded-lg border",
+                lead
+                  ? "border-brand-line bg-brand-wash text-brand"
+                  : "border-line-soft bg-surface-1 text-ink-soft",
+              )}
+            >
+              <Icon className="size-[17px]" strokeWidth={1.9} />
+            </span>
+
+            <h3 className="text-ink mt-5 text-[15px] leading-snug font-semibold tracking-[-0.015em]">
+              {title}
+            </h3>
+            <p className="text-ink-soft mt-2 text-[13.5px] leading-[1.6]">
+              {body}
+            </p>
+
+            {visual === "answer" && <AnswerVisual />}
+            {visual === "search" && <SearchVisual />}
+          </motion.article>
+        ))}
+      </div>
+    </Section>
   )
 }

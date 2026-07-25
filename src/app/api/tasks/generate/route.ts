@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { TaskPriority, TaskStatus } from "@/generated/prisma/enums"
+import { logActivity } from "@/lib/activity"
 
 export async function POST(req: Request) {
   try {
@@ -64,6 +65,15 @@ export async function POST(req: Request) {
         project: { select: { name: true } },
         assignee: { select: { name: true } },
       },
+    })
+
+    await logActivity({
+      type: "TASK_CREATED",
+      workspaceId: membership.workspaceId,
+      userId: session.user.id,
+      projectId: task.projectId ?? undefined,
+      taskId: task.id,
+      metadata: { target: task.title, generatedByAI: true },
     })
 
     const formatted = {

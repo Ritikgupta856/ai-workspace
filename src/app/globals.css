@@ -78,6 +78,33 @@
 
   --tracking-normal: -0.011em;
   --spacing: 0.25rem;
+
+  /* ── Landing palette ──────────────────────────────────────
+     One accent hue, one neutral ramp. Registered as Tailwind
+     colours below so sections can't invent their own values. */
+  --lp-page: #ffffff;
+  --lp-surface: oklch(0.983 0.003 250);
+  --lp-line: oklch(0.918 0.006 250);
+  --lp-line-soft: oklch(0.945 0.005 250);
+
+  --lp-ink: oklch(0.21 0.02 255);
+  --lp-ink-soft: oklch(0.46 0.018 255);
+  --lp-ink-faint: oklch(0.62 0.014 252);
+
+  --lp-accent: oklch(0.55 0.21 258);
+  --lp-accent-ink: oklch(0.46 0.19 258);
+  --lp-accent-wash: oklch(0.55 0.21 258 / 0.07);
+  --lp-accent-line: oklch(0.55 0.21 258 / 0.22);
+
+  /* Elevation — exactly three levels, nothing else. */
+  --lp-shadow-rest: 0 1px 2px oklch(0.21 0.02 255 / 0.05);
+  --lp-shadow-lift:
+    0 1px 2px oklch(0.21 0.02 255 / 0.04),
+    0 12px 32px -14px oklch(0.21 0.02 255 / 0.18);
+  --lp-shadow-frame:
+    0 1px 1px oklch(0.21 0.02 255 / 0.04),
+    0 8px 24px -12px oklch(0.21 0.02 255 / 0.12),
+    0 32px 64px -32px oklch(0.21 0.02 255 / 0.2);
 }
 
 .dark {
@@ -177,6 +204,24 @@
   --shadow-xl: var(--shadow-xl);
   --shadow-2xl: var(--shadow-2xl);
 
+  /* ── Landing tokens exposed as utilities ──────────────────
+     text-ink / text-ink-soft / border-line / bg-surface-1 /
+     bg-accent-wash / shadow-rest / shadow-lift / shadow-frame */
+  --color-ink: var(--lp-ink);
+  --color-ink-soft: var(--lp-ink-soft);
+  --color-ink-faint: var(--lp-ink-faint);
+  --color-line: var(--lp-line);
+  --color-line-soft: var(--lp-line-soft);
+  --color-surface-1: var(--lp-surface);
+  --color-brand: var(--lp-accent);
+  --color-brand-ink: var(--lp-accent-ink);
+  --color-brand-wash: var(--lp-accent-wash);
+  --color-brand-line: var(--lp-accent-line);
+
+  --shadow-rest: var(--lp-shadow-rest);
+  --shadow-lift: var(--lp-shadow-lift);
+  --shadow-frame: var(--lp-shadow-frame);
+
   --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
   --tracking-tight: calc(var(--tracking-normal) - 0.025em);
   --tracking-normal: var(--tracking-normal);
@@ -235,5 +280,235 @@
   }
   ::-webkit-scrollbar-thumb:hover {
     background: oklch(0.78 0.01 250);
+  }
+}
+
+/* ============================================================
+   Landing page design system
+   One accent hue (Synapse blue), one neutral ramp, two shadow
+   levels, two radii. Brand logos are the only place any other
+   colour is allowed — that rule is what keeps the page coherent.
+   ============================================================ */
+
+@layer components {
+  .auth-brand-panel {
+    background: oklch(0.975 0.012 255);
+    border-color: oklch(0.89 0.02 255);
+  }
+
+  .auth-brand-glow {
+    background:
+      radial-gradient(circle at 50% 43%, oklch(0.72 0.14 255 / 0.17), transparent 28%),
+      radial-gradient(circle at 76% 16%, oklch(0.78 0.12 240 / 0.16), transparent 25%),
+      linear-gradient(145deg, oklch(0.985 0.008 255), oklch(0.95 0.016 258));
+  }
+
+  .auth-brand-grid {
+    background-image:
+      linear-gradient(to right, oklch(0.81 0.03 255 / 0.22) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0.81 0.03 255 / 0.22) 1px, transparent 1px);
+    background-size: 72px 72px;
+    mask-image: radial-gradient(70% 60% at 50% 44%, #000, transparent 100%);
+  }
+
+  .auth-network-orbit {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    border: 1px solid oklch(0.69 0.14 255 / 0.12);
+    border-radius: 999px;
+    transform: translate(-50%, -50%);
+  }
+
+  .auth-network-orbit-outer { width: 270px; height: 270px; }
+  .auth-network-orbit-inner {
+    width: 170px;
+    height: 170px;
+    border-color: oklch(0.69 0.14 255 / 0.16);
+  }
+
+  .auth-network-line {
+    stroke: oklch(0.53 0.19 257 / 0.35);
+    stroke-width: 1.4;
+    stroke-dasharray: 4 6;
+    stroke-linecap: round;
+  }
+
+  .auth-network-dot {
+    fill: oklch(0.55 0.21 258 / 0.85);
+    filter: drop-shadow(0 0 5px oklch(0.55 0.21 258 / 0.5));
+  }
+
+  .source-card {
+    position: absolute;
+    z-index: 5;
+    display: flex;
+    width: 176px;
+    align-items: center;
+    gap: 10px;
+    border: 1px solid oklch(1 0 0 / 0.75);
+    border-radius: 15px;
+    background: oklch(1 0 0 / 0.82);
+    padding: 11px 13px;
+    box-shadow: 0 12px 28px oklch(0.35 0.08 255 / 0.08);
+    backdrop-filter: blur(12px);
+  }
+
+  .auth-source-icon {
+    display: flex;
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+  }
+
+  .source-card-documents { top: 3px; left: 50%; transform: translateX(-50%); }
+  .source-card-code { top: 112px; left: 0; }
+  .source-card-conversations { top: 112px; right: 0; }
+  .source-card-projects { bottom: 4px; left: 10%; }
+  .source-card-integrations { right: 10%; bottom: 4px; }
+
+  .auth-source-blue .auth-source-icon { color: oklch(0.55 0.21 258); background: oklch(0.55 0.21 258 / 0.1); }
+  .auth-source-violet .auth-source-icon { color: oklch(0.58 0.21 295); background: oklch(0.58 0.21 295 / 0.1); }
+  .auth-source-green .auth-source-icon { color: oklch(0.58 0.16 150); background: oklch(0.58 0.16 150 / 0.1); }
+  .auth-source-amber .auth-source-icon { color: oklch(0.68 0.17 75); background: oklch(0.68 0.17 75 / 0.12); }
+  .auth-source-rose .auth-source-icon { color: oklch(0.62 0.2 20); background: oklch(0.62 0.2 20 / 0.1); }
+
+  .auth-integration-mark {
+    display: flex;
+    width: 43px;
+    height: 43px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid oklch(0.88 0.02 255);
+    border-radius: 12px;
+    background: oklch(1 0 0 / 0.85);
+    box-shadow: 0 5px 14px oklch(0.35 0.08 255 / 0.06);
+  }
+
+  @media (max-width: 1280px) {
+    .source-card { width: 158px; padding: 9px 10px; }
+    .source-card-projects { left: 4%; }
+    .source-card-integrations { right: 4%; }
+  }
+
+  .lp {
+    background: var(--lp-page);
+    color: var(--lp-ink);
+  }
+
+  /* ── Surface primitives ─────────────────────────────────── */
+  .lp-surface {
+    border: 1px solid var(--lp-line);
+    background: var(--lp-page);
+    box-shadow: var(--lp-shadow-rest);
+  }
+
+  .lp-lift {
+    transition:
+      border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lp-lift:hover {
+    border-color: var(--lp-accent-line);
+    box-shadow: var(--lp-shadow-lift);
+    transform: translateY(-2px);
+  }
+
+  /* ── Background textures ────────────────────────────────── */
+  .lp-grid {
+    background-image:
+      linear-gradient(to right, var(--lp-line-soft) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--lp-line-soft) 1px, transparent 1px);
+    background-size: 72px 72px;
+    background-position: center top;
+  }
+
+  .lp-dots {
+    background-image: radial-gradient(var(--lp-line) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* ── Masks ──────────────────────────────────────────────── */
+  .lp-mask-b {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
+  }
+  .lp-mask-radial {
+    -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+    mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
+  }
+  .lp-mask-x {
+    -webkit-mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 8rem,
+      #000 calc(100% - 8rem),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 8rem,
+      #000 calc(100% - 8rem),
+      transparent 100%
+    );
+  }
+
+  /* ── Hairline section dividers that stop before the edge ── */
+  .lp-rule {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--lp-line) 15%,
+      var(--lp-line) 85%,
+      transparent
+    );
+  }
+
+  /* ── Logo marquee ───────────────────────────────────────── */
+  .lp-marquee-track {
+    display: flex;
+    width: max-content;
+    animation: lp-marquee 42s linear infinite;
+  }
+  .lp-marquee:hover .lp-marquee-track {
+    animation-play-state: paused;
+  }
+  @keyframes lp-marquee {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  /* ── Slow orbit for the integrations ring ───────────────── */
+  @keyframes lp-orbit {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  .lp-orbit {
+    animation: lp-orbit 60s linear infinite;
+  }
+  .lp-orbit-counter {
+    animation: lp-orbit 60s linear infinite reverse;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lp-marquee-track,
+    .lp-orbit,
+    .lp-orbit-counter {
+      animation: none;
+    }
   }
 }
