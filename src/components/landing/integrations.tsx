@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import Link from "next/link"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Section, Eyebrow, EASE, reveal } from "@/components/landing/section"
@@ -68,10 +69,10 @@ export function Integrations() {
               className="border-line text-ink hover:bg-surface-1 h-10 gap-2 rounded-lg bg-white text-[14px] font-medium shadow-rest"
               asChild
             >
-              <a href="/integrations">
+              <Link href="/integrations">
                 Browse all integrations
                 <ArrowRight className="size-4" />
-              </a>
+              </Link>
             </Button>
             <span className="text-ink-faint text-[13px]">
               Plus Figma, Drive, Asana and Discord

@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   Home,
   Bot,
@@ -14,6 +13,7 @@ import {
   Users,
   Settings,
   ChevronsUpDown,
+  PenTool,
   Plus,
 } from "lucide-react"
 
@@ -55,26 +55,50 @@ export interface AppSidebarProps {
     email: string
     avatar: string
   }
+  /** Resolved on the server so the switcher paints with the first frame. */
+  workspaces: WorkspaceItem[]
+  activeWorkspaceId: string | null
 }
 
-const navMain = [
-  { title: "Home", url: "/home", icon: Home },
-  { title: "Agent", url: "/agent", icon: Bot },
-  { title: "Projects", url: "/projects", icon: FolderOpen },
-  { title: "Tasks", url: "/tasks", icon: CheckSquare },
-  { title: "Notes", url: "/notes", icon: FileText },
-  { title: "Integrations", url: "/integrations", icon: Puzzle },
-  { title: "Members", url: "/members", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
+/** Grouped so the list reads as sections rather than one long column. */
+const navSections = [
+  {
+    label: null,
+    items: [
+      { title: "Home", url: "/home", icon: Home },
+      { title: "Agent", url: "/agent", icon: Bot },
+    ],
+  },
+  {
+    label: "Workspace",
+    items: [
+      { title: "Projects", url: "/projects", icon: FolderOpen },
+      { title: "Tasks", url: "/tasks", icon: CheckSquare },
+      { title: "Notes", url: "/notes", icon: FileText },
+      { title: "Boards", url: "/boards", icon: PenTool },
+    ],
+  },
+  {
+    label: "Manage",
+    items: [
+      { title: "Integrations", url: "/integrations", icon: Puzzle },
+      { title: "Members", url: "/members", icon: Users },
+      { title: "Settings", url: "/settings", icon: Settings },
+    ],
+  },
 ]
 
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar({
+  user,
+  workspaces,
+  activeWorkspaceId,
+  ...props
+}: AppSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { state } = useSidebar()
   const isCollapsed = state === "collapsed"
 
-  const [workspaces, setWorkspaces] = React.useState<WorkspaceItem[]>([])
-  const [activeTeam, setActiveTeam] = React.useState<{ name: string; abbr: string; plan: string; id: string } | null>(null)
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
@@ -84,42 +108,22 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
     return pathname.startsWith(url)
   }
 
-  const loadWorkspaces = React.useCallback(async () => {
-    try {
-      const res = await fetch("/api/workspaces")
-      if (res.ok) {
-        const data = await res.json()
-        if (data.success && data.workspaces) {
-          const list: WorkspaceItem[] = data.workspaces
-          setWorkspaces(list)
+  // Derived, not stored: the server already decided which workspace is active,
+  // so holding a copy in state would only let the two drift apart.
+  const active =
+    workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null
 
-          // Determine active workspace from cookie
-          const activeId = document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("activeWorkspaceId="))
-            ?.split("=")[1]
-
-          const active = list.find((w) => w.id === activeId) || list[0]
-          if (active) {
-            setActiveTeam({
-              id: active.id,
-              name: active.name,
-              abbr: active.name.charAt(0).toUpperCase(),
-              plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
-            })
-          }
-        }
+  const activeTeam = active
+    ? {
+        id: active.id,
+        name: active.name,
+        abbr: active.name.charAt(0).toUpperCase(),
+        plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
       }
-    } catch (err) {
-      console.error("Failed to load workspaces in sidebar:", err)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    loadWorkspaces()
-  }, [loadWorkspaces])
+    : null
 
   const handleSwitchWorkspace = async (w: WorkspaceItem) => {
+    if (w.id === activeWorkspaceId) return
     try {
       const res = await fetch("/api/workspaces", {
         method: "POST",
@@ -127,7 +131,9 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         body: JSON.stringify({ workspaceId: w.id }),
       })
       if (res.ok) {
-        window.location.reload()
+        // Re-renders the server tree with the new cookie instead of a full
+        // document reload, so the switch doesn't blank the page.
+        router.refresh()
       }
     } catch (err) {
       console.error("Failed to switch workspace:", err)
@@ -193,38 +199,46 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       </SidebarHeader >
 
       {/* ── Main nav ── */}
-      < SidebarContent className="px-2" >
-        <SidebarGroup className="px-0 py-2">
-          <SidebarMenu className="gap-1">
-            {navMain.map((item) => {
-              const active = isActive(item.url)
+      <SidebarContent className="px-2">
+        {navSections.map((section, i) => (
+          <SidebarGroup key={section.label ?? `group-${i}`} className="px-0 py-1">
+            {section.label && !isCollapsed && (
+              <p className="text-muted-foreground/70 px-3 pt-2 pb-1.5 text-[11px] font-medium">
+                {section.label}
+              </p>
+            )}
+            <SidebarMenu className="gap-0.5">
+              {section.items.map((item) => {
+                const active = isActive(item.url)
 
-              return (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={active}
-                    tooltip={item.title}
-                    className={
-                      active
-                        ? "h-10 rounded-lg font-medium text-sidebar-accent-foreground"
-                        : "h-10 rounded-lg font-medium text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-                    }
-                  >
-                    <Link href={item.url}>
-                      <item.icon
-                        className={`size-4 ${active ? "text-primary" : ""
-                          }`}
-                      />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              )
-            })}
-          </SidebarMenu>
-        </SidebarGroup>
-      </SidebarContent >
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={item.title}
+                      className={cn(
+                        "h-9 rounded-lg text-[13.5px] font-medium transition-colors",
+                        active
+                          ? "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
+                          : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <Link href={item.url}>
+                        <item.icon
+                          className={cn("size-4", active && "text-primary")}
+                          strokeWidth={active ? 2.25 : 2}
+                        />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroup>
+        ))}
+      </SidebarContent>
 
       <SidebarFooter className="px-2 pb-2">
         <NavUser user={resolvedUser} />
@@ -236,8 +250,9 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onSuccess={() => {
-          // Reload workspaces list after creation
-          loadWorkspaces()
+          // The list comes from the server tree, so re-render it rather than
+          // refetching into local state.
+          router.refresh()
         }}
       />
     </Sidebar >

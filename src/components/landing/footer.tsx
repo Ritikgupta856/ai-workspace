@@ -2,12 +2,6 @@
 
 import Image from "next/image"
 import NextLink from "next/link"
-import { Mail } from "lucide-react"
-import {
-  GitHubMono,
-  XMono,
-  LinkedInMono,
-} from "@/components/landing/brand-logos"
 
 /**
  * Footer. The Product column points at real anchors on this page; everything
@@ -37,15 +31,6 @@ const columns: { heading: string; links: Link[] }[] = [
     ],
   },
   {
-    heading: "Resources",
-    links: [
-      { label: "Documentation" },
-      { label: "API reference" },
-      { label: "Changelog" },
-      { label: "Support" },
-    ],
-  },
-  {
     heading: "Company",
     links: [
       { label: "About" },
@@ -54,13 +39,6 @@ const columns: { heading: string; links: Link[] }[] = [
       { label: "Terms" },
     ],
   },
-]
-
-const socials = [
-  { label: "GitHub", href: "https://github.com", Icon: GitHubMono },
-  { label: "X", href: "https://x.com", Icon: XMono },
-  { label: "LinkedIn", href: "https://linkedin.com", Icon: LinkedInMono },
-  { label: "Email", href: "mailto:hello@synapse.so", Icon: Mail },
 ]
 
 export function Footer() {
@@ -91,26 +69,10 @@ export function Footer() {
               the answer is already there when someone asks.
             </p>
 
-            <div className="mt-6 flex items-center gap-2">
-              {socials.map(({ label, href, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  target={href.startsWith("http") ? "_blank" : undefined}
-                  rel={href.startsWith("http") ? "noreferrer" : undefined}
-                  className="border-line text-ink-faint hover:text-ink hover:border-brand-line hover:shadow-rest flex size-9 items-center justify-center rounded-lg border bg-white transition-all duration-200 hover:-translate-y-0.5"
-                >
-                  <Icon className="size-4" />
-                </a>
-              ))}
-            </div>
-
-           
           </div>
 
           {/* ── Link columns ─────────────────────────────────── */}
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:col-span-8">
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-8">
             {columns.map(({ heading, links }) => (
               <div key={heading}>
                 <h3 className="text-ink-faint text-[11px] font-semibold tracking-[0.12em] uppercase">

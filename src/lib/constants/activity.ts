@@ -10,6 +10,7 @@ import {
   MailMinus,
   NotebookPen,
   PenLine,
+  PenTool,
   PlugZap,
   Trash2,
   UserPlus,
@@ -102,6 +103,12 @@ export const ACTIVITY_CONFIG: Record<
     label: "Note",
     className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     icon: Trash2,
+  },
+  WHITEBOARD_CREATED: {
+    label: "Board",
+    className:
+      "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+    icon: PenTool,
   },
   MEMBER_INVITED: {
     label: "Member",

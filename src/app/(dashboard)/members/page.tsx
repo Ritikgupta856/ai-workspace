@@ -488,12 +488,12 @@ export default function MembersPage() {
             onValueChange={setSearch}
           />
           <Button
+            size="sm"
             onClick={() => setIsInviteOpen(true)}
             disabled={!canInvite}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium shadow-sm transition-all flex items-center gap-2"
           >
             <UserPlus className="size-4" />
-            Invite Member
+            Invite member
           </Button>
         </div>
       </div>

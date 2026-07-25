@@ -387,6 +387,7 @@ export default function ProjectsPage() {
             onValueChange={setSearch}
           />
           <Button
+            size="sm"
             onClick={() => {
               setEditingProject(null)
               setDialogOpen(true)

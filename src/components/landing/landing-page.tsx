@@ -7,9 +7,8 @@ import { TrustedBy } from "@/components/landing/trusted-by"
 import { Features } from "@/components/landing/features"
 import { AiWorkspace } from "@/components/landing/ai-workspace"
 import { Integrations } from "@/components/landing/integrations"
-import { Testimonials } from "@/components/landing/testimonials"
 import { Pricing } from "@/components/landing/pricing"
-import { FinalCta } from "@/components/landing/final-cta"
+import { Faq } from "@/components/landing/faq"
 import { Footer } from "@/components/landing/footer"
 
 
@@ -35,9 +34,8 @@ export function LandingPage() {
         <Features />
         <AiWorkspace />
         <Integrations />
-        <Testimonials />
         <Pricing />
-        <FinalCta />
+        <Faq />
       </main>
       <Footer />
     </div>

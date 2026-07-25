@@ -4,22 +4,12 @@ import { motion } from "framer-motion"
 import { BRANDS, type BrandKey } from "@/components/landing/brand-logos"
 import { reveal } from "@/components/landing/section"
 
-/**
- * A logo strip that claims what's true: these are the tools Synapse connects
- * to, not customers we can't name. Monochrome marks at one optical size so the
- * row reads as a single band rather than eight competing brands.
- */
-
 const ORDER: BrandKey[] = [
   "github",
   "slack",
   "notion",
   "linear",
   "figma",
-  "drive",
-  "asana",
-  "discord",
-  "vercel",
 ]
 
 function LogoRow({ ariaHidden }: { ariaHidden?: boolean }) {

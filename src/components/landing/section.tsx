@@ -47,10 +47,13 @@ export function Section({
   )
 }
 
+/**
+ * A quiet editorial label, not a badge. The accent dot and brand-coloured pill
+ * this replaced read as decoration — the section title should carry the weight.
+ */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 text-[11px] font-semibold tracking-[0.14em] text-brand-ink uppercase">
-      <span className="size-1.5 rounded-full bg-brand" />
+    <span className="text-ink-faint text-[11px] font-semibold tracking-[0.18em] uppercase">
       {children}
     </span>
   )
@@ -84,7 +87,7 @@ export function SectionHeading({
       <h2
         className={cn(
           "text-ink text-[28px] leading-[1.15] font-semibold tracking-[-0.025em] text-pretty sm:text-[34px] md:text-[40px]",
-          eyebrow && "mt-4",
+          eyebrow && "mt-3",
         )}
       >
         {title}

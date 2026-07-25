@@ -111,6 +111,7 @@ model User {
   activities      Activity[]
   sessions        Session[]
   accounts        Account[]
+  whiteboards     Whiteboard[]
 }
 
 model Session {
@@ -173,6 +174,7 @@ model Workspace {
   invites         WorkspaceInvite[]
   activities      Activity[]
   knowledgeChunks KnowledgeChunk[]
+  whiteboards     Whiteboard[]
 }
 
 model WorkspaceMember {
@@ -250,6 +252,7 @@ model Project {
   documents       Document[]
   workflows       Workflow[]
   activities      Activity[]
+  whiteboards     Whiteboard[]
 }
 
 model Task {
@@ -291,6 +294,25 @@ model Note {
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Whiteboard {
+  id              String              @id @default(cuid())
+  workspaceId     String
+  projectId       String?
+  title           String              @default("Untitled board")
+  scene           Json?
+  files           Json?
+  createdById     String
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  workspace       Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project         Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy       User                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([projectId])
 }
 
 model Chat {

@@ -31,14 +31,18 @@ export function NewTaskButton({ onNewTask }: NewTaskButtonProps) {
     <DropdownMenu>
       <div className="inline-flex items-center">
         <Button
+          size="sm"
           onClick={onNewTask}
           className="rounded-r-none shadow-none"
         >
           <Plus className="size-4" />
-          <span>New Task</span>
+          <span>New task</span>
         </Button>
         <DropdownMenuTrigger asChild>
-          <Button className="rounded-l-none border-l border-primary-foreground/20 px-2 shadow-none">
+          <Button
+            size="sm"
+            className="rounded-l-none border-l border-primary-foreground/20 px-2 shadow-none"
+          >
             <ChevronDown className="size-4" />
           </Button>
         </DropdownMenuTrigger>

@@ -1,33 +1,36 @@
 "use client"
 
+import * as React from "react"
 import { motion } from "framer-motion"
 import {
-  Sparkles,
-  FolderKanban,
-  ListChecks,
+  ArrowUpRight,
   BookOpen,
   FileText,
-  Plug,
+  FolderKanban,
+  ListChecks,
   Search,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
+
 import { cn } from "@/lib/utils"
 import { Section, SectionHeading, EASE } from "@/components/landing/section"
+import { BRANDS, type BrandKey } from "@/components/landing/brand-logos"
 
 /**
- * Bento grid. Icons are monochrome by default — the brand hue is reserved for
- * the one card we want read first. A rainbow of per-card colours is the fastest
- * way to make a page look generated, so the palette stays locked.
+ * One card shape, repeated. The previous bento grid gave every card a different
+ * width and two of them inline illustrations, which made the section read as
+ * seven unrelated things; a uniform grid lets the copy do the work.
+ *
+ * Interaction is a cursor-tracked wash rather than per-card animation — it
+ * responds to the pointer without anything moving on the page.
  */
 
 type Feature = {
   icon: LucideIcon
   title: string
   body: string
-  span: string
-  /** Only the lead card gets the accent treatment. */
-  lead?: boolean
-  visual?: "answer" | "search"
+  href: string
 }
 
 const features: Feature[] = [
@@ -35,99 +38,53 @@ const features: Feature[] = [
     icon: Sparkles,
     title: "An assistant with your context loaded",
     body: "Ask in plain language. Synapse retrieves from the projects, documents and threads it has indexed, then answers with the sources attached.",
-    span: "md:col-span-4",
-    lead: true,
-    visual: "answer",
+    href: "#ai-workspace",
   },
   {
     icon: Search,
     title: "One search across everything",
     body: "Projects, tasks, notes, documents and chat history behind a single ⌘K.",
-    span: "md:col-span-2",
-    visual: "search",
+    href: "#ai-workspace",
   },
   {
     icon: FolderKanban,
     title: "Projects",
     body: "Milestones, owners and health in one view, so status meetings get shorter.",
-    span: "md:col-span-2",
+    href: "#how-it-works",
   },
   {
     icon: ListChecks,
     title: "Tasks",
     body: "Board, list and calendar views over the same tasks. Drag to reprioritise.",
-    span: "md:col-span-2",
+    href: "#how-it-works",
   },
   {
     icon: FileText,
     title: "Documents",
     body: "Upload specs and PDFs. They're parsed, chunked and searchable in seconds.",
-    span: "md:col-span-2",
+    href: "#how-it-works",
   },
   {
     icon: BookOpen,
     title: "Notes and knowledge",
     body: "Write decisions down once. Every future answer can cite them instead of guessing.",
-    span: "md:col-span-3",
-  },
-  {
-    icon: Plug,
-    title: "Integrations that sync both ways",
-    body: "Pull work in from GitHub, Slack, Notion and Linear — and push tasks back out.",
-    span: "md:col-span-3",
+    href: "#how-it-works",
   },
 ]
 
-/* ── Inline visuals: small, literal, drawn to the same grid ── */
+const LOGOS: BrandKey[] = ["github", "slack", "notion", "linear", "figma", "drive"]
 
-function AnswerVisual() {
-  return (
-    <div className="border-line-soft bg-surface-1/60 mt-6 rounded-lg border p-3">
-      <div className="border-line-soft flex items-center gap-2 rounded-md border bg-white px-2.5 py-2">
-        <Search className="text-ink-faint size-3.5 shrink-0" strokeWidth={2.25} />
-        <span className="text-ink-soft truncate text-[12px]">
-          Why did we drop the queue worker?
-        </span>
-      </div>
-      <div className="mt-2 flex gap-2">
-        <span className="bg-brand mt-1.5 h-11 w-[2px] shrink-0 rounded-full" />
-        <div className="min-w-0 flex-1">
-          <div className="bg-line h-[3px] w-full rounded-full" />
-          <div className="bg-line mt-2 h-[3px] w-[86%] rounded-full" />
-          <div className="bg-line mt-2 h-[3px] w-[62%] rounded-full" />
-          <div className="mt-3 flex items-center gap-1.5">
-            <span className="border-brand-line bg-brand-wash text-brand-ink rounded border px-1.5 py-0.5 text-[10px] font-medium">
-              ADR-014
-            </span>
-            <span className="border-line text-ink-faint rounded border px-1.5 py-0.5 text-[10px] font-medium">
-              PR #291
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+/** Writes the pointer position onto the card so CSS can place the wash. */
+function trackPointer(event: React.MouseEvent<HTMLElement>) {
+  const rect = event.currentTarget.getBoundingClientRect()
+  event.currentTarget.style.setProperty("--x", `${event.clientX - rect.left}px`)
+  event.currentTarget.style.setProperty("--y", `${event.clientY - rect.top}px`)
 }
 
-function SearchVisual() {
-  const rows = [
-    { label: "Tasks", w: "w-[58%]" },
-    { label: "Docs", w: "w-[74%]" },
-    { label: "Notes", w: "w-[44%]" },
-  ]
-  return (
-    <div className="border-line-soft mt-6 divide-y divide-line-soft rounded-lg border bg-white">
-      {rows.map(({ label, w }) => (
-        <div key={label} className="flex items-center gap-2.5 px-3 py-2.5">
-          <span className="text-ink-faint w-9 shrink-0 text-[10px] font-medium tracking-[0.06em] uppercase">
-            {label}
-          </span>
-          <span className={cn("bg-line h-[3px] rounded-full", w)} />
-        </div>
-      ))}
-    </div>
-  )
-}
+const spotlight = {
+  background:
+    "radial-gradient(240px circle at var(--x, 50%) var(--y, 50%), var(--lp-accent-wash), transparent 70%)",
+} as const
 
 export function Features() {
   return (
@@ -138,29 +95,30 @@ export function Features() {
         lede="Synapse isn't another silo. It indexes the work you're doing so the assistant, the search bar and the board are all looking at the same thing."
       />
 
-      <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 md:mt-16 md:grid-cols-6">
-        {features.map(({ icon: Icon, title, body, span, lead, visual }, i) => (
-          <motion.article
+      <div className="mt-14 grid grid-cols-1 gap-4 sm:grid-cols-2 md:mt-16 lg:grid-cols-3">
+        {features.map(({ icon: Icon, title, body, href }, i) => (
+          <motion.a
             key={title}
-            initial={{ opacity: 0, y: 18 }}
+            href={href}
+            onMouseMove={trackPointer}
+            initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-60px" }}
-            transition={{ duration: 0.55, delay: i * 0.04, ease: EASE }}
-            className={cn(
-              "lp-surface lp-lift group flex flex-col rounded-xl p-6",
-              span,
-            )}
+            transition={{ duration: 0.5, delay: i * 0.05, ease: EASE }}
+            className="lp-surface lp-lift group relative isolate flex flex-col overflow-hidden rounded-xl p-6"
           >
             <span
-              className={cn(
-                "flex size-9 items-center justify-center rounded-lg border",
-                lead
-                  ? "border-brand-line bg-brand-wash text-brand"
-                  : "border-line-soft bg-surface-1 text-ink-soft",
-              )}
-            >
-              <Icon className="size-[17px]" strokeWidth={1.9} />
-            </span>
+              aria-hidden
+              className="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+              style={spotlight}
+            />
+
+            <div className="flex items-start justify-between gap-3">
+              <span className="border-line-soft bg-surface-1 text-ink-soft group-hover:border-brand-line group-hover:bg-brand-wash group-hover:text-brand flex size-9 items-center justify-center rounded-lg border transition-colors duration-300">
+                <Icon className="size-4.25" strokeWidth={1.9} />
+              </span>
+              <ArrowUpRight className="text-ink-faint size-4 -translate-x-1 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100" />
+            </div>
 
             <h3 className="text-ink mt-5 text-[15px] leading-snug font-semibold tracking-[-0.015em]">
               {title}
@@ -168,12 +126,55 @@ export function Features() {
             <p className="text-ink-soft mt-2 text-[13.5px] leading-[1.6]">
               {body}
             </p>
-
-            {visual === "answer" && <AnswerVisual />}
-            {visual === "search" && <SearchVisual />}
-          </motion.article>
+          </motion.a>
         ))}
       </div>
+
+      {/* Integrations get the full width — the logos are the argument */}
+      <motion.a
+        href="#integrations"
+        onMouseMove={trackPointer}
+        initial={{ opacity: 0, y: 16 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        transition={{ duration: 0.5, delay: 0.3, ease: EASE }}
+        className="lp-surface lp-lift group relative isolate mt-4 flex flex-col gap-6 overflow-hidden rounded-xl p-6 md:flex-row md:items-center md:justify-between"
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={spotlight}
+        />
+
+        <div className="max-w-md">
+          <h3 className="text-ink text-[15px] leading-snug font-semibold tracking-[-0.015em]">
+            Integrations that sync both ways
+          </h3>
+          <p className="text-ink-soft mt-2 text-[13.5px] leading-[1.6]">
+            Pull work in from GitHub, Slack, Notion and Linear — and push tasks
+            back out.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          {LOGOS.map((key) => {
+            const { name, Color } = BRANDS[key]
+            return (
+              <span
+                key={key}
+                title={name}
+                className={cn(
+                  "border-line flex size-10 items-center justify-center rounded-xl border bg-white shadow-rest",
+                  "transition-transform duration-300 group-hover:-translate-y-0.5"
+                )}
+              >
+                <Color className="size-4.5" />
+                <span className="sr-only">{name}</span>
+              </span>
+            )
+          })}
+        </div>
+      </motion.a>
     </Section>
   )
 }

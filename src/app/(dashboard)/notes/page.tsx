@@ -305,11 +305,11 @@ export default function NotesPage() {
             onValueChange={setSearchQuery}
           />
           <Button
+            size="sm"
             onClick={() => {
               setEditing(null)
               setDialogOpen(true)
             }}
-            className="gap-2"
           >
             <Plus className="size-4" />
             New note

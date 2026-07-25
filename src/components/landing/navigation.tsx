@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
+import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -14,6 +15,7 @@ const navLinks = [
   { label: "AI Workspace", href: "#ai-workspace" },
   { label: "Integrations", href: "#integrations" },
   { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
 ]
 
 export function Navigation() {
@@ -45,7 +47,7 @@ export function Navigation() {
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <a href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2">
           <Image
             src="/images/synapse-logo.svg"
             alt="Synapse"
@@ -54,7 +56,7 @@ export function Navigation() {
             className="h-9 w-auto"
             priority
           />
-        </a>
+        </Link>
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-1 md:flex">

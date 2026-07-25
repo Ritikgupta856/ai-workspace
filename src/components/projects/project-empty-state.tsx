@@ -20,9 +20,9 @@ export function ProjectEmptyState({ onCreate }: ProjectEmptyStateProps) {
           knowledge, and integrations.
         </p>
       </div>
-      <Button onClick={onCreate}>
+      <Button size="sm" onClick={onCreate}>
         <Plus className="size-4" />
-        Create Project
+        New project
       </Button>
     </div>
   )

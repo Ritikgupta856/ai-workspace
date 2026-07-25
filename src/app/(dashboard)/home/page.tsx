@@ -8,19 +8,16 @@ import {
   CalendarClock,
   CheckCircle2,
   FileText,
-  FolderKanban,
-  Minus,
-  NotebookPen,
   Plug,
   RefreshCw,
-  TrendingDown,
-  TrendingUp,
   UserRound,
 } from "lucide-react"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { getDashboardData, type Delta, type FocusTask } from "@/lib/dashboard"
+import { getDashboardData, type FocusTask } from "@/lib/dashboard"
+import { MetricCard } from "@/components/dashboard/metric-card"
+import { ActivityChart } from "@/components/dashboard/activity-chart"
 import {
   TASK_PRIORITY_CONFIG,
   TASK_STATUS_CONFIG,
@@ -84,84 +81,6 @@ function Card({
 /** Row-level hover surface, inset so it reads as a chip rather than a band. */
 const rowClass =
   "mx-2 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50"
-
-function DeltaChip({ delta }: { delta: Delta }) {
-  // Nothing to compare against — say nothing rather than imply growth.
-  if (!delta) {
-    return (
-      <span className="text-muted-foreground text-[11px]">No prior data</span>
-    )
-  }
-  if (delta.direction === "flat") {
-    return (
-      <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
-        <Minus className="size-3" />
-        Flat vs last week
-      </span>
-    )
-  }
-  const up = delta.direction === "up"
-  const Icon = up ? TrendingUp : TrendingDown
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 text-[11px] font-medium",
-        up ? "text-emerald-600" : "text-muted-foreground"
-      )}
-    >
-      <Icon className="size-3" />
-      {delta.percent}%
-      <span className="text-muted-foreground font-normal">vs last week</span>
-    </span>
-  )
-}
-
-function MetricCard({
-  label,
-  value,
-  delta,
-  icon: Icon,
-  href,
-  tone,
-}: {
-  label: string
-  value: number
-  delta: Delta
-  icon: typeof FolderKanban
-  href: string
-  /** Icon tile tint — the only colour on the tile. */
-  tone: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="group hover:border-primary/25 rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md"
-    >
-      <div className="flex items-start gap-3">
-        <span
-          className={cn(
-            "flex size-10 shrink-0 items-center justify-center rounded-xl",
-            tone
-          )}
-        >
-          <Icon className="size-[18px]" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[22px] leading-none font-semibold tabular-nums">
-            {value.toLocaleString()}
-          </p>
-          <p className="text-muted-foreground mt-1.5 text-[13px] leading-tight">
-            {label}
-          </p>
-        </div>
-        <ArrowUpRight className="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
-      <div className="mt-3.5 border-t pt-2.5">
-        <DeltaChip delta={delta} />
-      </div>
-    </Link>
-  )
-}
 
 function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
   const priority =
@@ -351,38 +270,49 @@ export default async function DashboardPage() {
       {/* ── Metrics ──────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Active projects"
+          label="Projects"
+          unit="Projects"
           value={data.metrics.projects.value}
           delta={data.metrics.projects.delta}
-          icon={FolderKanban}
+          ratio={data.metrics.projects.ratio}
+          ratioLabel={data.metrics.projects.ratioLabel}
+          tone="emerald"
           href="/projects"
-          tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30"
         />
         <MetricCard
-          label="Tasks tracked"
+          label="Tasks"
+          unit="Tasks"
           value={data.metrics.tasks.value}
           delta={data.metrics.tasks.delta}
-          icon={CheckCircle2}
+          ratio={data.metrics.tasks.ratio}
+          ratioLabel={data.metrics.tasks.ratioLabel}
+          tone="violet"
           href="/tasks"
-          tone="bg-violet-50 text-violet-600 dark:bg-violet-950/30"
         />
         <MetricCard
-          label="Documents indexed"
+          label="Documents"
+          unit="Documents"
           value={data.metrics.documents.value}
           delta={data.metrics.documents.delta}
-          icon={FileText}
+          ratio={data.metrics.documents.ratio}
+          ratioLabel={data.metrics.documents.ratioLabel}
+          tone="blue"
           href="/projects"
-          tone="bg-blue-50 text-blue-600 dark:bg-blue-950/30"
         />
         <MetricCard
-          label="Notes written"
+          label="Notes"
+          unit="Notes"
           value={data.metrics.notes.value}
           delta={data.metrics.notes.delta}
-          icon={NotebookPen}
+          ratio={data.metrics.notes.ratio}
+          ratioLabel={data.metrics.notes.ratioLabel}
+          tone="amber"
           href="/notes"
-          tone="bg-amber-50 text-amber-600 dark:bg-amber-950/30"
         />
       </div>
+
+      {/* ── Trend ────────────────────────────────────────────── */}
+      <ActivityChart trend={data.trend} />
 
       <div className="grid gap-5 lg:grid-cols-3">
         {/* ── Left ────────────────────────────────────────── */}

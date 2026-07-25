@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchCommand } from "@/components/layout/search-command";
+import type { MemberRoleKey } from "@/lib/constants";
 
 export default async function DashboardLayout({
   children,
@@ -56,7 +57,31 @@ export default async function DashboardLayout({
         },
       },
     })
+
+    // Without this the first render after signup had no membership in hand and
+    // the sidebar came up empty.
+    membership = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id, workspaceId: workspace.id },
+    })
   }
+
+  // Resolved here rather than fetched from the client on mount: the switcher
+  // is above the fold, so a round trip after hydration is a visible blank.
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "asc" },
+    select: {
+      role: true,
+      workspace: { select: { id: true, name: true, slug: true } },
+    },
+  });
+
+  const workspaces = memberships.map((m) => ({
+    id: m.workspace.id,
+    name: m.workspace.name,
+    slug: m.workspace.slug,
+    role: m.role as MemberRoleKey,
+  }));
 
   const user = {
     name: session.user.name ?? "User",
@@ -67,7 +92,11 @@ export default async function DashboardLayout({
   return (
     <TooltipProvider>
         <SidebarProvider className="overflow-hidden max-h-dvh">
-        <AppSidebar user={user} />
+        <AppSidebar
+          user={user}
+          workspaces={workspaces}
+          activeWorkspaceId={membership?.workspaceId ?? workspaces[0]?.id ?? null}
+        />
 
         {/* min-h-0 lets the inset respect the provider's max-h-dvh instead of
             growing past it — without it the scroll container below never gets

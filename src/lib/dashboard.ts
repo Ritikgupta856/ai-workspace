@@ -57,6 +57,8 @@ export async function getDashboardData(userId: string, workspaceId: string) {
     myUpcoming,
     unassignedCount,
     failedDocs,
+    activeProjectCount,
+    pinnedNoteCount,
     activeProjects,
     integrations,
     memberCount,
@@ -137,6 +139,13 @@ export async function getDashboardData(userId: string, workspaceId: string) {
     prisma.document.count({
       where: { ...scope, processingStatus: "FAILED" },
     }),
+
+    // Denominators for the ratio bars on the metric cards — each one has to be
+    // a real proportion, not a decorative fill.
+    prisma.project.count({
+      where: { ...scope, status: { not: "ARCHIVED" } },
+    }),
+    prisma.note.count({ where: { ...scope, pinned: true } }),
 
     prisma.project.findMany({
       where: { ...scope, status: { not: "ARCHIVED" } },
@@ -242,19 +251,38 @@ export async function getDashboardData(userId: string, workspaceId: string) {
   const openTasks =
     (byStatus.TODO ?? 0) + (byStatus.IN_PROGRESS ?? 0) + (byStatus.IN_REVIEW ?? 0)
 
+  const ratio = (part: number, whole: number) =>
+    whole > 0 ? Math.round((part / whole) * 100) : 0
+
   return {
     metrics: {
       projects: {
         value: projectCount,
         delta: delta(projectsThisWeek, projectsPrevWeek),
+        ratio: ratio(activeProjectCount, projectCount),
+        ratioLabel: "active",
       },
-      tasks: { value: taskCount, delta: delta(tasksThisWeek, tasksPrevWeek) },
+      tasks: {
+        value: taskCount,
+        delta: delta(tasksThisWeek, tasksPrevWeek),
+        ratio: ratio(byStatus.DONE ?? 0, taskCount),
+        ratioLabel: "done",
+      },
       documents: {
         value: documentCount,
         delta: delta(docsThisWeek, docsPrevWeek),
+        ratio: ratio(documentCount - failedDocs, documentCount),
+        ratioLabel: "processed",
       },
-      notes: { value: noteCount, delta: delta(notesThisWeek, notesPrevWeek) },
+      notes: {
+        value: noteCount,
+        delta: delta(notesThisWeek, notesPrevWeek),
+        ratio: ratio(pinnedNoteCount, noteCount),
+        ratioLabel: "pinned",
+      },
     },
+
+    trend,
 
     taskBoard: {
       byStatus,
