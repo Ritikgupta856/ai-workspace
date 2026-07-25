@@ -1,6 +1,7 @@
 "use client"
 
 import Image from "next/image"
+import NextLink from "next/link"
 import { Mail } from "lucide-react"
 import {
   GitHubMono,
@@ -64,14 +65,18 @@ const socials = [
 
 export function Footer() {
   return (
-    <footer className="bg-surface-1 relative">
+    <footer className="relative bg-gradient-to-b from-white to-[#f4f6fb]">
       <div className="lp-rule absolute inset-x-0 top-0" />
 
       <div className="mx-auto w-full max-w-6xl px-5 pt-16 pb-10 sm:px-6 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-12 lg:gap-8">
+        <div className="grid gap-12 lg:grid-cols-12 lg:gap-8">
           {/* ── Brand ────────────────────────────────────────── */}
           <div className="lg:col-span-4">
-            <a href="/" className="inline-flex items-center" aria-label="Synapse home">
+            <NextLink
+              href="/"
+              className="inline-flex items-center"
+              aria-label="Synapse home"
+            >
               <Image
                 src="/images/synapse-logo.svg"
                 alt="Synapse"
@@ -79,7 +84,7 @@ export function Footer() {
                 height={40}
                 className="h-8 w-auto"
               />
-            </a>
+            </NextLink>
 
             <p className="text-ink-soft mt-4 max-w-xs text-[13.5px] leading-[1.65]">
               One workspace that reads your projects, docs and repositories — so
@@ -94,36 +99,30 @@ export function Footer() {
                   aria-label={label}
                   target={href.startsWith("http") ? "_blank" : undefined}
                   rel={href.startsWith("http") ? "noreferrer" : undefined}
-                  className="border-line text-ink-faint hover:text-ink hover:border-brand-line flex size-9 items-center justify-center rounded-lg border bg-white transition-colors"
+                  className="border-line text-ink-faint hover:text-ink hover:border-brand-line hover:shadow-rest flex size-9 items-center justify-center rounded-lg border bg-white transition-all duration-200 hover:-translate-y-0.5"
                 >
                   <Icon className="size-4" />
                 </a>
               ))}
             </div>
 
-            <div className="border-line text-ink-soft mt-6 inline-flex items-center gap-2 rounded-full border bg-white py-1.5 pr-3 pl-2.5 text-[12px]">
-              <span className="relative flex size-2">
-                <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-500 opacity-60" />
-                <span className="relative inline-flex size-2 rounded-full bg-emerald-500" />
-              </span>
-              All systems operational
-            </div>
+           
           </div>
 
           {/* ── Link columns ─────────────────────────────────── */}
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 lg:col-span-8">
             {columns.map(({ heading, links }) => (
               <div key={heading}>
-                <h3 className="text-ink text-[13px] font-semibold tracking-[-0.01em]">
+                <h3 className="text-ink-faint text-[11px] font-semibold tracking-[0.12em] uppercase">
                   {heading}
                 </h3>
-                <ul className="mt-4 flex flex-col gap-2.5">
+                <ul className="mt-5 flex flex-col gap-3">
                   {links.map(({ label, href }) => (
                     <li key={label}>
                       {href ? (
                         <a
                           href={href}
-                          className="text-ink-soft hover:text-ink text-[13.5px] transition-colors"
+                          className="text-ink-soft hover:text-ink text-[13.5px] underline-offset-4 transition-colors duration-200 hover:underline"
                         >
                           {label}
                         </a>
@@ -144,14 +143,11 @@ export function Footer() {
         </div>
 
         {/* ── Bottom bar ─────────────────────────────────────── */}
-        <div className="border-line-soft mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row">
+        <div className="border-line-soft mt-14 flex flex-col items-center justify-center gap-3 border-t pt-7 text-center sm:flex-row sm:text-left">
           <p className="text-ink-faint text-[12.5px]">
             &copy; {new Date().getFullYear()} Synapse. All rights reserved.
           </p>
-          <p className="text-ink-faint text-[12.5px]">
-            Third-party names and logos are trademarks of their respective
-            owners.
-          </p>
+         
         </div>
       </div>
     </footer>

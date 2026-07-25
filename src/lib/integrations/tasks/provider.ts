@@ -15,10 +15,10 @@ export const tasksProvider: IntegrationProvider = {
 
   getSystemPrompt(): string {
     return (
-      "You have access to the workspace's task management system. " +
-      "You can list, view, create, and update tasks. " +
-      "Tasks have a title, optional description, status (TODO, IN_PROGRESS, IN_REVIEW, DONE), " +
-      "priority (LOW, MEDIUM, HIGH, URGENT), assignee, labels, and due date."
+      "**Tasks** (this workspace) — list, read, create and update. " +
+      "Fields: title, description, status (TODO, IN_PROGRESS, IN_REVIEW, DONE), " +
+      "priority (LOW, MEDIUM, HIGH, URGENT), assignee, labels, due date. " +
+      "Confirm the specifics with the user before creating or updating anything; read freely."
     )
   },
 }

@@ -1,8 +1,11 @@
+import type { ModelMessage, UserModelMessage } from "ai"
+
 import { prisma } from "@/lib/prisma"
 import { searchKnowledge } from "@/lib/knowledge/ingest"
+import { buildSystemPrompt } from "@/lib/ai/prompts"
 
-type CoreMessage = any
-type CoreUserMessage = any
+type CoreMessage = ModelMessage
+type CoreUserMessage = UserModelMessage
 
 type Attachment = {
   id: string
@@ -35,27 +38,18 @@ export interface BuildChatContextParams {
   workspaceSystemPrompt: string | undefined
   messages: IncomingMessage[]
   workspaceId?: string
+  viewer?: { name?: string; workspace?: string }
 }
 
-const DOCUMENT_BEHAVIOR_INSTRUCTIONS = `Document Context Instructions
+const DOCUMENT_BEHAVIOR_INSTRUCTIONS = `## Attached documents
 
-The user has attached one or more documents to this conversation. These documents are the primary context for the current request.
+The user attached one or more documents to this turn. They are the primary context for the request.
 
-When the user refers to:
-- "this", "this document", "this file"
-- "my resume", "my file"
-- "review this", "summarize it", "improve it"
-- "extract information"
-- "what are my skills", "what's my education"
-- or any similar reference
+Any vague reference — "this", "this file", "my resume", "review it", "summarize it", "what are my skills" — means the attached document(s). Resolve it that way instead of asking which one.
 
-Assume they are referring to the attached document(s).
+Answer from the document directly. If something the user asked about is genuinely absent from it, say that it isn't in the document rather than guessing or filling the gap from elsewhere without saying so.
 
-Do NOT ask unnecessary clarification questions if the answer already exists inside the attached document(s). Only ask follow-up questions when absolutely necessary.
-
-If the answer is contained in the document(s), answer directly. If information is missing from the document(s), clearly state that it is not present rather than guessing.
-
-If workspace tools are also useful, continue using them normally alongside the document context. If both the document and workspace tools are relevant, combine both sources into a single comprehensive answer.`
+Keep using workspace sources alongside the document when they add something, and fold both into one answer rather than reporting them separately.`
 
 function buildStructuredDocumentPrompt(docs: { title: string; extractedText: string | null }[], userContent: string): string {
   const docBlocks = docs.map((doc, idx) => {
@@ -109,9 +103,10 @@ function buildLegacyDocumentPrompt(docs: { title: string; extractedText: string 
 export async function buildChatContext(
   params: BuildChatContextParams
 ): Promise<BuildChatContextResult> {
-  const { workspaceSystemPrompt, messages, workspaceId } = params
+  const { workspaceSystemPrompt, messages, workspaceId, viewer } = params
 
-  let finalSystemPrompt = workspaceSystemPrompt
+  let documentInstructions: string | undefined
+  let knowledge: string | undefined
   const modelMessages: CoreMessage[] = []
 
   for (let i = 0; i < messages.length; i++) {
@@ -173,11 +168,7 @@ export async function buildChatContext(
             messages.slice(i + 1).every((next) => next.role !== "user")
 
           if (isLastUserMessage) {
-            if (workspaceSystemPrompt) {
-              finalSystemPrompt = `${workspaceSystemPrompt}\n\n${DOCUMENT_BEHAVIOR_INSTRUCTIONS}`
-            } else {
-              finalSystemPrompt = DOCUMENT_BEHAVIOR_INSTRUCTIONS
-            }
+            documentInstructions = DOCUMENT_BEHAVIOR_INSTRUCTIONS
 
             parts.push({
               type: "text",
@@ -219,25 +210,33 @@ export async function buildChatContext(
     if (lastUserMsg?.content.trim()) {
       console.log(`[RAG] 🔎 Auto-RAG: searching knowledge for query="${lastUserMsg.content.slice(0, 80)}"`)
       try {
-        const chunks = await searchKnowledge(workspaceId, lastUserMsg.content, 3)
+        const chunks = await searchKnowledge(workspaceId, lastUserMsg.content, 5)
         if (chunks.length > 0) {
           const knowledgeContext = chunks
-            .map(
-              (c, i) =>
-                `[Knowledge ${i + 1}] (${c.sourceType})${c.title ? ` ${c.title}:` : ""}\n${c.content}`
-            )
+            .map((c, i) => {
+              const label = c.title ?? "Untitled"
+              return [
+                `### Excerpt ${i + 1} — ${label}`,
+                `Source type: ${c.sourceType.toLowerCase()}`,
+                ``,
+                c.content,
+              ].join("\n")
+            })
             .join("\n\n")
 
-          const ragPrompt =
-            `\n\n---\nRelevant Knowledge Base Context:\n${knowledgeContext}\n---\n` +
-            `Use the above knowledge base excerpts when relevant to answer the user's question. ` +
-            `If the information is insufficient, use your general knowledge or available tools.`
+          knowledge = [
+            `## Retrieved from the workspace knowledge base`,
+            ``,
+            `These excerpts were pulled for this question before you saw it. Treat them as`,
+            `evidence you already gathered — use what is relevant and ignore what is not, without`,
+            `mentioning the retrieval itself. Cite an excerpt by its title in bold.`,
+            ``,
+            `An excerpt that does not answer the question is not a dead end: search the connected`,
+            `sources with your tools before concluding that something isn't recorded anywhere.`,
+            ``,
+            knowledgeContext,
+          ].join("\n")
 
-          if (finalSystemPrompt) {
-            finalSystemPrompt += ragPrompt
-          } else {
-            finalSystemPrompt = ragPrompt
-          }
           console.log(`[RAG] ✅ Auto-RAG: injected ${chunks.length} chunks into system prompt`)
         } else {
           console.log(`[RAG] ℹ️ Auto-RAG: no relevant chunks found for query`)
@@ -250,7 +249,12 @@ export async function buildChatContext(
 
   return {
     type: "success",
-    systemPrompt: finalSystemPrompt,
+    systemPrompt: buildSystemPrompt({
+      capabilities: workspaceSystemPrompt,
+      knowledge,
+      documentInstructions,
+      viewer,
+    }),
     messages: modelMessages,
   }
 }

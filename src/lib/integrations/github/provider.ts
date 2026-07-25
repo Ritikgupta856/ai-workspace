@@ -37,9 +37,15 @@ export const githubProvider: IntegrationProvider = {
 
   getSystemPrompt(): string {
     return (
-      "You have access to the user's GitHub repositories through the available tools. " +
-      "Use them when the user asks about their repos, issues, pull requests, or code. " +
-      "You can list repositories, search code, view issues and PRs, read file contents, and more."
+      "**GitHub** — repositories, issues, pull requests, commits, and the code itself.\n" +
+      "  - To explore a repository, call `listRepositoryFiles`. It returns the real file tree and is the reliable " +
+      "starting point. `searchCode` uses GitHub's search index, which is often empty for small or new repositories — " +
+      "an empty result there means the index is thin, not that the repository is empty. Never conclude a repo has no " +
+      "code from a failed search; list the tree.\n" +
+      "  - Read files with `getFileContent`; pass a directory path and you get its listing back.\n" +
+      "  - To review a pull request, use `getPullRequestFiles` for the diffs, not just the PR description.\n" +
+      "  - `listCommits` answers what changed recently and who changed it, per repository or per file.\n" +
+      "  - Every issue, PR, commit and file has a url — cite it."
     )
   },
 }

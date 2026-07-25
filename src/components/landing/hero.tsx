@@ -89,14 +89,7 @@ export function Hero() {
           <span className="text-xs font-medium text-slate-500">{label}</span>
         </motion.div>
       ))}
-      {/* Backdrop — one wash plus one field-line pattern, both masked so
-          nothing bleeds into the section below. */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-140">
-        <div className="lp-mask-radial absolute inset-0 opacity-70">
-          <HeroBackdrop className="h-full w-full" />
-        </div>
-        <div className="absolute top-[-260px] left-1/2 h-130 w-[900px] -translate-x-1/2 rounded-full bg-brand/12 blur-[110px]" />
-      </div>
+ 
 
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
         <div className="mx-auto flex flex-col items-center text-center">

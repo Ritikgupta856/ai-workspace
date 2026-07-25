@@ -15,10 +15,10 @@ export const knowledgeProvider: IntegrationProvider = {
 
   getSystemPrompt(): string {
     return (
-      "You have access to the workspace knowledge base. " +
-      "The knowledge base contains information extracted from uploaded documents and other sources. " +
-      "You can search it to answer questions about the workspace's documents and stored knowledge. " +
-      "Use `searchKnowledge` when you need to find relevant information to answer the user's question."
+      "**Knowledge base** (this workspace) — semantic search over uploaded documents, notes and ingested sources. " +
+      "Relevant excerpts are often already provided below; call `searchKnowledge` when they are thin, " +
+      "when the question shifts topic mid-conversation, or to confirm a detail before asserting it. " +
+      "Cite excerpts by their title."
     )
   },
 }

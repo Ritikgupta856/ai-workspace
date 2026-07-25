@@ -6,7 +6,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   Home,
-  MessageCircle,
+  Bot,
   FolderOpen,
   CheckSquare,
   FileText,
@@ -59,7 +59,7 @@ export interface AppSidebarProps {
 
 const navMain = [
   { title: "Home", url: "/home", icon: Home },
-  { title: "Chat", url: "/chat", icon: MessageCircle },
+  { title: "Agent", url: "/agent", icon: Bot },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Notes", url: "/notes", icon: FileText },

@@ -12,7 +12,7 @@ import {
   Minus,
   NotebookPen,
   Plug,
-  Sparkles,
+  RefreshCw,
   TrendingDown,
   TrendingUp,
   UserRound,
@@ -37,7 +37,9 @@ import { Progress } from "@/components/ui/progress"
 import { formatDueDate, formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 
-/* ── Small presentational helpers, local to this page ───────── */
+/* ── Small presentational helpers, local to this page ─────────
+   One card shape, one row shape. Everything on this page is a
+   panel with a quiet header and content that runs edge to edge. */
 
 function Card({
   title,
@@ -55,14 +57,19 @@ function Card({
   action?: React.ReactNode
 }) {
   return (
-    <section className={cn("rounded-xl border bg-card shadow-sm", className)}>
-      <div className="flex items-center justify-between border-b px-5 py-3.5">
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <section
+      className={cn(
+        "rounded-xl border bg-card shadow-sm ring-1 ring-black/[0.01]",
+        className
+      )}
+    >
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
+        <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
         {action ??
           (href && (
             <Link
               href={href}
-              className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="text-primary inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
             >
               {linkLabel}
               <ArrowUpRight className="size-3" />
@@ -74,14 +81,20 @@ function Card({
   )
 }
 
+/** Row-level hover surface, inset so it reads as a chip rather than a band. */
+const rowClass =
+  "mx-2 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50"
+
 function DeltaChip({ delta }: { delta: Delta }) {
   // Nothing to compare against — say nothing rather than imply growth.
   if (!delta) {
-    return <span className="text-xs text-muted-foreground">No prior data</span>
+    return (
+      <span className="text-muted-foreground text-[11px]">No prior data</span>
+    )
   }
   if (delta.direction === "flat") {
     return (
-      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="text-muted-foreground inline-flex items-center gap-1 text-[11px]">
         <Minus className="size-3" />
         Flat vs last week
       </span>
@@ -92,13 +105,13 @@ function DeltaChip({ delta }: { delta: Delta }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 text-xs font-medium",
+        "inline-flex items-center gap-1 text-[11px] font-medium",
         up ? "text-emerald-600" : "text-muted-foreground"
       )}
     >
       <Icon className="size-3" />
       {delta.percent}%
-      <span className="font-normal text-muted-foreground">vs last week</span>
+      <span className="text-muted-foreground font-normal">vs last week</span>
     </span>
   )
 }
@@ -109,29 +122,41 @@ function MetricCard({
   delta,
   icon: Icon,
   href,
+  tone,
 }: {
   label: string
   value: number
   delta: Delta
   icon: typeof FolderKanban
   href: string
+  /** Icon tile tint — the only colour on the tile. */
+  tone: string
 }) {
   return (
     <Link
       href={href}
-      className="group rounded-xl border bg-card p-4 shadow-sm transition-colors hover:border-primary/30"
+      className="group hover:border-primary/25 rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md"
     >
-      <div className="flex items-start justify-between">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-muted text-muted-foreground transition-colors group-hover:bg-primary/10 group-hover:text-primary">
-          <Icon className="size-4" />
+      <div className="flex items-start gap-3">
+        <span
+          className={cn(
+            "flex size-10 shrink-0 items-center justify-center rounded-xl",
+            tone
+          )}
+        >
+          <Icon className="size-[18px]" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[22px] leading-none font-semibold tabular-nums">
+            {value.toLocaleString()}
+          </p>
+          <p className="text-muted-foreground mt-1.5 text-[13px] leading-tight">
+            {label}
+          </p>
         </div>
-        <ArrowUpRight className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+        <ArrowUpRight className="text-muted-foreground size-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
-      <p className="mt-3 text-2xl font-semibold leading-none tabular-nums">
-        {value.toLocaleString()}
-      </p>
-      <p className="mt-1 text-sm text-muted-foreground">{label}</p>
-      <div className="mt-2.5">
+      <div className="mt-3.5 border-t pt-2.5">
         <DeltaChip delta={delta} />
       </div>
     </Link>
@@ -144,10 +169,7 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
     TASK_PRIORITY_CONFIG.LOW
 
   return (
-    <Link
-      href={`/tasks/${task.id}`}
-      className="flex items-center gap-3 px-5 py-2.5 transition-colors hover:bg-accent/40"
-    >
+    <Link href={`/tasks/${task.id}`} className={rowClass}>
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",
@@ -156,8 +178,10 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
       />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{task.title}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          {task.project ? `${task.project.icon ?? "📁"} ${task.project.name}` : "No project"}
+        <p className="text-muted-foreground truncate text-xs">
+          {task.project
+            ? `${task.project.icon ?? "📁"} ${task.project.name}`
+            : "No project"}
         </p>
       </div>
       {task.dueDate && (
@@ -165,7 +189,7 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
           className={cn(
             "shrink-0 text-xs",
             tone === "overdue"
-              ? "font-medium text-destructive"
+              ? "text-destructive font-medium"
               : "text-muted-foreground"
           )}
         >
@@ -178,6 +202,29 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
         icon={priority.icon}
       />
     </Link>
+  )
+}
+
+/** Group label inside "Your focus" — micro-caps, same as the rest of the app. */
+function GroupLabel({
+  children,
+  tone,
+  icon: Icon,
+}: {
+  children: React.ReactNode
+  tone?: "danger"
+  icon?: typeof AlertTriangle
+}) {
+  return (
+    <p
+      className={cn(
+        "flex items-center gap-1.5 px-5 pt-3 pb-1.5 text-[11px] font-semibold tracking-wider uppercase",
+        tone === "danger" ? "text-destructive" : "text-muted-foreground"
+      )}
+    >
+      {Icon && <Icon className="size-3" />}
+      {children}
+    </p>
   )
 }
 
@@ -209,10 +256,24 @@ export default async function DashboardPage() {
 
   if (!membership) redirect("/projects")
 
-  const data = await getDashboardData(session.user.id, membership.workspaceId)
+  const [data, workspace] = await Promise.all([
+    getDashboardData(session.user.id, membership.workspaceId),
+    prisma.workspace.findUnique({
+      where: { id: membership.workspaceId },
+      select: { name: true },
+    }),
+  ])
 
   const firstName = session.user.name?.split(" ")[0] ?? "there"
   const { focus, attention, taskBoard } = data
+
+  // Most recent sync across connected tools — omitted entirely when nothing
+  // has ever synced, rather than showing a hollow "never".
+  const lastSync = data.integrations
+    .map((i) => i.lastSyncAt)
+    .filter((v): v is string => Boolean(v))
+    .sort()
+    .at(-1)
 
   const alerts = [
     attention.overdueCount > 0 && {
@@ -241,35 +302,28 @@ export default async function DashboardPage() {
   }[]
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
+    <div className="flex flex-1 flex-col gap-6">
+      {/* ── Header ───────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="flex items-center gap-2 text-[26px] font-semibold tracking-tight">
             {greeting()}, {firstName}
+            <span aria-hidden>👋</span>
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {focus.totalAssigned > 0
-              ? `You have ${focus.totalAssigned} task${focus.totalAssigned === 1 ? "" : "s"} on your plate.`
-              : "Nothing assigned to you right now."}{" "}
-            {taskBoard.completedThisWeek > 0 &&
-              `${taskBoard.completedThisWeek} completed across the workspace this week.`}
+          <p className="text-muted-foreground mt-1.5 text-sm">
+            {workspace?.name
+              ? `Here's what's happening in ${workspace.name}.`
+              : "Here's what's happening in your workspace."}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/chat">
-              <Sparkles className="size-4" />
-              Ask Synapse
-            </Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/projects">
-              New project
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
-        </div>
+
+        {lastSync && (
+          <span className="text-muted-foreground inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs shadow-sm">
+            <span className="size-1.5 rounded-full bg-emerald-500" />
+            Synced {formatUpdatedDate(lastSync)}
+            <RefreshCw className="size-3" />
+          </span>
+        )}
       </div>
 
       {/* Needs attention — only rendered when something is actually wrong */}
@@ -282,8 +336,8 @@ export default async function DashboardPage() {
               className={cn(
                 "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
                 alert.tone === "danger"
-                  ? "border-destructive/30 bg-destructive/5 text-destructive hover:bg-destructive/10"
-                  : "border-amber-500/30 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                  ? "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
+                  : "border-amber-500/25 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
               )}
             >
               <alert.icon className="size-3.5" />
@@ -294,35 +348,39 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Metrics */}
+      {/* ── Metrics ──────────────────────────────────────────── */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          label="Projects"
+          label="Active projects"
           value={data.metrics.projects.value}
           delta={data.metrics.projects.delta}
           icon={FolderKanban}
           href="/projects"
+          tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30"
         />
         <MetricCard
-          label="Tasks"
+          label="Tasks tracked"
           value={data.metrics.tasks.value}
           delta={data.metrics.tasks.delta}
           icon={CheckCircle2}
           href="/tasks"
+          tone="bg-violet-50 text-violet-600 dark:bg-violet-950/30"
         />
         <MetricCard
-          label="Documents"
+          label="Documents indexed"
           value={data.metrics.documents.value}
           delta={data.metrics.documents.delta}
           icon={FileText}
           href="/projects"
+          tone="bg-blue-50 text-blue-600 dark:bg-blue-950/30"
         />
         <MetricCard
-          label="Notes"
+          label="Notes written"
           value={data.metrics.notes.value}
           delta={data.metrics.notes.delta}
           icon={NotebookPen}
           href="/notes"
+          tone="bg-amber-50 text-amber-600 dark:bg-amber-950/30"
         />
       </div>
 
@@ -332,12 +390,12 @@ export default async function DashboardPage() {
           {/* Your focus — the thing a dashboard exists for */}
           <Card title="Your focus" href="/tasks" linkLabel="All tasks">
             {focus.totalAssigned === 0 ? (
-              <div className="flex flex-col items-center px-5 py-10 text-center">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-                  <CheckCircle2 className="size-4 text-muted-foreground" />
+              <div className="flex flex-col items-center px-5 pt-4 pb-10 text-center">
+                <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
+                  <CheckCircle2 className="text-muted-foreground size-4" />
                 </div>
                 <p className="mt-3 text-sm font-medium">You&rsquo;re all clear</p>
-                <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-1 max-w-xs text-sm">
                   No open tasks are assigned to you. Pick something up from the
                   board when you&rsquo;re ready.
                 </p>
@@ -346,38 +404,32 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="pb-3">
                 {focus.overdue.length > 0 && (
-                  <div className="py-1.5">
-                    <p className="flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-destructive">
-                      <AlertTriangle className="size-3" />
+                  <>
+                    <GroupLabel tone="danger" icon={AlertTriangle}>
                       Overdue
-                    </p>
+                    </GroupLabel>
                     {focus.overdue.map((task) => (
                       <TaskRow key={task.id} task={task} tone="overdue" />
                     ))}
-                  </div>
+                  </>
                 )}
                 {focus.dueToday.length > 0 && (
-                  <div className="py-1.5">
-                    <p className="flex items-center gap-1.5 px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      <CalendarClock className="size-3" />
-                      Due today
-                    </p>
+                  <>
+                    <GroupLabel icon={CalendarClock}>Due today</GroupLabel>
                     {focus.dueToday.map((task) => (
                       <TaskRow key={task.id} task={task} />
                     ))}
-                  </div>
+                  </>
                 )}
                 {focus.upcoming.length > 0 && (
-                  <div className="py-1.5">
-                    <p className="px-5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Up next
-                    </p>
+                  <>
+                    <GroupLabel>Up next</GroupLabel>
                     {focus.upcoming.map((task) => (
                       <TaskRow key={task.id} task={task} />
                     ))}
-                  </div>
+                  </>
                 )}
               </div>
             )}
@@ -385,37 +437,37 @@ export default async function DashboardPage() {
 
           {/* Task distribution — real counts, proportional bars */}
           <Card title="Task overview" href="/tasks" linkLabel="Open board">
-            <div className="p-5">
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {(
-                  Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]
-                ).map((key) => {
-                  const config = TASK_STATUS_CONFIG[key]
-                  const count = taskBoard.byStatus[key] ?? 0
-                  const pct =
-                    taskBoard.total > 0
-                      ? Math.round((count / taskBoard.total) * 100)
-                      : 0
-                  return (
-                    <div key={key}>
-                      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-                        <config.icon className="size-3.5" />
-                        {config.label}
-                      </p>
-                      <p className="mt-1 text-xl font-semibold tabular-nums">
-                        {count}
-                      </p>
-                      <Progress value={pct} className="mt-2 h-1.5" />
-                      <p className="mt-1 text-[11px] text-muted-foreground tabular-nums">
-                        {pct}% of all tasks
-                      </p>
-                    </div>
-                  )
-                })}
+            <div className="px-5 pt-1 pb-5">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+                {(Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]).map(
+                  (key) => {
+                    const config = TASK_STATUS_CONFIG[key]
+                    const count = taskBoard.byStatus[key] ?? 0
+                    const pct =
+                      taskBoard.total > 0
+                        ? Math.round((count / taskBoard.total) * 100)
+                        : 0
+                    return (
+                      <div key={key}>
+                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                          <config.icon className="size-3.5" />
+                          {config.label}
+                        </p>
+                        <p className="mt-1.5 text-xl font-semibold tabular-nums">
+                          {count}
+                        </p>
+                        <Progress value={pct} className="mt-2 h-1.5" />
+                        <p className="text-muted-foreground mt-1.5 text-[11px] tabular-nums">
+                          {pct}% of all tasks
+                        </p>
+                      </div>
+                    )
+                  }
+                )}
               </div>
 
               {taskBoard.total === 0 && (
-                <p className="mt-5 text-center text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-5 text-center text-sm">
                   No tasks yet. Create one to see the breakdown here.
                 </p>
               )}
@@ -425,11 +477,11 @@ export default async function DashboardPage() {
           {/* Active projects */}
           <Card title="Active projects" href="/projects">
             {data.projects.length === 0 ? (
-              <p className="px-5 py-10 text-center text-sm text-muted-foreground">
+              <p className="text-muted-foreground px-5 pt-2 pb-10 text-center text-sm">
                 No active projects. Create one to get started.
               </p>
             ) : (
-              <div className="divide-y">
+              <div className="pb-3">
                 {data.projects.map((project) => {
                   const status =
                     PROJECT_STATUS_CONFIG[project.status] ??
@@ -438,23 +490,23 @@ export default async function DashboardPage() {
                     <Link
                       key={project.id}
                       href={`/projects/${project.id}`}
-                      className="flex items-center gap-3 px-5 py-3 transition-colors hover:bg-accent/40"
+                      className={rowClass}
                     >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-base">
+                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border text-base">
                         {project.icon}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {project.name}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="text-muted-foreground truncate text-xs">
                           {project.doneCount}/{project.taskCount} tasks ·
                           updated {formatUpdatedDate(project.updatedAt)}
                         </p>
                       </div>
                       <div className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
                         <Progress value={project.progress} className="h-1.5" />
-                        <span className="text-xs tabular-nums text-muted-foreground">
+                        <span className="text-muted-foreground text-xs tabular-nums">
                           {project.progress}%
                         </span>
                       </div>
@@ -482,14 +534,14 @@ export default async function DashboardPage() {
             emptyMessage="No activity yet. Events appear as your team works."
           />
 
-          <Card title="Integrations" href="/integrations">
+          <Card title="Connected tools" href="/integrations" linkLabel="Manage">
             {data.integrations.length === 0 ? (
-              <div className="flex flex-col items-center px-5 py-8 text-center">
-                <div className="flex size-10 items-center justify-center rounded-xl bg-muted">
-                  <Plug className="size-4 text-muted-foreground" />
+              <div className="flex flex-col items-center px-5 pt-2 pb-8 text-center">
+                <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
+                  <Plug className="text-muted-foreground size-4" />
                 </div>
                 <p className="mt-3 text-sm font-medium">Nothing connected</p>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-sm">
                   Connect GitHub to pull work in automatically.
                 </p>
                 <Button variant="outline" size="sm" className="mt-4" asChild>
@@ -497,25 +549,22 @@ export default async function DashboardPage() {
                 </Button>
               </div>
             ) : (
-              <div className="divide-y">
+              <div className="pb-3">
                 {data.integrations.map((integration) => {
                   const status =
                     INTEGRATION_STATUS_CONFIG[
                       integration.status as IntegrationStatusKey
                     ] ?? INTEGRATION_STATUS_CONFIG.DISCONNECTED
                   return (
-                    <div
-                      key={integration.id}
-                      className="flex items-center gap-3 px-5 py-3"
-                    >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-                        <Plug className="size-4 text-muted-foreground" />
+                    <div key={integration.id} className={rowClass}>
+                      <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border">
+                        <Plug className="text-muted-foreground size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">
                           {integration.name}
                         </p>
-                        <p className="truncate text-xs text-muted-foreground">
+                        <p className="text-muted-foreground truncate text-xs">
                           {integration.documentCount} document
                           {integration.documentCount === 1 ? "" : "s"}
                           {integration.lastSyncAt &&
@@ -536,20 +585,20 @@ export default async function DashboardPage() {
 
           {/* Replaces the old "AI Usage" card, which had no data behind it */}
           <Card title="Workspace" href="/members" linkLabel="Manage">
-            <div className="grid grid-cols-2 divide-x">
-              <div className="px-5 py-4">
+            <div className="grid grid-cols-2 gap-3 px-5 pt-1 pb-5">
+              <div className="rounded-lg border bg-muted/30 px-4 py-3">
                 <p className="text-2xl font-semibold tabular-nums">
                   {data.memberCount}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-xs">
                   {data.memberCount === 1 ? "Member" : "Members"}
                 </p>
               </div>
-              <div className="px-5 py-4">
+              <div className="rounded-lg border bg-muted/30 px-4 py-3">
                 <p className="text-2xl font-semibold tabular-nums">
                   {taskBoard.completedThisWeek}
                 </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-xs">
                   Done this week
                 </p>
               </div>

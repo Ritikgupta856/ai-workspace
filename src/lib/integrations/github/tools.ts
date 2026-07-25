@@ -209,8 +209,125 @@ export function createGitHubTools(octokit: Octokit) {
       },
     }),
 
+    listRepositoryFiles: tool({
+      description:
+        "List the files in a repository as a flat path tree. This is how you browse a repo — use it before reading files or reviewing code. Optionally scope to a subdirectory or to specific extensions.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        path: z
+          .string()
+          .optional()
+          .describe("Only return files under this directory prefix, e.g. src/lib"),
+        extensions: z
+          .array(z.string())
+          .optional()
+          .describe(
+            'Filter to these file extensions, without the dot, e.g. ["ts","tsx"]'
+          ),
+        ref: z.string().optional().describe("Branch, tag, or commit SHA"),
+        limit: z.number().min(1).max(500).optional().default(300),
+      }),
+      execute: async ({ owner, repo, path, extensions, ref, limit }) => {
+        let treeRef = ref
+        if (!treeRef) {
+          const { data: repoData } = await octokit.rest.repos.get({ owner, repo })
+          treeRef = repoData.default_branch
+        }
+
+        const { data } = await octokit.rest.git.getTree({
+          owner,
+          repo,
+          tree_sha: treeRef,
+          recursive: "1",
+        })
+
+        let files = data.tree.filter((node) => node.type === "blob")
+
+        if (path) {
+          const prefix = path.replace(/^\/+|\/+$/g, "")
+          files = files.filter((f) => f.path?.startsWith(`${prefix}/`) || f.path === prefix)
+        }
+
+        if (extensions?.length) {
+          const wanted = extensions.map((e) => e.replace(/^\./, "").toLowerCase())
+          files = files.filter((f) => {
+            const ext = f.path?.split(".").pop()?.toLowerCase()
+            return ext ? wanted.includes(ext) : false
+          })
+        }
+
+        const capped = files.slice(0, limit ?? 300)
+
+        return {
+          repository: `${owner}/${repo}`,
+          ref: treeRef,
+          totalFiles: files.length,
+          returned: capped.length,
+          truncated: files.length > capped.length || Boolean(data.truncated),
+          files: capped.map((f) => ({ path: f.path, size: f.size ?? null })),
+        }
+      },
+    }),
+
+    listCommits: tool({
+      description:
+        "List recent commits on a repository, optionally for a single file path or branch. Use to answer what changed recently and who changed it.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        path: z.string().optional().describe("Only commits touching this file or directory"),
+        sha: z.string().optional().describe("Branch or commit to start from"),
+        perPage: z.number().min(1).max(100).optional().default(20),
+      }),
+      execute: async ({ owner, repo, path, sha, perPage }) => {
+        const { data } = await octokit.rest.repos.listCommits({
+          owner,
+          repo,
+          path,
+          sha,
+          per_page: perPage ?? 20,
+        })
+        return data.map((c) => ({
+          sha: c.sha.slice(0, 7),
+          message: c.commit.message.split("\n")[0],
+          author: c.commit.author?.name ?? c.author?.login ?? "unknown",
+          date: c.commit.author?.date ?? null,
+          url: c.html_url,
+        }))
+      },
+    }),
+
+    getPullRequestFiles: tool({
+      description:
+        "Get the changed files and their diffs for a pull request. This is what you read to review a PR's code.",
+      inputSchema: z.object({
+        owner: z.string(),
+        repo: z.string(),
+        pullNumber: z.number(),
+        perPage: z.number().min(1).max(100).optional().default(50),
+      }),
+      execute: async ({ owner, repo, pullNumber, perPage }) => {
+        const { data } = await octokit.rest.pulls.listFiles({
+          owner,
+          repo,
+          pull_number: pullNumber,
+          per_page: perPage ?? 50,
+        })
+        return data.map((f) => ({
+          path: f.filename,
+          status: f.status,
+          additions: f.additions,
+          deletions: f.deletions,
+          url: f.blob_url,
+          patch: f.patch ? f.patch.slice(0, 8000) : null,
+        }))
+      },
+    }),
+
     getFileContent: tool({
-      description: "Get the content of a file from a repository",
+      description:
+        "Read a file from a repository. Pass a directory path instead and you get that directory's listing back, so this is safe to call when you're unsure which it is.",
       inputSchema: z.object({
         owner: z.string(),
         repo: z.string(),
@@ -224,16 +341,41 @@ export function createGitHubTools(octokit: Octokit) {
           path,
           ref,
         })
-        if ("content" in data && data.content) {
+
+        // A directory comes back as an array — return the listing rather than
+        // an error, so an ambiguous path still moves the investigation forward.
+        if (Array.isArray(data)) {
           return {
+            type: "directory" as const,
+            path,
+            entries: data.map((entry) => ({
+              name: entry.name,
+              path: entry.path,
+              type: entry.type,
+              size: entry.size,
+            })),
+          }
+        }
+
+        if ("content" in data && data.content) {
+          const decoded = Buffer.from(data.content, "base64").toString("utf-8")
+          const MAX = 60_000
+          return {
+            type: "file" as const,
             name: data.name,
             path: data.path,
-            content: Buffer.from(data.content, "base64").toString("utf-8"),
+            content: decoded.slice(0, MAX),
+            truncated: decoded.length > MAX,
             size: data.size,
             url: data.html_url,
           }
         }
-        return { message: "Not a file or directory listing returned", path }
+
+        return {
+          type: "unsupported" as const,
+          path,
+          message: "This path is a submodule or symlink, not a readable file.",
+        }
       },
     }),
   }

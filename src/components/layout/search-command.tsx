@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import {
   Search,
   Home,
-  MessageCircle,
+  Bot,
   FolderOpen,
   CheckSquare,
   Puzzle,
@@ -26,7 +26,7 @@ import { Kbd } from "@/components/ui/kbd"
 
 const navigationItems = [
   { title: "Home", url: "/home", icon: Home },
-  { title: "Synapse AI", url: "/chat", icon: MessageCircle },
+  { title: "Agent", url: "/agent", icon: Bot },
   { title: "Projects", url: "/projects", icon: FolderOpen },
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Integrations", url: "/integrations", icon: Puzzle },

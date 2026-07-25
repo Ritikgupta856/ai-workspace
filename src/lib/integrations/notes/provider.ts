@@ -15,9 +15,9 @@ export const notesProvider: IntegrationProvider = {
 
   getSystemPrompt(): string {
     return (
-      "You have access to the workspace's notes. " +
-      "You can list, view, create, update, and delete notes. " +
-      "Notes have a title, content (markdown-like text), tags, and can be pinned."
+      "**Notes** (this workspace) — list, read, create, update and delete. " +
+      "Fields: title, markdown content, tags, pinned. " +
+      "Confirm with the user before writing or deleting; read freely."
     )
   },
 }

@@ -15,9 +15,9 @@ export const projectsProvider: IntegrationProvider = {
 
   getSystemPrompt(): string {
     return (
-      "You have access to the workspace's projects. " +
-      "You can list, view, create, update, and delete projects. " +
-      "Projects have a name and optional description, and can contain tasks."
+      "**Projects** (this workspace) — list, read, create, update and delete. " +
+      "A project has a name, optional description and its own tasks. " +
+      "Confirm with the user before writing or deleting; read freely."
     )
   },
 }
