@@ -68,11 +68,13 @@ Do not cite general knowledge, your own reasoning, or things the user just told 
  */
 export function buildSystemPrompt({
   capabilities,
+  consistency,
   knowledge,
   documentInstructions,
   viewer,
 }: {
   capabilities?: string
+  consistency?: string
   knowledge?: string
   documentInstructions?: string
   viewer?: { name?: string; workspace?: string; now?: Date }
@@ -84,6 +86,10 @@ export function buildSystemPrompt({
     CODE_REVIEW_STANDARD,
     CITATION_RULES,
   ]
+
+  if (consistency?.trim()) {
+    sections.push(consistency.trim())
+  }
 
   if (viewer) {
     const now = viewer.now ?? new Date()

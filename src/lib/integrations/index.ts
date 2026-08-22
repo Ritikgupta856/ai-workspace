@@ -3,7 +3,6 @@ import type { ToolSet } from "ai"
 
 import { hasValidConnection, getAccessToken } from "./auth"
 import { INTEGRATIONS } from "./config"
-import { getNotionTools } from "./notion"
 
 type ConnectedClient = Awaited<ReturnType<typeof createMCPClient>>
 
@@ -31,16 +30,6 @@ export async function getMergedToolsForWorkspace(
       if (!available) continue
 
       const token = await getAccessToken(workspaceId, integration.id)
-
-      if (integration.id === "notion") {
-        // Direct Notion API integration bypasses the restricted hosted MCP server
-        const notionTools = getNotionTools(token)
-        Object.assign(merged, notionTools)
-        instructions.push(
-          "Notion Tools: You have access to Notion integration. You can use search, retrieve pages, query databases, create pages, and append content to Notion workspaces."
-        )
-        continue
-      }
 
       const client = await createMCPClient({
         transport: {

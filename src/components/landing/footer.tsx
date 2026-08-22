@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import NextLink from "next/link"
+import { useEffect, useState } from "react"
 
 /**
  * Footer. The Product column points at real anchors on this page; everything
@@ -42,6 +43,12 @@ const columns: { heading: string; links: Link[] }[] = [
 ]
 
 export function Footer() {
+  const [year, setYear] = useState<number>()
+
+  useEffect(() => {
+    setYear(new Date().getFullYear())
+  }, [])
+
   return (
     <footer className="relative bg-gradient-to-b from-white to-[#f4f6fb]">
       <div className="lp-rule absolute inset-x-0 top-0" />
@@ -107,7 +114,7 @@ export function Footer() {
         {/* ── Bottom bar ─────────────────────────────────────── */}
         <div className="border-line-soft mt-14 flex flex-col items-center justify-center gap-3 border-t pt-7 text-center sm:flex-row sm:text-left">
           <p className="text-ink-faint text-[12.5px]">
-            &copy; {new Date().getFullYear()} Synapse. All rights reserved.
+            &copy; {year ?? ""} Synapse. All rights reserved.
           </p>
          
         </div>
