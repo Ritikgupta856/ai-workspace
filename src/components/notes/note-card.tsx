@@ -84,7 +84,7 @@ export function NoteActionsMenu({
         {onEdit && (
           <DropdownMenuItem onClick={() => onEdit(note)}>
             <Pencil className="size-3.5" />
-            Rename &amp; tags
+            Edit note
           </DropdownMenuItem>
         )}
         <DropdownMenuItem onClick={() => onTogglePin(note)}>

@@ -140,6 +140,13 @@ export function AppSidebar({
     }
   }
 
+  const prefetchRoute = React.useCallback(
+    (url: string) => {
+      router.prefetch(url)
+    },
+    [router]
+  )
+
   return (
     <Sidebar collapsible="icon" {...props}>
       {/* ── Logo ── */}
@@ -224,7 +231,12 @@ export function AppSidebar({
                           : "text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       )}
                     >
-                      <Link href={item.url}>
+                      <Link
+                        href={item.url}
+                        prefetch
+                        onMouseEnter={() => prefetchRoute(item.url)}
+                        onFocus={() => prefetchRoute(item.url)}
+                      >
                         <item.icon
                           className={cn("size-4", active && "text-primary")}
                           strokeWidth={active ? 2.25 : 2}

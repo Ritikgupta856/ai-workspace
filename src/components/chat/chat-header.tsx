@@ -21,19 +21,19 @@ export function ChatHeader() {
   const label = activeTitle ?? (chatId ? "Untitled chat" : "New chat")
 
   return (
-    <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-4">
+    <div className="flex items-center justify-start gap-4 border-b px-4 py-3">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="hover:bg-accent flex max-w-[60%] items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
+            className="hover:bg-accent flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium transition-colors"
           >
             <span className="truncate">{label}</span>
             <ChevronDown className="text-muted-foreground size-3.5 shrink-0" />
           </button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuItem onSelect={() => newChat()} className="gap-2">
             <PenSquare className="size-3.5" />
             New chat
@@ -88,15 +88,6 @@ export function ChatHeader() {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <button
-        type="button"
-        onClick={newChat}
-        aria-label="New chat"
-        className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-8 items-center justify-center rounded-md transition-colors"
-      >
-        <PenSquare className="size-4" />
-      </button>
     </div>
   )
 }

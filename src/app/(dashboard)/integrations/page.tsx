@@ -1,10 +1,11 @@
+import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { CheckCircle, Puzzle, XCircle } from "lucide-react"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { PageHeading } from "@/components/ui/page-heading"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { StatusBadge } from "@/components/common/status-badge"
 import { INTEGRATION_STATUS_CONFIG } from "@/lib/constants"
 import {
@@ -23,7 +24,6 @@ const PROVIDERS = [
     name: "GitHub",
     description: "Repositories, issues, pull requests",
     Logo: GitHubColor,
-    note: "Remote MCP only",
     tokenHint: "Requires a GitHub OAuth App with repo + read:user scopes.",
   },
   {
@@ -32,7 +32,6 @@ const PROVIDERS = [
     name: "Notion",
     description: "Pages, databases, specs",
     Logo: NotionColor,
-    note: "Remote MCP only",
     tokenHint: "Requires a Notion OAuth integration.",
   },
   {
@@ -41,7 +40,6 @@ const PROVIDERS = [
     name: "Linear",
     description: "Issues, cycles, projects",
     Logo: LinearColor,
-    note: "Remote MCP only",
     tokenHint: "Requires a Linear OAuth application.",
   },
   {
@@ -50,7 +48,6 @@ const PROVIDERS = [
     name: "Figma",
     description: "Files, frames, comments",
     Logo: FigmaColor,
-    note: "Remote MCP only",
     tokenHint: "Requires a Figma OAuth application.",
   },
 ]
@@ -64,6 +61,11 @@ const ERRORS: Record<string, string> = {
   unknown_provider: "That integration is not supported.",
   provider_not_configured:
     "This provider's OAuth credentials are not configured on the server.",
+}
+
+export const metadata: Metadata = {
+  title: "Integrations",
+  description: "Connect GitHub, Linear, Notion and more to your workspace.",
 }
 
 export default async function IntegrationsPage(props: {
@@ -93,13 +95,18 @@ export default async function IntegrationsPage(props: {
   ).length
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <PageHeading
+    <div className="flex flex-1 flex-col">
+      <PageHeader
         title="Integrations"
-        description={`Remote MCP connections available in Synapse. ${connectedCount} of ${PROVIDERS.length} connected.`}
+        action={
+          <div className="text-sm text-muted-foreground">
+            {connectedCount} of {PROVIDERS.length} connected
+          </div>
+        }
       />
 
-      {success && (
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        {success && (
         <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">
           <CheckCircle className="size-4 shrink-0" />
           Connected successfully.
@@ -115,8 +122,8 @@ export default async function IntegrationsPage(props: {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {PROVIDERS.map(({ id, type, name, description, Logo, note }) => {
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {PROVIDERS.map(({ id, type, name, description, Logo }) => {
           const existing = integrations.find((i) => i.type === type)
           const connected = existing?.status === "CONNECTED"
           const status = connected
@@ -156,10 +163,6 @@ export default async function IntegrationsPage(props: {
                   </>
                 )}
               </p>
-              <p className="text-muted-foreground mt-1 text-[11px] uppercase tracking-[0.18em]">
-                {note}
-              </p>
-
               <div className="mt-4 flex justify-end">
                 <IntegrationConnectButton
                   provider={id}
@@ -170,6 +173,7 @@ export default async function IntegrationsPage(props: {
             </div>
           )
         })}
+        </div>
       </div>
     </div>
   )

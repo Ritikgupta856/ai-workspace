@@ -1,34 +1,13 @@
 "use client"
 
 import * as React from "react"
-import Link from "next/link"
-import {
-  ArrowUpDown,
-  FileText,
-  LayoutGrid,
-  List,
-  MoreHorizontal,
-  Pin,
-  Plus,
-  StickyNote,
-  X,
-} from "lucide-react"
+import { FileText, Link2, MoreHorizontal, Pin, Plus, StickyNote } from "lucide-react"
 import { toast } from "sonner"
 
-import { PageHeading } from "@/components/ui/page-heading"
 import { SearchInput } from "@/components/ui/search-input"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Kbd } from "@/components/ui/kbd"
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Dialog,
   DialogContent,
@@ -37,14 +16,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Spinner } from "@/components/ui/spinner"
 import { cn } from "@/lib/utils"
 import { formatUpdatedDate } from "@/lib/date"
 import { downloadNoteMarkdown } from "@/lib/notes"
 import {
   NoteActionsMenu,
-  NoteCard,
   type Note,
   type NoteActionHandlers,
 } from "@/components/notes/note-card"
@@ -57,60 +34,33 @@ import {
   updateNote,
 } from "@/lib/api/note"
 
-type Scope = "all" | "mine" | "pinned"
-type SortKey = "updated" | "created" | "title"
-
-const scopes: { value: Scope; label: string }[] = [
-  { value: "all", label: "All notes" },
-  { value: "mine", label: "My notes" },
-  { value: "pinned", label: "Pinned" },
-]
-
-const sorts: { value: SortKey; label: string }[] = [
-  { value: "updated", label: "Last updated" },
-  { value: "created", label: "Recently created" },
-  { value: "title", label: "Title (A–Z)" },
-]
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
-
 export default function NotesPage() {
-  const [scope, setScope] = React.useState<Scope>("all")
-  const [viewMode, setViewMode] = React.useState("grid")
-  const [sortKey, setSortKey] = React.useState<SortKey>("updated")
   const [searchQuery, setSearchQuery] = React.useState("")
-  const [activeTags, setActiveTags] = React.useState<string[]>([])
 
   const [notes, setNotes] = React.useState<Note[]>([])
-  const [currentUserId, setCurrentUserId] = React.useState<string | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
+  const [selectedNoteId, setSelectedNoteId] = React.useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<Note | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<Note | null>(null)
+  const saveTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
   React.useEffect(() => {
     setLoading(true)
     setError(null)
     fetchNotes()
-      .then(({ notes, currentUserId }) => {
+      .then(({ notes }) => {
         setNotes(notes)
-        setCurrentUserId(currentUserId)
+        setSelectedNoteId((prev) => prev ?? notes[0]?.id ?? null)
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
   }, [])
 
-  // "N" opens the new-note dialog, matching how the rest of the app is driven
-  // from the keyboard. Ignored while typing in an input.
+  // "N" opens the new-note dialog, matching the rest of the app's keyboard
+  // affordances. It is ignored while typing in an input.
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key.toLowerCase() !== "n" || e.metaKey || e.ctrlKey || e.altKey) return
@@ -126,30 +76,13 @@ export default function NotesPage() {
       setEditing(null)
       setDialogOpen(true)
     }
+
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
-  const allTags = React.useMemo(() => {
-    const counts = new Map<string, number>()
-    for (const note of notes) {
-      for (const tag of note.tags) counts.set(tag, (counts.get(tag) ?? 0) + 1)
-    }
-    return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-  }, [notes])
-
   const filteredNotes = React.useMemo(() => {
     let result = notes
-
-    if (scope === "mine" && currentUserId) {
-      result = result.filter((n) => n.authorId === currentUserId)
-    } else if (scope === "pinned") {
-      result = result.filter((n) => n.pinned)
-    }
-
-    if (activeTags.length > 0) {
-      result = result.filter((n) => activeTags.every((t) => n.tags.includes(t)))
-    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase()
@@ -162,43 +95,59 @@ export default function NotesPage() {
     }
 
     return [...result].sort((a, b) => {
-      // Pinned notes float to the top of every sort except the explicit
-      // "Pinned" scope, where they're all pinned anyway.
       if (a.pinned !== b.pinned) return a.pinned ? -1 : 1
-      if (sortKey === "title") return a.title.localeCompare(b.title)
-      const field = sortKey === "created" ? "createdAt" : "updatedAt"
-      return new Date(b[field]).getTime() - new Date(a[field]).getTime()
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
     })
-  }, [notes, scope, currentUserId, activeTags, searchQuery, sortKey])
+  }, [notes, searchQuery])
 
-  const pinnedNotes = filteredNotes.filter((n) => n.pinned)
-  const unpinnedNotes = filteredNotes.filter((n) => !n.pinned)
-  const hasFilters = Boolean(searchQuery.trim()) || activeTags.length > 0
+  React.useEffect(() => {
+    if (filteredNotes.length === 0) {
+      if (selectedNoteId !== null) setSelectedNoteId(null)
+      return
+    }
 
-  function toggleTag(tag: string) {
-    setActiveTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    )
+    const stillVisible = filteredNotes.some((note) => note.id === selectedNoteId)
+    if (!stillVisible) setSelectedNoteId(filteredNotes[0].id)
+  }, [filteredNotes, selectedNoteId])
+
+  const selectedNote = React.useMemo(
+    () => notes.find((note) => note.id === selectedNoteId) ?? null,
+    [notes, selectedNoteId]
+  )
+
+  React.useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
+  function saveNoteContent(noteId: string, content: string) {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        const updated = await updateNote(noteId, { content })
+        setNotes((prev) => prev.map((note) => (note.id === updated.id ? updated : note)))
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Failed to save note")
+      }
+    }, 900)
   }
-
-  function clearFilters() {
-    setSearchQuery("")
-    setActiveTags([])
-  }
-
-  /* ── Mutations ──────────────────────────────────────────── */
 
   async function handleSubmitDialog(data: { title: string; tags: string[] }) {
     if (editing) {
       const previous = editing
       setNotes((prev) =>
         prev.map((n) =>
-          n.id === previous.id ? { ...n, title: data.title, tags: data.tags } : n
+          n.id === previous.id
+            ? { ...n, title: data.title, tags: data.tags }
+            : n
         )
       )
       try {
         const updated = await updateNote(previous.id, data)
         setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
+        if (selectedNoteId === updated.id) setSelectedNoteId(updated.id)
         toast.success("Note updated")
       } catch (err) {
         setNotes((prev) => prev.map((n) => (n.id === previous.id ? previous : n)))
@@ -209,8 +158,12 @@ export default function NotesPage() {
     }
 
     try {
-      const created = await createNote({ title: data.title, tags: data.tags })
+      const created = await createNote({
+        title: data.title,
+        tags: data.tags,
+      })
       setNotes((prev) => [created, ...prev])
+      setSelectedNoteId(created.id)
       toast.success("Note created")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create note")
@@ -229,7 +182,8 @@ export default function NotesPage() {
         prev.map((n) => (n.id === note.id ? { ...n, pinned: next } : n))
       )
       try {
-        await updateNote(note.id, { pinned: next })
+        const updated = await updateNote(note.id, { pinned: next })
+        setNotes((prev) => prev.map((n) => (n.id === updated.id ? updated : n)))
         toast.success(next ? "Pinned to top" : "Unpinned")
       } catch (err) {
         setNotes((prev) =>
@@ -243,6 +197,7 @@ export default function NotesPage() {
       try {
         const copy = await duplicateNote(note)
         setNotes((prev) => [copy, ...prev])
+        setSelectedNoteId(copy.id)
         toast.success("Note duplicated")
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to duplicate")
@@ -277,33 +232,31 @@ export default function NotesPage() {
   async function confirmDelete() {
     const note = pendingDelete
     if (!note) return
+
     setPendingDelete(null)
     const snapshot = notes
-    setNotes((prev) => prev.filter((n) => n.id !== note.id))
+    const nextNotes = snapshot.filter((n) => n.id !== note.id)
+    setNotes(nextNotes)
+
+    if (selectedNoteId === note.id) {
+      setSelectedNoteId(nextNotes[0]?.id ?? null)
+    }
+
     try {
       await deleteNote(note.id)
       toast.success("Note deleted")
     } catch (err) {
       setNotes(snapshot)
+      if (selectedNoteId === note.id) setSelectedNoteId(note.id)
       toast.error(err instanceof Error ? err.message : "Failed to delete note")
     }
   }
 
-  /* ── Render ─────────────────────────────────────────────── */
-
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeading
-          title="Notes"
-          description="Write, organize, and share knowledge across your workspace."
-        />
-        <div className="flex items-center gap-2">
-          <SearchInput
-            placeholder="Search notes..."
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+      <PageHeader
+        title="Notes"
+        action={
           <Button
             size="sm"
             onClick={() => {
@@ -313,318 +266,149 @@ export default function NotesPage() {
           >
             <Plus className="size-4" />
             New note
-            <Kbd className="ml-1 hidden sm:inline-flex">N</Kbd>
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
-          {scopes.map((opt) => {
-            const count =
-              opt.value === "all"
-                ? notes.length
-                : opt.value === "pinned"
-                  ? notes.filter((n) => n.pinned).length
-                  : notes.filter((n) => n.authorId === currentUserId).length
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setScope(opt.value)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  scope === opt.value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "hover:text-foreground"
+      <div className="flex min-h-0 flex-1 flex-col">
+        {loading ? (
+          <div className="flex flex-1 items-center justify-center py-24">
+            <div className="flex flex-col items-center gap-3">
+              <Spinner className="size-6" />
+              <p className="text-sm text-muted-foreground">Loading notes...</p>
+            </div>
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-20 text-sm text-destructive">
+            {error}
+          </div>
+        ) : (
+          <div className="grid min-h-0 flex-1 xl:grid-cols-[322px_minmax(0,1fr)]">
+            <aside className="flex min-h-0 max-h-[360px] flex-col border-b bg-white xl:max-h-none xl:border-r xl:border-b-0">
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                {filteredNotes.length === 0 ? (
+                  <div className="flex min-h-64 flex-col items-center justify-center px-5 text-center">
+                    <StickyNote className="size-5 text-muted-foreground" />
+                    <p className="mt-3 text-sm font-medium">No notes found</p>
+                    <p className="mt-1 text-sm text-muted-foreground">Try a different search, or create a new note.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredNotes.map((note) => (
+                      <NoteSidebarRow
+                        key={note.id}
+                        note={note}
+                        selected={selectedNoteId === note.id}
+                        onSelect={setSelectedNoteId}
+                        handlers={handlers}
+                      />
+                    ))}
+                  </div>
                 )}
-              >
-                {opt.label}
-                <span className="text-xs tabular-nums opacity-60">{count}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {allTags.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-2">
-                  Tags
-                  {activeTags.length > 0 && (
-                    <Badge
-                      variant="secondary"
-                      className="h-4 min-w-4 justify-center px-1 text-[10px]"
-                    >
-                      {activeTags.length}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-52">
-                <DropdownMenuLabel>Filter by tag</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="max-h-64 overflow-y-auto">
-                  {allTags.map(([tag, count]) => (
-                    <DropdownMenuCheckboxItem
-                      key={tag}
-                      checked={activeTags.includes(tag)}
-                      onCheckedChange={() => toggleTag(tag)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <span className="flex-1 truncate">{tag}</span>
-                      <span className="text-xs tabular-nums text-muted-foreground">
-                        {count}
-                      </span>
-                    </DropdownMenuCheckboxItem>
-                  ))}
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowUpDown className="size-3.5" />
-                <span className="hidden sm:inline">
-                  {sorts.find((s) => s.value === sortKey)?.label}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {sorts.map((opt) => (
-                <DropdownMenuCheckboxItem
-                  key={opt.value}
-                  checked={sortKey === opt.value}
-                  onCheckedChange={() => setSortKey(opt.value)}
-                >
-                  {opt.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <Tabs value={viewMode} onValueChange={setViewMode}>
-            <TabsList>
-              <TabsTrigger value="grid" className="gap-2 px-2.5">
-                <LayoutGrid className="size-4" />
-                <span className="sr-only sm:not-sr-only">Grid</span>
-              </TabsTrigger>
-              <TabsTrigger value="list" className="gap-2 px-2.5">
-                <List className="size-4" />
-                <span className="sr-only sm:not-sr-only">List</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      </div>
-
-      {/* Active filter chips */}
-      {activeTags.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">Filtered by</span>
-          {activeTags.map((tag) => (
-            <button
-              key={tag}
-              type="button"
-              onClick={() => toggleTag(tag)}
-              className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
-            >
-              {tag}
-              <X className="size-3" />
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={clearFilters}
-            className="text-xs text-muted-foreground underline-offset-2 hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
-      )}
-
-      {/* Body */}
-      {loading ? (
-        <div className="flex flex-1 items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-3">
-            <Spinner className="size-6" />
-            <p className="text-sm text-muted-foreground">Loading notes...</p>
-          </div>
-        </div>
-      ) : error ? (
-        <div className="flex items-center justify-center py-20 text-sm text-destructive">
-          {error}
-        </div>
-      ) : filteredNotes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
-          <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
-            <StickyNote className="size-5 text-muted-foreground" />
-          </div>
-          <p className="mt-4 text-sm font-medium">
-            {hasFilters || scope !== "all"
-              ? "No notes match these filters"
-              : "No notes yet"}
-          </p>
-          <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-            {hasFilters || scope !== "all"
-              ? "Try a different search, or clear the filters."
-              : "Capture a decision, a spec or a meeting summary — Synapse can search and cite it later."}
-          </p>
-          <div className="mt-5 flex items-center gap-2">
-            {(hasFilters || scope !== "all") && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  clearFilters()
-                  setScope("all")
-                }}
-              >
-                Clear filters
-              </Button>
-            )}
-            <Button
-              size="sm"
-              onClick={() => {
-                setEditing(null)
-                setDialogOpen(true)
-              }}
-            >
-              <Plus className="size-4" />
-              New note
-            </Button>
-          </div>
-        </div>
-      ) : viewMode === "grid" ? (
-        <div className="space-y-8">
-          {scope !== "pinned" && pinnedNotes.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <Pin className="size-3" />
-                Pinned
-              </h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {pinnedNotes.map((note) => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    handlers={handlers}
-                    onTagClick={toggleTag}
-                  />
-                ))}
               </div>
-            </div>
-          )}
+            </aside>
 
-          {unpinnedNotes.length > 0 && (
-            <div className="space-y-3">
-              {scope !== "pinned" && pinnedNotes.length > 0 && (
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  All notes
-                </h3>
-              )}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {unpinnedNotes.map((note) => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    handlers={handlers}
-                    onTagClick={toggleTag}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+            <section className="min-w-0 xl:min-h-0">
+              {selectedNote ? (
+                <div className="flex h-full min-h-0 flex-col overflow-hidden bg-white">
+                  <div className="border-b px-5 py-6 sm:px-8 sm:py-8">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <h2 className="break-words text-2xl font-semibold tracking-tight sm:text-3xl">
+                          {selectedNote.title}
+                        </h2>
+                        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                          {selectedNote.pinned && <Pin className="size-3 fill-current text-primary" />}
+                          <span>Last updated {formatUpdatedDate(selectedNote.updatedAt)} by {selectedNote.author}</span>
+                        </div>
+                      </div>
 
-          {scope === "pinned" &&
-            pinnedNotes.length > 0 &&
-            unpinnedNotes.length === 0 && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {pinnedNotes.map((note) => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    handlers={handlers}
-                    onTagClick={toggleTag}
-                  />
-                ))}
-              </div>
-            )}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-          <div className="divide-y divide-border">
-            {filteredNotes.map((note) => (
-              <div
-                key={note.id}
-                className="group flex items-center gap-4 px-4 py-3 transition-colors hover:bg-accent/40"
-              >
-                <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <FileText className="size-4 text-primary" />
-                </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={selectedNote.pinned ? "Unpin note" : "Pin note"}
+                          onClick={() => handlers.onTogglePin(selectedNote)}
+                        >
+                          <Pin className={cn("size-4", selectedNote.pinned && "fill-current text-primary")} />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Copy note link"
+                          onClick={() => handlers.onCopyLink(selectedNote)}
+                        >
+                          <Link2 className="size-4" />
+                        </Button>
 
-                <Link
-                  href={`/notes/${note.id}`}
-                  className="min-w-0 flex-1 py-0.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <h3 className="line-clamp-1 text-sm font-medium">
-                      {note.title}
-                    </h3>
-                    {note.pinned && (
-                      <Pin className="size-3 shrink-0 fill-current text-primary" />
+                        <NoteActionsMenu note={selectedNote} handlers={handlers}>
+                          <Button variant="ghost" size="icon-sm" aria-label="Note actions">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </NoteActionsMenu>
+                      </div>
+                    </div>
+
+                    {selectedNote.tags.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-1.5">
+                        {selectedNote.tags.map((tag) => (
+                          <span key={tag} className="rounded-md border bg-white px-2 py-1 text-xs text-muted-foreground">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <p className="mt-0.5 line-clamp-1 text-sm text-muted-foreground">
-                    {note.preview || "No content yet"}
-                  </p>
-                </Link>
 
-                <div className="hidden shrink-0 items-center gap-3 text-xs text-muted-foreground md:flex">
-                  {note.tags.slice(0, 2).map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="cursor-pointer text-[10px] font-normal hover:bg-primary/10 hover:text-primary"
-                      onClick={() => toggleTag(tag)}
-                    >
-                      {tag}
-                    </Badge>
-                  ))}
-                  <span className="flex items-center gap-1.5">
-                    <Avatar className="size-4">
-                      <AvatarFallback className="text-[7px]">
-                        {getInitials(note.author)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {note.author}
-                  </span>
-                  <span className="w-24 text-right tabular-nums">
-                    {formatUpdatedDate(note.updatedAt)}
-                  </span>
+                  <div className="min-h-0 flex-1 overflow-auto px-5 py-7 sm:px-8 sm:py-10">
+                    <article className="w-full">
+                      <Textarea
+                        value={selectedNote.content ?? ""}
+                        onChange={(event) => {
+                          const content = event.target.value
+                          setNotes((prev) =>
+                            prev.map((note) =>
+                              note.id === selectedNote.id ? { ...note, content } : note
+                            )
+                          )
+                          saveNoteContent(selectedNote.id, content)
+                        }}
+                        placeholder="Write your note here..."
+                        className="min-h-[62vh] resize-none border-0 bg-white px-0 py-0 text-[15px] leading-8 shadow-none outline-none placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-base"
+                      />
+                    </article>
+                  </div>
                 </div>
-
-                <NoteActionsMenu note={note} handlers={handlers}>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
-                    aria-label={`Actions for ${note.title}`}
-                  >
-                    <MoreHorizontal className="size-3.5" />
-                  </Button>
-                </NoteActionsMenu>
-              </div>
-            ))}
+              ) : (
+                <div className="flex h-full min-h-[380px] items-center justify-center bg-white px-6 text-center">
+                  <div className="max-w-md">
+                    <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border bg-white">
+                      <StickyNote className="size-6 text-muted-foreground" />
+                    </div>
+                    <h2 className="mt-5 text-xl font-semibold tracking-tight">
+                      Select a note to preview it
+                    </h2>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      Your notes list lives on the left. Choose one and the full note, metadata, and actions will appear here.
+                    </p>
+                    <div className="mt-5">
+                      <Button
+                        onClick={() => {
+                          setEditing(null)
+                          setDialogOpen(true)
+                        }}
+                      >
+                        <Plus className="size-4" />
+                        New note
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </section>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <NoteDialog
         open={dialogOpen}
@@ -659,6 +443,71 @@ export default function NotesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  )
+}
+
+function NoteSidebarRow({
+  note,
+  selected,
+  onSelect,
+  handlers,
+}: {
+  note: Note
+  selected: boolean
+  onSelect: (id: string) => void
+  handlers: NoteActionHandlers
+}) {
+  return (
+    <div
+      className={cn(
+        "group rounded-xl border border-transparent bg-white transition-colors",
+        selected
+          ? "border-primary/20 bg-primary/[0.06]"
+          : "hover:bg-primary/[0.03]"
+      )}
+    >
+      <div className="flex items-start gap-3 p-3">
+        <button
+          type="button"
+          onClick={() => onSelect(note.id)}
+          className="flex min-w-0 flex-1 items-start gap-3 text-left"
+        >
+          <div
+            className={cn(
+              "flex size-8 shrink-0 items-center justify-center rounded-lg border bg-white transition-colors",
+              selected && "bg-primary/10 text-primary"
+            )}
+          >
+            <FileText className="size-3.5" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="line-clamp-1 font-medium text-foreground">
+                {note.title}
+              </h3>
+              {note.pinned && <Pin className="size-3.5 shrink-0 fill-current text-primary" />}
+            </div>
+            <div className="mt-1.5 flex items-center justify-between gap-3">
+              <span className="shrink-0 whitespace-nowrap text-[11px] tabular-nums text-muted-foreground">
+                {formatUpdatedDate(note.updatedAt)}
+              </span>
+            </div>
+          </div>
+        </button>
+
+        <NoteActionsMenu note={note} handlers={handlers}>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="size-8 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+            aria-label={`Actions for ${note.title}`}
+          >
+            <MoreHorizontal className="size-3.5" />
+          </Button>
+        </NoteActionsMenu>
+      </div>
     </div>
   )
 }

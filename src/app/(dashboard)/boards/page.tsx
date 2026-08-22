@@ -1,3 +1,4 @@
+import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
@@ -5,9 +6,14 @@ import { PenTool } from "lucide-react"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { PageHeading } from "@/components/ui/page-heading"
 import { NewBoardButton } from "@/components/boards/new-board-button"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { formatUpdatedDate } from "@/lib/date"
+
+export const metadata: Metadata = {
+  title: "Boards",
+  description: "Visual whiteboards for brainstorming and planning.",
+}
 
 export default async function BoardsPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -32,16 +38,11 @@ export default async function BoardsPage() {
   })
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeading
-          title="Boards"
-          description="Sketch flows and diagrams alongside the rest of your work."
-        />
-        <NewBoardButton />
-      </div>
+    <div className="flex flex-1 flex-col">
+      <PageHeader title="Boards" action={<NewBoardButton />} />
 
-      {boards.length === 0 ? (
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        {boards.length === 0 ? (
         <div className="flex flex-col items-center rounded-xl border bg-card px-6 py-16 text-center shadow-sm">
           <div className="bg-muted flex size-11 items-center justify-center rounded-xl">
             <PenTool className="text-muted-foreground size-5" />
@@ -73,6 +74,7 @@ export default async function BoardsPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   )
 }

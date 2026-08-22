@@ -3,8 +3,8 @@
 import * as React from "react"
 import { Users, Shield, User, Eye, ListFilter, MoreHorizontal, Link2, RotateCw, Ban, UserPlus, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { PageHeading } from "@/components/ui/page-heading"
 import { SearchInput } from "@/components/ui/search-input"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { DataTable } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -474,19 +474,10 @@ export default function MembersPage() {
   const { columns: invitationColumns } = useInvitationColumns(fetchData)
 
   return (
-    <div className="flex flex-1 flex-col gap-8 pb-10">
-      <div className="flex items-center justify-between">
-        <PageHeading
-          title="Members"
-          description="Manage workspace members and invitations."
-        />
-
-        <div className="flex items-center gap-4">
-          <SearchInput
-            placeholder="Search members..."
-            value={search}
-            onValueChange={setSearch}
-          />
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Members"
+        action={
           <Button
             size="sm"
             onClick={() => setIsInviteOpen(true)}
@@ -495,10 +486,10 @@ export default function MembersPage() {
             <UserPlus className="size-4" />
             Invite member
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
             {filterOptions.map((opt) => {
@@ -525,53 +516,54 @@ export default function MembersPage() {
         ) : (
           <DataTable columns={memberColumns} data={filteredMembers} />
         )}
-      </div>
 
-      {/* Pending Invitations Section */}
-      <div className="flex flex-col gap-4 pt-4 border-t">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
-            Pending Invitations
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Invitations sent to people who haven&apos;t joined your workspace yet.
-          </p>
+
+        {/* Pending Invitations Section */}
+        <div className="flex flex-col gap-4">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">
+              Pending Invitations
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Invitations sent to people who haven&apos;t joined your workspace yet.
+            </p>
+          </div>
+
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-card text-muted-foreground shadow-sm">
+              <Spinner className="size-6 text-blue-600 mb-2" />
+              <p className="text-sm font-medium">Loading invitations...</p>
+            </div>
+          ) : invitationList.length > 0 ? (
+            <DataTable columns={invitationColumns} data={invitationList} />
+          ) : (
+            <div className="flex flex-col items-center justify-center py-12 border rounded-lg border-dashed bg-card/50 text-muted-foreground text-center p-6">
+              <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
+                <Users className="size-5 text-muted-foreground" />
+              </div>
+              <h3 className="text-sm font-semibold text-foreground mb-1">No pending invitations</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mb-4">
+                All invitations have been accepted or expired. Invite new users to collaborate.
+              </p>
+              {canInvite && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsInviteOpen(true)}
+                >
+                  Invite Member
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-card text-muted-foreground shadow-sm">
-            <Spinner className="size-6 text-blue-600 mb-2" />
-            <p className="text-sm font-medium">Loading invitations...</p>
-          </div>
-        ) : invitationList.length > 0 ? (
-          <DataTable columns={invitationColumns} data={invitationList} />
-        ) : (
-          <div className="flex flex-col items-center justify-center py-12 border rounded-lg border-dashed bg-card/50 text-muted-foreground text-center p-6">
-            <div className="size-10 rounded-full bg-muted flex items-center justify-center mb-3">
-              <Users className="size-5 text-muted-foreground" />
-            </div>
-            <h3 className="text-sm font-semibold text-foreground mb-1">No pending invitations</h3>
-            <p className="text-xs text-muted-foreground max-w-sm mb-4">
-              All invitations have been accepted or expired. Invite new users to collaborate.
-            </p>
-            {canInvite && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsInviteOpen(true)}
-              >
-                Invite Member
-              </Button>
-            )}
-          </div>
-        )}
+        <InviteMemberDialog
+          open={isInviteOpen}
+          onOpenChange={setIsInviteOpen}
+          onSuccess={fetchData}
+        />
       </div>
-
-      <InviteMemberDialog
-        open={isInviteOpen}
-        onOpenChange={setIsInviteOpen}
-        onSuccess={fetchData}
-      />
     </div>
   )
 }

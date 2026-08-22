@@ -164,15 +164,15 @@ export function NoteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[500px] rounded-xl p-0 overflow-hidden">
+      <DialogContent className="w-full max-w-[500px] overflow-hidden rounded-xl bg-white p-0">
         <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
           <DialogTitle className="text-base sm:text-lg">
             {isEdit ? "Edit Note" : "New Note"}
           </DialogTitle>
           <DialogDescription className="mt-0.5 text-sm">
             {isEdit
-              ? "Update the note name and tags."
-              : "Give your note a name and add tags."}
+              ? "Update the title and tags."
+              : "Give your note a title and tags."}
           </DialogDescription>
         </DialogHeader>
 

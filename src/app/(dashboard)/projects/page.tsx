@@ -6,9 +6,9 @@ import { Archive, Clock, FolderKanban, Plus } from "lucide-react"
 import { toast } from "sonner"
 import type { ColumnDef } from "@tanstack/react-table"
 
-import { PageHeading } from "@/components/ui/page-heading"
 import { SearchInput } from "@/components/ui/search-input"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { DataTable } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -374,18 +374,10 @@ export default function ProjectsPage() {
   )
 
   return (
-    <div className="flex flex-1 flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <PageHeading
-          title="Projects"
-          description="Organize and manage all your projects in one place."
-        />
-        <div className="flex items-center gap-2">
-          <SearchInput
-            placeholder="Search projects..."
-            value={search}
-            onValueChange={setSearch}
-          />
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Projects"
+        action={
           <Button
             size="sm"
             onClick={() => {
@@ -396,42 +388,43 @@ export default function ProjectsPage() {
             <Plus className="size-4" />
             New project
           </Button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
-          {tabOptions.map(({ value, label, icon: Icon }) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setProjectTab(value)}
-              className={cn(
-                "inline-flex items-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                projectTab === value
-                  ? "bg-background text-foreground shadow-sm"
-                  : "hover:text-foreground"
-              )}
-            >
-              <Icon className="size-4" />
-              {label}
-              <span className="text-xs tabular-nums opacity-60">
-                {counts[value]}
-              </span>
-            </button>
-          ))}
+      <div className="flex flex-1 flex-col gap-5 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
+            {tabOptions.map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setProjectTab(value)}
+                className={cn(
+                  "inline-flex items-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  projectTab === value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "hover:text-foreground"
+                )}
+              >
+                <Icon className="size-4" />
+                {label}
+                <span className="text-xs tabular-nums opacity-60">
+                  {counts[value]}
+                </span>
+              </button>
+            ))}
+          </div>
+          <ProjectToolbar
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+          />
         </div>
-        <ProjectToolbar
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          sortBy={sortBy}
-          onSortChange={setSortBy}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-        />
-      </div>
 
-      {loading ? (
+        {loading ? (
         <div className="flex flex-1 items-center justify-center py-24">
           <div className="flex flex-col items-center gap-3">
             <Spinner className="size-6" />
@@ -519,5 +512,6 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  </div>
   )
 }

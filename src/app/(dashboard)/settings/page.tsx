@@ -1,10 +1,16 @@
+import type { Metadata } from "next"
 import { headers, cookies } from "next/headers"
 import { redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { PageHeading } from "@/components/ui/page-heading"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { SettingsView } from "@/components/settings/settings-view"
+
+export const metadata: Metadata = {
+  title: "Settings",
+  description: "Manage your profile, workspace and preferences.",
+}
 
 export default async function SettingsPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -18,9 +24,9 @@ export default async function SettingsPage() {
   const membership =
     (activeWorkspaceId
       ? await prisma.workspaceMember.findFirst({
-          where: { userId: session.user.id, workspaceId: activeWorkspaceId },
-          include: { workspace: true },
-        })
+        where: { userId: session.user.id, workspaceId: activeWorkspaceId },
+        include: { workspace: true },
+      })
       : null) ??
     (await prisma.workspaceMember.findFirst({
       where: { userId: session.user.id },
@@ -41,29 +47,28 @@ export default async function SettingsPage() {
   ])
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <PageHeading
-        title="Settings"
-        description="Manage your profile and workspace."
-      />
+    <div className="flex flex-1 flex-col">
+      <PageHeader title="Settings" />
 
-      <SettingsView
-        profile={{
-          name: user.name ?? "",
-          email: user.email,
-          image: user.image,
-          createdAt: user.createdAt.toISOString(),
-        }}
-        workspace={{
-          id: membership.workspace.id,
-          name: membership.workspace.name,
-          slug: membership.workspace.slug,
-          description: membership.workspace.description,
-          memberCount,
-          projectCount,
-        }}
-        role={membership.role}
-      />
+      <div className="flex-1 overflow-y-auto p-4 max-w-4xl mx-auto w-full">
+        <SettingsView
+          profile={{
+            name: user.name ?? "",
+            email: user.email,
+            image: user.image,
+            createdAt: user.createdAt.toISOString(),
+          }}
+          workspace={{
+            id: membership.workspace.id,
+            name: membership.workspace.name,
+            slug: membership.workspace.slug,
+            description: membership.workspace.description,
+            memberCount,
+            projectCount,
+          }}
+          role={membership.role}
+        />
+      </div>
     </div>
   )
 }

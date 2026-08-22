@@ -1,9 +1,15 @@
+import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BoardEditor, type BoardData } from "@/components/boards/board-editor"
+
+export const metadata: Metadata = {
+  title: "Board",
+  description: "Collaborative whiteboard canvas.",
+}
 
 export default async function BoardPage({
   params,

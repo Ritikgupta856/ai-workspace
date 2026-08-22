@@ -10,7 +10,10 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Synapse — AI Workspace for Modern Teams",
+  title: {
+    default: "Synapse — AI Workspace for Modern Teams",
+    template: "%s | Synapse",
+  },
   description:
     "Synapse is an AI-powered workspace that brings together projects, chats, documents, tasks, knowledge, and integrations in one intelligent platform.",
 };

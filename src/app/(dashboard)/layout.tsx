@@ -12,6 +12,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchCommand } from "@/components/layout/search-command";
 import type { MemberRoleKey } from "@/lib/constants";
 
+export const instant = false;
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -28,21 +30,20 @@ export default async function DashboardLayout({
   const cookieStore = await cookies();
   const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value;
 
-  let membership = null;
-  if (activeWorkspaceId) {
-    membership = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId: activeWorkspaceId,
-      },
-    })
-  }
+  const memberships = await prisma.workspaceMember.findMany({
+    where: { userId: session.user.id },
+    orderBy: { createdAt: "asc" },
+    select: {
+      workspaceId: true,
+      role: true,
+      workspace: { select: { id: true, name: true, slug: true } },
+    },
+  });
 
-  if (!membership) {
-    membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-  }
+  let membership =
+    memberships.find((m) => m.workspaceId === activeWorkspaceId) ??
+    memberships[0] ??
+    null;
 
   if (!membership) {
     const workspace = await prisma.workspace.create({
@@ -60,21 +61,17 @@ export default async function DashboardLayout({
 
     // Without this the first render after signup had no membership in hand and
     // the sidebar came up empty.
-    membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id, workspaceId: workspace.id },
-    })
+    membership = {
+      workspaceId: workspace.id,
+      role: "OWNER",
+      workspace: {
+        id: workspace.id,
+        name: workspace.name,
+        slug: workspace.slug,
+      },
+    }
+    memberships.push(membership)
   }
-
-  // Resolved here rather than fetched from the client on mount: the switcher
-  // is above the fold, so a round trip after hydration is a visible blank.
-  const memberships = await prisma.workspaceMember.findMany({
-    where: { userId: session.user.id },
-    orderBy: { createdAt: "asc" },
-    select: {
-      role: true,
-      workspace: { select: { id: true, name: true, slug: true } },
-    },
-  });
 
   const workspaces = memberships.map((m) => ({
     id: m.workspace.id,
@@ -102,12 +99,7 @@ export default async function DashboardLayout({
             growing past it — without it the scroll container below never gets
             a bounded height and tall pages just get clipped. */}
         <SidebarInset className="min-h-0">
-          <header className="flex h-16 shrink-0 items-center gap-4 border-b px-4">
-            <SidebarTrigger />
-            <SearchCommand />
-          </header>
-
-          <div className="flex flex-1 flex-col gap-4 p-6 min-h-0 overflow-y-auto">
+          <div className="flex flex-1 flex-col gap-4 min-h-0 overflow-y-auto">
             {children}
           </div>
         </SidebarInset>

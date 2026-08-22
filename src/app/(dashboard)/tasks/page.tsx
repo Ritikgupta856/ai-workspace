@@ -4,8 +4,8 @@ import * as React from "react"
 import { nanoid } from "nanoid"
 import Link from "next/link"
 import { LayoutList, Columns3, ListFilter, User, FolderKanban } from "lucide-react"
-import { PageHeading } from "@/components/ui/page-heading"
 import { SearchInput } from "@/components/ui/search-input"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { DataTable } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -412,51 +412,45 @@ export default function TasksPage() {
   )
 
   return (
-    <div className="flex flex-1 flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <PageHeading
-          title="Tasks"
-          description="Organize, track, and complete your work across all projects."
-        />
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Tasks"
+        action={<NewTaskButton onNewTask={handleOpenCreate} />}
+      />
 
-        <div className="flex items-center gap-4">
-          <SearchInput placeholder="Search tasks..." />
-          <NewTaskButton onNewTask={handleOpenCreate} />
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        <div className="flex items-center justify-between">
+          <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
+            {filterOptions.map((opt) => {
+              const Icon = opt.icon
+              return (
+                <FilterTrigger
+                  key={opt.value}
+                  active={taskFilter === opt.value}
+                  onClick={() => setTaskFilter(opt.value)}
+                >
+                  <Icon className="size-4" />
+                  {opt.label}
+                </FilterTrigger>
+              )
+            })}
+          </div>
+
+          <Tabs value={viewMode} onValueChange={setViewMode}>
+            <TabsList>
+              <TabsTrigger value="table" className="gap-2">
+                <LayoutList className="size-4" />
+                Table
+              </TabsTrigger>
+              <TabsTrigger value="board" className="gap-2">
+                <Columns3 className="size-4" />
+                Board
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-      </div>
 
-      <div className="flex items-center justify-between">
-        <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
-          {filterOptions.map((opt) => {
-            const Icon = opt.icon
-            return (
-              <FilterTrigger
-                key={opt.value}
-                active={taskFilter === opt.value}
-                onClick={() => setTaskFilter(opt.value)}
-              >
-                <Icon className="size-4" />
-                {opt.label}
-              </FilterTrigger>
-            )
-          })}
-        </div>
-
-        <Tabs value={viewMode} onValueChange={setViewMode}>
-          <TabsList>
-            <TabsTrigger value="table" className="gap-2">
-              <LayoutList className="size-4" />
-              Table
-            </TabsTrigger>
-            <TabsTrigger value="board" className="gap-2">
-              <Columns3 className="size-4" />
-              Board
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
-
-      {loading ? (
+        {loading ? (
         <div className="flex flex-1 items-center justify-center py-24">
           <div className="flex flex-col items-center gap-3">
             <Spinner className="size-6" />
@@ -492,5 +486,6 @@ export default function TasksPage() {
         }}
       />
     </div>
+  </div>
   )
 }
