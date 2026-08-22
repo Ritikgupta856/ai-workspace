@@ -3,8 +3,8 @@ import { getModel } from "@/lib/ai"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { resolveWorkspaceTools } from "@/lib/integrations/registry"
 import { buildChatContext } from "@/lib/ai/context-builder"
+import { resolveWorkspaceTools } from "@/lib/integrations"
 
 /** First line of the opening question, used as the chat's title until renamed. */
 function deriveTitle(text: string) {
@@ -29,6 +29,7 @@ export async function POST(req: Request) {
 
   let tools: ToolSet | undefined
   let workspaceSystemPrompt: string | undefined
+  let cleanupWorkspaceTools: (() => Promise<void>) | undefined
   let workspaceId: string | undefined
   let workspaceName: string | undefined
 
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
       })
       tools = result.tools
       workspaceSystemPrompt = result.systemPrompt
+      cleanupWorkspaceTools = result.cleanup
     }
   }
 
@@ -59,6 +61,9 @@ export async function POST(req: Request) {
   })
 
   if (context.type === "skip") {
+    if (cleanupWorkspaceTools) {
+      await cleanupWorkspaceTools()
+    }
     return Response.json({ message: context.message })
   }
 
@@ -112,17 +117,23 @@ export async function POST(req: Request) {
     // two or three sources; 10 steps cut those off mid-investigation.
     stopWhen: stepCountIs(16),
     onFinish: async ({ text }) => {
-      if (!activeChatId || !text.trim()) return
       try {
-        await prisma.message.create({
-          data: { chatId: activeChatId, role: "assistant", content: text },
-        })
-        await prisma.chat.update({
-          where: { id: activeChatId },
-          data: { updatedAt: new Date() },
-        })
+        if (activeChatId && text.trim()) {
+          await prisma.message.create({
+            data: { chatId: activeChatId, role: "assistant", content: text },
+          })
+          await prisma.chat.update({
+            where: { id: activeChatId },
+            data: { updatedAt: new Date() },
+          })
+        }
       } catch (err) {
         console.error("[chat] failed to persist assistant message:", err)
+      } finally {
+        if (cleanupWorkspaceTools) {
+          await cleanupWorkspaceTools()
+          cleanupWorkspaceTools = undefined
+        }
       }
     },
   })
