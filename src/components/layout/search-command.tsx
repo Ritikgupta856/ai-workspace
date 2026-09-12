@@ -10,7 +10,6 @@ import {
   CheckSquare,
   Puzzle,
   Users,
-  Settings,
   FileText,
   Calendar,
 } from "lucide-react"
@@ -31,7 +30,6 @@ const navigationItems = [
   { title: "Tasks", url: "/tasks", icon: CheckSquare },
   { title: "Integrations", url: "/integrations", icon: Puzzle },
   { title: "Members", url: "/members", icon: Users },
-  { title: "Settings", url: "/settings", icon: Settings },
 ]
 
 const recentItems = [

@@ -6,51 +6,10 @@ import { CheckCircle, Puzzle, XCircle } from "lucide-react"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { StatusBadge } from "@/components/common/status-badge"
-import { INTEGRATION_STATUS_CONFIG } from "@/lib/constants"
 import {
-  GitHubColor,
-  LinearColor,
-  NotionColor,
-  FigmaColor,
-} from "@/components/landing/brand-logos"
-import { formatUpdatedDate } from "@/lib/date"
-import { IntegrationConnectButton } from "@/components/integrations/connect-button"
-
-const PROVIDERS = [
-  {
-    id: "github" as const,
-    type: "GITHUB" as const,
-    name: "GitHub",
-    description: "Repositories, issues, pull requests",
-    Logo: GitHubColor,
-    tokenHint: "Requires a GitHub OAuth App with repo + read:user scopes.",
-  },
-  {
-    id: "notion" as const,
-    type: "NOTION" as const,
-    name: "Notion",
-    description: "Pages, databases, specs",
-    Logo: NotionColor,
-    tokenHint: "Requires a Notion OAuth integration.",
-  },
-  {
-    id: "linear" as const,
-    type: "LINEAR" as const,
-    name: "Linear",
-    description: "Issues, cycles, projects",
-    Logo: LinearColor,
-    tokenHint: "Requires a Linear OAuth application.",
-  },
-  {
-    id: "figma" as const,
-    type: "FIGMA" as const,
-    name: "Figma",
-    description: "Files, frames, comments",
-    Logo: FigmaColor,
-    tokenHint: "Requires a Figma OAuth application.",
-  },
-]
+  IntegrationsView,
+  type IntegrationRuntime,
+} from "@/components/integrations/integrations-view"
 
 const ERRORS: Record<string, string> = {
   missing_params: "The provider did not return an authorization code.",
@@ -90,90 +49,38 @@ export default async function IntegrationsPage(props: {
   const success = searchParams?.success
   const error = searchParams?.error
 
-  const connectedCount = integrations.filter(
-    (i) => i.status === "CONNECTED"
-  ).length
+  const runtimes: Record<string, IntegrationRuntime> = {}
+  for (const integration of integrations) {
+    runtimes[integration.type] = {
+      id: integration.id,
+      status: integration.status,
+      accountName: integration.name,
+      lastSyncAt: integration.lastSyncAt ? integration.lastSyncAt.toISOString() : null,
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col">
-      <PageHeader
-        title="Integrations"
-        action={
-          <div className="text-sm text-muted-foreground">
-            {connectedCount} of {PROVIDERS.length} connected
-          </div>
-        }
-      />
+      <PageHeader title="Integrations" />
 
       <div className="flex flex-1 flex-col gap-6 p-6">
         {success && (
-        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">
-          <CheckCircle className="size-4 shrink-0" />
-          Connected successfully.
-        </div>
-      )}
-      {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
-          <XCircle className="size-4 shrink-0" />
-          {ERRORS[error] ??
-            (error.endsWith("_denied")
-              ? "Authorization was denied."
-              : "Failed to connect integration. Please try again.")}
-        </div>
-      )}
+          <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-400">
+            <CheckCircle className="size-4 shrink-0" />
+            Connected successfully.
+          </div>
+        )}
+        {error && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-400">
+            <XCircle className="size-4 shrink-0" />
+            {ERRORS[error] ??
+              (error.endsWith("_denied")
+                ? "Authorization was denied."
+                : "Failed to connect integration. Please try again.")}
+          </div>
+        )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {PROVIDERS.map(({ id, type, name, description, Logo }) => {
-          const existing = integrations.find((i) => i.type === type)
-          const connected = existing?.status === "CONNECTED"
-          const status = connected
-            ? INTEGRATION_STATUS_CONFIG.CONNECTED
-            : INTEGRATION_STATUS_CONFIG.DISCONNECTED
-
-          return (
-            <div
-              key={id}
-              className="flex flex-col rounded-xl border bg-card p-5 shadow-sm"
-            >
-              <div className="flex items-start gap-3">
-                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-card">
-                  <Logo className="size-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{name}</p>
-                  <p className="text-muted-foreground truncate text-xs">
-                    {description}
-                  </p>
-                </div>
-                <StatusBadge
-                  label={status.label}
-                  className={status.className}
-                  icon={status.icon}
-                />
-              </div>
-
-              <p className="text-muted-foreground mt-4 min-h-8 text-xs">
-                {connected && existing?.name
-                  ? existing.name
-                  : "Not connected"}
-                {connected && existing?.lastSyncAt && (
-                  <>
-                    <br />
-                    Synced {formatUpdatedDate(existing.lastSyncAt.toISOString())}
-                  </>
-                )}
-              </p>
-              <div className="mt-4 flex justify-end">
-                <IntegrationConnectButton
-                  provider={id}
-                  connected={connected}
-                  integrationId={existing?.id}
-                />
-              </div>
-            </div>
-          )
-        })}
-        </div>
+        <IntegrationsView runtimes={runtimes} />
       </div>
     </div>
   )

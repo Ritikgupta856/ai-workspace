@@ -54,6 +54,18 @@ enum IntegrationStatus {
   SYNCING
 }
 
+// Mirrors Dodo Payments' subscription status values.
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  ON_HOLD
+  PAUSED
+  CANCELLED
+  FAILED
+  EXPIRED
+  PAST_DUE
+}
+
 enum KnowledgeSource {
   DOCUMENT
   NOTE
@@ -175,6 +187,7 @@ model Workspace {
   activities      Activity[]
   knowledgeChunks KnowledgeChunk[]
   whiteboards     Whiteboard[]
+  subscription    WorkspaceSubscription?
 }
 
 model WorkspaceMember {
@@ -188,6 +201,25 @@ model WorkspaceMember {
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, userId])
+}
+
+// One row per paying workspace. Free workspaces simply have no row here —
+// absence of a row means "on the free plan", not an empty/default state.
+model WorkspaceSubscription {
+  id                      String             @id @default(cuid())
+  workspaceId             String             @unique
+  dodoCustomerId          String
+  dodoSubscriptionId      String             @unique
+  productId               String
+  status                  SubscriptionStatus
+  currentPeriodStart      DateTime?
+  currentPeriodEnd        DateTime?
+  cancelAtNextBillingDate Boolean            @default(false)
+  cancelledAt             DateTime?
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model WorkspaceInvite {

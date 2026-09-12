@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Avatar,
   AvatarFallback,
@@ -23,13 +24,12 @@ import {
 import { useRouter } from "next/navigation"
 import {
   ChevronsUpDown,
-  Sparkles,
-  BadgeCheck,
-  CreditCard,
+  Settings,
   Bell,
   LogOut,
 } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
+import { SettingsDialog } from "@/components/settings/settings-dialog"
 
 export function NavUser({
   user,
@@ -42,6 +42,7 @@ export function NavUser({
 }) {
   const router = useRouter()
   const { isMobile } = useSidebar()
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   return (
     <SidebarMenu>
@@ -87,20 +88,9 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <Sparkles className="mr-2 size-4" />
-                Upgrade to Pro
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <BadgeCheck className="mr-2 size-4" />
-                Account
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard className="mr-2 size-4" />
-                Billing
+              <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+                <Settings className="mr-2 size-4" />
+                Settings
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <Bell className="mr-2 size-4" />
@@ -115,6 +105,8 @@ export function NavUser({
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
+
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </SidebarMenu>
   )
 }

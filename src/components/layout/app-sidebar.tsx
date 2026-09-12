@@ -11,7 +11,6 @@ import {
   FileText,
   Puzzle,
   Users,
-  Settings,
   ChevronsUpDown,
   PenTool,
   Plus,
@@ -83,7 +82,6 @@ const navSections = [
     items: [
       { title: "Integrations", url: "/integrations", icon: Puzzle },
       { title: "Members", url: "/members", icon: Users },
-      { title: "Settings", url: "/settings", icon: Settings },
     ],
   },
 ]
