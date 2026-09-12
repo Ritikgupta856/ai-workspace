@@ -9,15 +9,18 @@ import {
   CalendarClock,
   CheckCircle2,
   FileText,
+  FolderKanban,
+  ListTodo,
   Plug,
   RefreshCw,
+  StickyNote,
   UserRound,
 } from "lucide-react"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { getDashboardData, type FocusTask } from "@/lib/dashboard"
-import { MetricCard } from "@/components/dashboard/metric-card"
+import { MetricBar, MetricCard } from "@/components/dashboard/metric-card"
 import { ActivityChart } from "@/components/dashboard/activity-chart"
 import {
   TASK_PRIORITY_CONFIG,
@@ -35,6 +38,8 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { formatDueDate, formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
+
+export const instant = false
 
 /* ── Small presentational helpers, local to this page ─────────
    One card shape, one row shape. Everything on this page is a
@@ -57,21 +62,18 @@ function Card({
 }) {
   return (
     <section
-      className={cn(
-        "rounded-xl border bg-card shadow-sm ring-1 ring-black/[0.01]",
-        className
-      )}
+      className={cn("bg-card flex flex-col rounded-xl border shadow-sm", className)}
     >
-      <div className="flex items-center justify-between px-5 pt-4 pb-3">
-        <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+        <h2 className="truncate text-sm font-semibold tracking-tight">{title}</h2>
         {action ??
           (href && (
             <Link
               href={href}
-              className="text-primary inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-70"
+              className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 text-xs font-medium transition-colors"
             >
               {linkLabel}
-              <ArrowUpRight className="size-3" />
+              <ArrowUpRight className="size-3.5" />
             </Link>
           ))}
       </div>
@@ -82,7 +84,37 @@ function Card({
 
 /** Row-level hover surface, inset so it reads as a chip rather than a band. */
 const rowClass =
-  "mx-2 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50"
+  "mx-2 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/60"
+
+/** Shared shape for the page's "nothing here yet" panels. */
+function PanelEmpty({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  href,
+}: {
+  icon: typeof CheckCircle2
+  title: string
+  description: string
+  actionLabel: string
+  href: string
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center px-5 pt-2 pb-8 text-center">
+      <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
+        <Icon className="text-muted-foreground size-4" />
+      </div>
+      <p className="mt-3 text-sm font-medium">{title}</p>
+      <p className="text-muted-foreground mt-1 max-w-xs text-sm text-balance">
+        {description}
+      </p>
+      <Button variant="outline" size="sm" className="mt-4" asChild>
+        <Link href={href}>{actionLabel}</Link>
+      </Button>
+    </div>
+  )
+}
 
 function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
   const priority =
@@ -108,7 +140,7 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
       {task.dueDate && (
         <span
           className={cn(
-            "shrink-0 text-xs",
+            "hidden shrink-0 text-xs tabular-nums sm:inline",
             tone === "overdue"
               ? "text-destructive font-medium"
               : "text-muted-foreground"
@@ -146,6 +178,90 @@ function GroupLabel({
       {Icon && <Icon className="size-3" />}
       {children}
     </p>
+  )
+}
+
+/* Segment colour per task status. Local to this page: the shared status config
+   carries a badge className, which is a pill treatment (background + text +
+   ring) and can't be reused as a solid fill. */
+const STATUS_FILL: Record<TaskStatusKey, string> = {
+  TODO: "bg-muted-foreground/35",
+  IN_PROGRESS: "bg-blue-500",
+  IN_REVIEW: "bg-amber-500",
+  DONE: "bg-emerald-500",
+}
+
+const TASK_STATUS_KEYS = Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]
+
+/**
+ * Work breakdown: one stacked bar plus a legend.
+ *
+ * This replaces four separate progress bars, each measuring its status against
+ * the same total. They were four views of one composition, drawn as four
+ * unrelated widgets — so a status at 40% and one at 35% looked alike and you
+ * could not see that together they were most of the work.
+ *
+ * Segments are sized with `flex-grow` from the raw counts rather than rounded
+ * percentages, so the bar always fills exactly and never drifts to 99% or 101%.
+ */
+function WorkBreakdown({
+  byStatus,
+  total,
+}: {
+  byStatus: Partial<Record<TaskStatusKey, number>>
+  total: number
+}) {
+  if (total === 0) {
+    return (
+      <p className="text-muted-foreground px-5 pt-1 pb-6 text-center text-sm">
+        No tasks yet. Create one to see the breakdown here.
+      </p>
+    )
+  }
+
+  return (
+    <div className="px-5 pt-1 pb-5">
+      <div className="bg-muted flex h-2 w-full overflow-hidden rounded-full">
+        {TASK_STATUS_KEYS.map((key) => {
+          const count = byStatus[key] ?? 0
+          if (count === 0) return null
+          return (
+            <div
+              key={key}
+              className={STATUS_FILL[key]}
+              style={{ flexGrow: count }}
+              title={`${TASK_STATUS_CONFIG[key].label}: ${count}`}
+            />
+          )
+        })}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+        {TASK_STATUS_KEYS.map((key) => {
+          const count = byStatus[key] ?? 0
+          const pct = Math.round((count / total) * 100)
+          return (
+            <div key={key} className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "size-2 shrink-0 rounded-full",
+                  STATUS_FILL[key]
+                )}
+              />
+              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
+                {TASK_STATUS_CONFIG[key].label}
+              </span>
+              <span className="shrink-0 text-xs font-semibold tabular-nums">
+                {count}
+              </span>
+              <span className="text-muted-foreground w-8 shrink-0 text-right text-[11px] tabular-nums">
+                {pct}%
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -229,117 +345,115 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-1 flex-col">
+      {/* The greeting IS the page title. It used to sit in the content as a
+          second <h1> directly under the header's "Dashboard" — two headings of
+          the same size, stacked, saying the same thing. */}
       <PageHeader
-        title="Dashboard"
+        title="Overview"
         action={
           lastSync ? (
-            <span className="text-muted-foreground inline-flex items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-xs shadow-sm">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              Synced {formatUpdatedDate(lastSync)}
-              <RefreshCw className="size-3" />
+            <span className="text-muted-foreground bg-card inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm">
+          
+              <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+              <span className="hidden sm:inline">Synced</span>{" "}
+              {formatUpdatedDate(lastSync)}
+              <RefreshCw className="size-3 shrink-0" />
             </span>
           ) : null
         }
       />
 
-      <div className="flex flex-1 flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-[26px] font-semibold tracking-tight">
-              {greeting()}, {firstName}
-              <span aria-hidden>👋</span>
-            </h1>
-            <p className="text-muted-foreground mt-1.5 text-sm">
-              {workspace?.name
-                ? `Here's what's happening in ${workspace.name}.`
-                : "Here's what's happening in your workspace."}
-            </p>
-          </div>
+      {/* Capped so the grid doesn't stretch across an ultrawide display, where
+          every row turns into a metre-long horizontal scan. */}
+      <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <p className="text-muted-foreground text-sm">
+            {workspace?.name
+              ? `Here's what's happening in ${workspace.name}.`
+              : "Here's what's happening in your workspace."}
+          </p>
+
+          {alerts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {alerts.map((alert) => (
+                <Link
+                  key={alert.label}
+                  href={alert.href}
+                  className={cn(
+                    "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    alert.tone === "danger"
+                      ? "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
+                      : "border-amber-500/25 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                  )}
+                >
+                  <alert.icon className="size-3.5 shrink-0" />
+                  {alert.label}
+                  <ArrowRight className="size-3 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
-        {alerts.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {alerts.map((alert) => (
-              <Link
-                key={alert.label}
-                href={alert.href}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  alert.tone === "danger"
-                    ? "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
-                    : "border-amber-500/25 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-                )}
-              >
-                <alert.icon className="size-3.5" />
-                {alert.label}
-                <ArrowRight className="size-3" />
-              </Link>
-            ))}
-          </div>
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <MetricBar>
           <MetricCard
             label="Projects"
-            unit="Projects"
             value={data.metrics.projects.value}
             delta={data.metrics.projects.delta}
             ratio={data.metrics.projects.ratio}
             ratioLabel={data.metrics.projects.ratioLabel}
             tone="emerald"
             href="/projects"
+            icon={FolderKanban}
           />
           <MetricCard
             label="Tasks"
-            unit="Tasks"
             value={data.metrics.tasks.value}
             delta={data.metrics.tasks.delta}
             ratio={data.metrics.tasks.ratio}
             ratioLabel={data.metrics.tasks.ratioLabel}
             tone="violet"
             href="/tasks"
+            icon={ListTodo}
           />
           <MetricCard
             label="Documents"
-            unit="Documents"
             value={data.metrics.documents.value}
             delta={data.metrics.documents.delta}
             ratio={data.metrics.documents.ratio}
             ratioLabel={data.metrics.documents.ratioLabel}
             tone="blue"
             href="/projects"
+            icon={FileText}
           />
           <MetricCard
             label="Notes"
-            unit="Notes"
             value={data.metrics.notes.value}
             delta={data.metrics.notes.delta}
             ratio={data.metrics.notes.ratio}
             ratioLabel={data.metrics.notes.ratioLabel}
             tone="amber"
             href="/notes"
+            icon={StickyNote}
           />
-        </div>
+        </MetricBar>
 
-        <ActivityChart trend={data.trend} />
+        {/* The chart sits inside the left column rather than full-bleed above
+            the grid, so both columns start on the same baseline instead of the
+            right column beginning a panel-height lower than the left. */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="flex flex-col gap-4 lg:col-span-2">
+            <ActivityChart trend={data.trend} />
 
-        <div className="grid gap-5 lg:grid-cols-3">
-          <div className="flex flex-col gap-5 lg:col-span-2">
             <Card title="Your focus" href="/tasks" linkLabel="All tasks">
               {focus.totalAssigned === 0 ? (
-                <div className="flex flex-col items-center px-5 pt-4 pb-10 text-center">
-                  <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
-                    <CheckCircle2 className="text-muted-foreground size-4" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium">You&rsquo;re all clear</p>
-                  <p className="text-muted-foreground mt-1 max-w-xs text-sm">
-                    No open tasks are assigned to you. Pick something up from the
-                    board when you&rsquo;re ready.
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-4" asChild>
-                    <Link href="/tasks">Browse tasks</Link>
-                  </Button>
-                </div>
+                <PanelEmpty
+                  icon={CheckCircle2}
+                  title="You’re all clear"
+                  description="No open tasks are assigned to you. Pick something up from the board when you’re ready."
+                  actionLabel="Browse tasks"
+                  href="/tasks"
+                />
               ) : (
                 <div className="pb-3">
                   {focus.overdue.length > 0 && (
@@ -372,49 +486,15 @@ export default async function DashboardPage() {
               )}
             </Card>
 
-            <Card title="Task overview" href="/tasks" linkLabel="Open board">
-              <div className="px-5 pt-1 pb-5">
-                <div className="grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
-                  {(Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]).map(
-                    (key) => {
-                      const config = TASK_STATUS_CONFIG[key]
-                      const count = taskBoard.byStatus[key] ?? 0
-                      const pct =
-                        taskBoard.total > 0
-                          ? Math.round((count / taskBoard.total) * 100)
-                          : 0
-                      return (
-                        <div key={key}>
-                          <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-                            <config.icon className="size-3.5" />
-                            {config.label}
-                          </p>
-                          <p className="mt-1.5 text-xl font-semibold tabular-nums">
-                            {count}
-                          </p>
-                          <Progress value={pct} className="mt-2 h-1.5" />
-                          <p className="text-muted-foreground mt-1.5 text-[11px] tabular-nums">
-                            {pct}% of all tasks
-                          </p>
-                        </div>
-                      )
-                    }
-                  )}
-                </div>
-
-                {taskBoard.total === 0 && (
-                  <p className="text-muted-foreground mt-5 text-center text-sm">
-                    No tasks yet. Create one to see the breakdown here.
-                  </p>
-                )}
-              </div>
-            </Card>
-
             <Card title="Active projects" href="/projects">
               {data.projects.length === 0 ? (
-                <p className="text-muted-foreground px-5 pt-2 pb-10 text-center text-sm">
-                  No active projects. Create one to get started.
-                </p>
+                <PanelEmpty
+                  icon={FolderKanban}
+                  title="No active projects"
+                  description="Create a project to group tasks, documents and conversations together."
+                  actionLabel="Create a project"
+                  href="/projects"
+                />
               ) : (
                 <div className="pb-3">
                   {data.projects.map((project) => {
@@ -441,7 +521,7 @@ export default async function DashboardPage() {
                         </div>
                         <div className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
                           <Progress value={project.progress} className="h-1.5" />
-                          <span className="text-muted-foreground text-xs tabular-nums">
+                          <span className="text-muted-foreground w-8 shrink-0 text-right text-xs tabular-nums">
                             {project.progress}%
                           </span>
                         </div>
@@ -458,29 +538,52 @@ export default async function DashboardPage() {
             </Card>
           </div>
 
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-4">
+            <Card title="Work breakdown" href="/tasks" linkLabel="Open board">
+              <WorkBreakdown
+                byStatus={taskBoard.byStatus}
+                total={taskBoard.total}
+              />
+            </Card>
+
+            <Card title="Workspace" href="/members" linkLabel="Manage">
+              <div className="grid grid-cols-2 gap-3 px-5 pt-1 pb-5">
+                <div className="bg-muted/40 rounded-lg border px-4 py-3">
+                  <p className="text-2xl leading-none font-semibold tabular-nums">
+                    {data.memberCount}
+                  </p>
+                  <p className="text-muted-foreground mt-1.5 text-xs">
+                    {data.memberCount === 1 ? "Member" : "Members"}
+                  </p>
+                </div>
+                <div className="bg-muted/40 rounded-lg border px-4 py-3">
+                  <p className="text-2xl leading-none font-semibold tabular-nums">
+                    {taskBoard.completedThisWeek}
+                  </p>
+                  <p className="text-muted-foreground mt-1.5 text-xs">
+                    Done this week
+                  </p>
+                </div>
+              </div>
+            </Card>
+
             <ActivityFeed
               variant="card"
               items={data.activity}
-              limit={8}
+              limit={5}
               title="Recent activity"
               emptyMessage="No activity yet. Events appear as your team works."
             />
 
             <Card title="Connected tools" href="/integrations" linkLabel="Manage">
               {data.integrations.length === 0 ? (
-                <div className="flex flex-col items-center px-5 pt-2 pb-8 text-center">
-                  <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
-                    <Plug className="text-muted-foreground size-4" />
-                  </div>
-                  <p className="mt-3 text-sm font-medium">Nothing connected</p>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    Connect GitHub to pull work in automatically.
-                  </p>
-                  <Button variant="outline" size="sm" className="mt-4" asChild>
-                    <Link href="/integrations">Connect a tool</Link>
-                  </Button>
-                </div>
+                <PanelEmpty
+                  icon={Plug}
+                  title="Nothing connected"
+                  description="Connect GitHub to pull work in automatically."
+                  actionLabel="Connect a tool"
+                  href="/integrations"
+                />
               ) : (
                 <div className="pb-3">
                   {data.integrations.map((integration) => {
@@ -514,27 +617,6 @@ export default async function DashboardPage() {
                   })}
                 </div>
               )}
-            </Card>
-
-            <Card title="Workspace" href="/members" linkLabel="Manage">
-              <div className="grid grid-cols-2 gap-3 px-5 pt-1 pb-5">
-                <div className="rounded-lg border bg-muted/30 px-4 py-3">
-                  <p className="text-2xl font-semibold tabular-nums">
-                    {data.memberCount}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    {data.memberCount === 1 ? "Member" : "Members"}
-                  </p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 px-4 py-3">
-                  <p className="text-2xl font-semibold tabular-nums">
-                    {taskBoard.completedThisWeek}
-                  </p>
-                  <p className="text-muted-foreground mt-1 text-xs">
-                    Done this week
-                  </p>
-                </div>
-              </div>
             </Card>
           </div>
         </div>

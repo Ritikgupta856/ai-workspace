@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
+import { DetailPageSkeleton } from "@/components/dashboard/loading-states"
 import {
   Dialog,
   DialogContent,
@@ -162,14 +163,7 @@ export default function ProjectDetailsPage() {
   /* ── Render ─────────────────────────────────────────────── */
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-3">
-          <Spinner className="size-6" />
-          <p className="text-sm text-muted-foreground">Loading project...</p>
-        </div>
-      </div>
-    )
+    return <DetailPageSkeleton />
   }
 
   if (error || !data) {

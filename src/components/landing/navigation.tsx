@@ -5,10 +5,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { useRouter } from "next/navigation"
-import { useSession, signOut } from "@/lib/auth-client"
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -18,12 +15,15 @@ const navLinks = [
   { label: "FAQ", href: "#faq" },
 ]
 
-export function Navigation() {
+export function Navigation({
+  authSlotDesktop,
+  authSlotMobile,
+}: {
+  authSlotDesktop: React.ReactNode
+  authSlotMobile: React.ReactNode
+}) {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { data: session, isPending } = useSession()
-  const router = useRouter()
-  const isAuth = !!session
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20)
@@ -31,10 +31,6 @@ export function Navigation() {
     window.addEventListener("scroll", onScroll, { passive: true })
     return () => window.removeEventListener("scroll", onScroll)
   }, [])
-
-  function handleLogout() {
-    signOut().then(() => { router.push("/") })
-  }
 
   return (
     <header
@@ -73,23 +69,7 @@ export function Navigation() {
 
         {/* Desktop CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          {isPending ? null : isAuth ? (
-            <>
-              <Button variant="ghost" asChild>
-                <a href="/home">Open</a>
-              </Button>
-              <Button onClick={handleLogout}>Logout</Button>
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" asChild>
-                <a href="/sign-in">Login</a>
-              </Button>
-              <Button asChild>
-                <a href="/sign-up">Get Started</a>
-              </Button>
-            </>
-          )}
+          {authSlotDesktop}
         </div>
 
         {/* Mobile toggle */}
@@ -115,37 +95,25 @@ export function Navigation() {
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden border-b border-border/50 bg-background/95 backdrop-blur-xl md:hidden"
           >
-            <div className="flex flex-col gap-1 px-4 pb-6 pt-2">
+            {/* onClickCapture rather than a per-link onClick: authSlotMobile is
+                server-rendered content passed in as a prop, so it can't be
+                handed a `setMobileOpen` callback directly — this closes the
+                menu on any click inside, auth buttons included. */}
+            <div
+              className="flex flex-col gap-1 px-4 pb-6 pt-2"
+              onClickCapture={() => setMobileOpen(false)}
+            >
               {navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
-                  onClick={() => setMobileOpen(false)}
                   className="rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
                 >
                   {link.label}
                 </a>
               ))}
               <hr className="my-2 border-border/50" />
-              {isAuth ? (
-                <>
-                  <Button asChild className="justify-start">
-                    <a href="/home" onClick={() => setMobileOpen(false)}>Open</a>
-                  </Button>
-                  <Button variant="ghost" className="justify-start" onClick={() => { setMobileOpen(false); handleLogout() }}>
-                    Logout
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button variant="ghost" asChild className="justify-start">
-                    <a href="/sign-in" onClick={() => setMobileOpen(false)}>Login</a>
-                  </Button>
-                  <Button asChild>
-                    <a href="/sign-up" onClick={() => setMobileOpen(false)}>Get Started</a>
-                  </Button>
-                </>
-              )}
+              {authSlotMobile}
             </div>
           </motion.div>
         )}

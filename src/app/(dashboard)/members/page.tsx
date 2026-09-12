@@ -31,7 +31,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Spinner } from "@/components/ui/spinner"
+import { TableSkeleton } from "@/components/dashboard/loading-states"
 
 export type Member = {
   id: string
@@ -509,10 +509,7 @@ export default function MembersPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 border rounded-lg bg-card text-muted-foreground shadow-sm">
-            <Spinner className="size-8 text-blue-600 mb-2" />
-            <p className="text-sm font-medium">Loading workspace members...</p>
-          </div>
+          <TableSkeleton rows={5} />
         ) : (
           <DataTable columns={memberColumns} data={filteredMembers} />
         )}
@@ -530,10 +527,7 @@ export default function MembersPage() {
           </div>
 
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center py-12 border rounded-lg bg-card text-muted-foreground shadow-sm">
-              <Spinner className="size-6 text-blue-600 mb-2" />
-              <p className="text-sm font-medium">Loading invitations...</p>
-            </div>
+            <TableSkeleton rows={3} />
           ) : invitationList.length > 0 ? (
             <DataTable columns={invitationColumns} data={invitationList} />
           ) : (

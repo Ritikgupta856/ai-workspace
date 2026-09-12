@@ -3,7 +3,7 @@
 import * as React from "react"
 import { nanoid } from "nanoid"
 import Link from "next/link"
-import { LayoutList, Columns3, ListFilter, User, FolderKanban } from "lucide-react"
+import { LayoutList, Columns3 } from "lucide-react"
 import { SearchInput } from "@/components/ui/search-input"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { DataTable } from "@/components/ui/data-table"
@@ -14,13 +14,20 @@ import { TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from "@/lib/constants"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Kanban, type KanbanColumn } from "@/components/ui/kanban"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { NewTaskButton } from "@/components/tasks/new-task-button"
 import { TaskDialog } from "@/components/tasks/task-dialog"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
 import { fetchTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
 import { formatUpdatedDate, formatDueDate } from "@/lib/date"
-import { Spinner } from "@/components/ui/spinner"
+import { BoardSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 
 export type TaskStatus = keyof typeof TASK_STATUS_CONFIG
 export type TaskPriority = keyof typeof TASK_PRIORITY_CONFIG
@@ -49,10 +56,10 @@ const boardColumns: KanbanColumn[] = [
 
 type TaskFilter = "all" | "my" | "project"
 
-const filterOptions: { value: TaskFilter; label: string; icon: typeof ListFilter }[] = [
-  { value: "all", label: "All Tasks", icon: ListFilter },
-  { value: "my", label: "My Tasks", icon: User },
-  { value: "project", label: "Project Tasks", icon: FolderKanban },
+const taskFilterOptions: { value: TaskFilter; label: string }[] = [
+  { value: "all", label: "All Tasks" },
+  { value: "my", label: "My Tasks" },
+  { value: "project", label: "Project Tasks" },
 ]
 
 export const columns: ColumnDef<Task>[] = [
@@ -238,33 +245,9 @@ function TaskCard({
   )
 }
 
-function FilterTrigger({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        active
-          ? "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {children}
-    </button>
-  )
-}
-
 export default function TasksPage() {
   const [taskFilter, setTaskFilter] = React.useState<TaskFilter>("all")
+  const [search, setSearch] = React.useState("")
   const [viewMode, setViewMode] = React.useState("table")
   const [taskList, setTaskList] = React.useState<Task[]>([])
   const [dialogOpen, setDialogOpen] = React.useState(false)
@@ -283,15 +266,28 @@ export default function TasksPage() {
   }, [])
 
   const filteredTasks = React.useMemo(() => {
+    let result = taskList
+
     switch (taskFilter) {
       case "my":
-        return taskList.filter((t) => t.assignee === "Ritik Gupta")
+        result = result.filter((t) => t.assignee === "Ritik Gupta")
+        break
       case "project":
-        return taskList.filter((t) => t.project === "Synapse")
-      default:
-        return taskList
+        result = result.filter((t) => t.project === "Synapse")
+        break
     }
-  }, [taskFilter, taskList])
+
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          t.description.toLowerCase().includes(q)
+      )
+    }
+
+    return result
+  }, [taskFilter, taskList, search])
 
   async function handleMove(itemId: string, from: string, to: string, index: number) {
     setTaskList((prev) => {
@@ -419,44 +415,44 @@ export default function TasksPage() {
       />
 
       <div className="flex flex-1 flex-col gap-6 p-6">
-        <div className="flex items-center justify-between">
-          <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
-            {filterOptions.map((opt) => {
-              const Icon = opt.icon
-              return (
-                <FilterTrigger
-                  key={opt.value}
-                  active={taskFilter === opt.value}
-                  onClick={() => setTaskFilter(opt.value)}
-                >
-                  <Icon className="size-4" />
-                  {opt.label}
-                </FilterTrigger>
-              )
-            })}
-          </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search tasks..."
+            compact
+            className="max-w-sm"
+          />
 
-          <Tabs value={viewMode} onValueChange={setViewMode}>
-            <TabsList>
-              <TabsTrigger value="table" className="gap-2">
-                <LayoutList className="size-4" />
-                Table
-              </TabsTrigger>
-              <TabsTrigger value="board" className="gap-2">
-                <Columns3 className="size-4" />
-                Board
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <div className="ml-auto flex items-center gap-3">
+            <Select value={taskFilter} onValueChange={(v) => setTaskFilter(v as TaskFilter)}>
+              <SelectTrigger className="h-9 w-40 text-sm">
+                <SelectValue placeholder="Filter" />
+              </SelectTrigger>
+              <SelectContent>
+                {taskFilterOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Tabs value={viewMode} onValueChange={setViewMode}>
+              <TabsList>
+                <TabsTrigger value="table" className="px-3" aria-label="Table view">
+                  <LayoutList className="size-4" />
+                </TabsTrigger>
+                <TabsTrigger value="board" className="px-3" aria-label="Board view">
+                  <Columns3 className="size-4" />
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
         </div>
 
         {loading ? (
-        <div className="flex flex-1 items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-3">
-            <Spinner className="size-6" />
-            <p className="text-sm text-muted-foreground">Loading...</p>
-          </div>
-        </div>
+        viewMode === "table" ? <TableSkeleton rows={8} /> : <BoardSkeleton />
       ) : error ? (
         <div className="flex items-center justify-center py-20 text-destructive">
           {error}

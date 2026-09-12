@@ -146,9 +146,9 @@ export function AppSidebar({
   )
 
   return (
-    <Sidebar collapsible="icon" {...props}>
+    <Sidebar collapsible="icon" variant="inset" {...props}>
       {/* ── Logo ── */}
-      <SidebarHeader className="py-3">
+      <SidebarHeader className="px-0.5 py-1">
         {activeTeam && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -204,7 +204,7 @@ export function AppSidebar({
       </SidebarHeader >
 
       {/* ── Main nav ── */}
-      <SidebarContent className="px-2">
+      <SidebarContent className="px-0.5 py-2">
         {navSections.map((section, i) => (
           <SidebarGroup key={section.label ?? `group-${i}`} className="px-0 py-1">
             {section.label && !isCollapsed && (
@@ -250,7 +250,7 @@ export function AppSidebar({
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="px-2 pb-2">
+      <SidebarFooter className="px-0.5">
         <NavUser user={resolvedUser} />
       </SidebarFooter>
 

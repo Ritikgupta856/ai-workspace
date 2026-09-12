@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { PageHeader } from "@/components/dashboard/page-header"
 import {
+
   IntegrationsView,
   type IntegrationRuntime,
 } from "@/components/integrations/integrations-view"
@@ -26,6 +27,8 @@ export const metadata: Metadata = {
   title: "Integrations",
   description: "Connect GitHub, Linear, Notion and more to your workspace.",
 }
+
+export const instant = false
 
 export default async function IntegrationsPage(props: {
   searchParams?: Promise<{ success?: string; error?: string }>

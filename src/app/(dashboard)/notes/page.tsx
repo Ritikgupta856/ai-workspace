@@ -16,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Spinner } from "@/components/ui/spinner"
+import { NotesSkeleton } from "@/components/dashboard/loading-states"
 import { cn } from "@/lib/utils"
 import { formatUpdatedDate } from "@/lib/date"
 import { downloadNoteMarkdown } from "@/lib/notes"
@@ -272,12 +272,7 @@ export default function NotesPage() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         {loading ? (
-          <div className="flex flex-1 items-center justify-center py-24">
-            <div className="flex flex-col items-center gap-3">
-              <Spinner className="size-6" />
-              <p className="text-sm text-muted-foreground">Loading notes...</p>
-            </div>
-          </div>
+          <NotesSkeleton />
         ) : error ? (
           <div className="flex items-center justify-center py-20 text-sm text-destructive">
             {error}

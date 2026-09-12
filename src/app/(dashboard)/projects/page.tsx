@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Archive, Clock, FolderKanban, Plus } from "lucide-react"
+import { Clock, Plus } from "lucide-react"
 import { toast } from "sonner"
 import type { ColumnDef } from "@tanstack/react-table"
 
@@ -13,7 +13,7 @@ import { DataTable } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Spinner } from "@/components/ui/spinner"
+import { CardGridSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 import {
   Tooltip,
   TooltipContent,
@@ -50,28 +50,15 @@ import {
   deleteProject,
 } from "@/lib/api/projects"
 
-type ProjectTab = "all" | "active" | "archived"
-
-const tabOptions: {
-  value: ProjectTab
-  label: string
-  icon: typeof FolderKanban
-}[] = [
-  { value: "all", label: "All", icon: FolderKanban },
-  { value: "active", label: "Active", icon: Clock },
-  { value: "archived", label: "Archived", icon: Archive },
-]
-
 export default function ProjectsPage() {
   const router = useRouter()
   const [projectList, setProjectList] = React.useState<ProjectCardData[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
   const [search, setSearch] = React.useState("")
-  const [projectTab, setProjectTab] = React.useState<ProjectTab>("all")
   const [statusFilter, setStatusFilter] = React.useState("all")
   const [sortBy, setSortBy] = React.useState<ProjectSortKey>("updated")
-  const [viewMode, setViewMode] = React.useState<"grid" | "list">("grid")
+  const [viewMode, setViewMode] = React.useState<"grid" | "list">("list")
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [editingProject, setEditingProject] =
     React.useState<ProjectCardData | null>(null)
@@ -97,17 +84,11 @@ export default function ProjectsPage() {
   const filtered = React.useMemo(() => {
     let result = [...projectList]
 
-    if (projectTab === "active") {
-      result = result.filter((p) => p.status === "ACTIVE")
-    } else if (projectTab === "archived") {
-      result = result.filter((p) => p.status === "ARCHIVED")
-    } else {
-      // The "All" tab hides archived projects — they have their own tab, and
-      // leaving them mixed in makes the default view noisy over time.
+    if (statusFilter === "all") {
+      // Archived projects stay out of the default view — they're one status
+      // filter away, but mixing them in makes the list noisy over time.
       result = result.filter((p) => p.status !== "ARCHIVED")
-    }
-
-    if (statusFilter !== "all") {
+    } else {
       result = result.filter((p) => p.status === statusFilter)
     }
 
@@ -135,7 +116,7 @@ export default function ProjectsPage() {
     }
 
     return result
-  }, [projectList, search, projectTab, statusFilter, sortBy])
+  }, [projectList, search, statusFilter, sortBy])
 
   /* ── Actions ────────────────────────────────────────────── */
 
@@ -364,15 +345,6 @@ export default function ProjectsPage() {
 
   /* ── Render ─────────────────────────────────────────────── */
 
-  const counts = React.useMemo(
-    () => ({
-      all: projectList.filter((p) => p.status !== "ARCHIVED").length,
-      active: projectList.filter((p) => p.status === "ACTIVE").length,
-      archived: projectList.filter((p) => p.status === "ARCHIVED").length,
-    }),
-    [projectList]
-  )
-
   return (
     <div className="flex flex-1 flex-col">
       <PageHeader
@@ -391,46 +363,29 @@ export default function ProjectsPage() {
         }
       />
 
-      <div className="flex flex-1 flex-col gap-5 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex items-center rounded-md bg-muted p-1 text-muted-foreground">
-            {tabOptions.map(({ value, label, icon: Icon }) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setProjectTab(value)}
-                className={cn(
-                  "inline-flex items-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  projectTab === value
-                    ? "bg-background text-foreground shadow-sm"
-                    : "hover:text-foreground"
-                )}
-              >
-                <Icon className="size-4" />
-                {label}
-                <span className="text-xs tabular-nums opacity-60">
-                  {counts[value]}
-                </span>
-              </button>
-            ))}
-          </div>
-          <ProjectToolbar
-            statusFilter={statusFilter}
-            onStatusFilterChange={setStatusFilter}
-            sortBy={sortBy}
-            onSortChange={setSortBy}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
+      <div className="flex flex-1 flex-col gap-6 p-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <SearchInput
+            value={search}
+            onValueChange={setSearch}
+            placeholder="Search projects..."
+            compact
+            className="max-w-sm"
           />
+          <div className="ml-auto">
+            <ProjectToolbar
+              statusFilter={statusFilter}
+              onStatusFilterChange={setStatusFilter}
+              sortBy={sortBy}
+              onSortChange={setSortBy}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+            />
+          </div>
         </div>
 
         {loading ? (
-        <div className="flex flex-1 items-center justify-center py-24">
-          <div className="flex flex-col items-center gap-3">
-            <Spinner className="size-6" />
-            <p className="text-sm text-muted-foreground">Loading projects...</p>
-          </div>
-        </div>
+        viewMode === "grid" ? <CardGridSkeleton /> : <TableSkeleton />
       ) : error ? (
         <div className="flex flex-col items-center justify-center gap-3 py-20">
           <p className="text-sm text-destructive">{error}</p>
@@ -458,7 +413,6 @@ export default function ProjectsPage() {
             onClick={() => {
               setSearch("")
               setStatusFilter("all")
-              setProjectTab("all")
             }}
           >
             Clear filters

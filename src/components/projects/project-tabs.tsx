@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Spinner } from "@/components/ui/spinner"
+import { TableSkeleton } from "@/components/dashboard/loading-states"
 import {
   Select,
   SelectContent,
@@ -81,15 +81,8 @@ function EmptyState({
   )
 }
 
-function Loading({ label }: { label: string }) {
-  return (
-    <div className="flex items-center justify-center py-16">
-      <div className="flex flex-col items-center gap-3">
-        <Spinner className="size-5" />
-        <p className="text-sm text-muted-foreground">{label}</p>
-      </div>
-    </div>
-  )
+function Loading({ rows = 5 }: { label?: string; rows?: number }) {
+  return <TableSkeleton rows={rows} />
 }
 
 /**

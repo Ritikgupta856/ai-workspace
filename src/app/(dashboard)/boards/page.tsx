@@ -15,6 +15,8 @@ export const metadata: Metadata = {
   description: "Visual whiteboards for brainstorming and planning.",
 }
 
+export const instant = false
+
 export default async function BoardsPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect("/sign-in")

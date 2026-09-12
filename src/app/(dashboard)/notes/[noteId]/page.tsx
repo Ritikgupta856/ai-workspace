@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Spinner } from "@/components/ui/spinner"
+import { NoteDetailSkeleton } from "@/components/dashboard/loading-states"
 import { Kbd } from "@/components/ui/kbd"
 import {
   Dialog,
@@ -211,14 +212,7 @@ export default function NoteDetailPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-24">
-        <div className="flex flex-col items-center gap-3">
-          <Spinner className="size-6" />
-          <p className="text-sm text-muted-foreground">Loading note...</p>
-        </div>
-      </div>
-    )
+    return <NoteDetailSkeleton />
   }
 
   if (error || !note) {

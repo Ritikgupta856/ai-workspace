@@ -29,7 +29,7 @@ export function SearchInput({
     return (
         <div className={cn("w-full max-w-sm", className)}>
             <InputGroup className={cn("flex-row items-center rounded-lg", compact && "shadow-none")}>
-                <InputGroupAddon className={compact ? "px-2.5 py-1.5" : undefined}>
+                <InputGroupAddon className={compact ? "pl-2.5 pr-1.5 py-1.5" : undefined}>
                     <SearchIcon className={cn("text-muted-foreground", compact ? "size-3.5" : "size-4")} />
                 </InputGroupAddon>
 
@@ -37,7 +37,7 @@ export function SearchInput({
                     value={value}
                     onChange={(e) => onValueChange?.(e.target.value)}
                     placeholder={placeholder}
-                    className={compact ? "py-2 text-xs" : undefined}
+                    className={compact ? "pl-0 py-3 text-sm" : undefined}
                     {...props}
                 />
             </InputGroup>
