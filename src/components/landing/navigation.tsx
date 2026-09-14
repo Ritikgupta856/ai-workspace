@@ -6,6 +6,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 
 const navLinks = [
   { label: "Features", href: "#features" },
@@ -15,13 +16,10 @@ const navLinks = [
   { label: "FAQ", href: "#faq" },
 ]
 
-export function Navigation({
-  authSlotDesktop,
-  authSlotMobile,
-}: {
-  authSlotDesktop: React.ReactNode
-  authSlotMobile: React.ReactNode
-}) {
+// Landing page only renders for signed-out visitors (the home route
+// redirects authenticated users to /home before this ever mounts), so the
+// nav CTA is always the logged-out state — no session check needed.
+export function Navigation() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
 
@@ -69,7 +67,12 @@ export function Navigation({
 
         {/* Desktop CTA */}
         <div className="hidden items-center gap-3 md:flex">
-          {authSlotDesktop}
+          <Button variant="ghost" asChild>
+            <a href="/sign-in">Login</a>
+          </Button>
+          <Button asChild>
+            <a href="/sign-up">Get Started</a>
+          </Button>
         </div>
 
         {/* Mobile toggle */}
@@ -95,13 +98,9 @@ export function Navigation({
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden border-b border-border/50 bg-background/95 backdrop-blur-xl md:hidden"
           >
-            {/* onClickCapture rather than a per-link onClick: authSlotMobile is
-                server-rendered content passed in as a prop, so it can't be
-                handed a `setMobileOpen` callback directly — this closes the
-                menu on any click inside, auth buttons included. */}
             <div
               className="flex flex-col gap-1 px-4 pb-6 pt-2"
-              onClickCapture={() => setMobileOpen(false)}
+              onClick={() => setMobileOpen(false)}
             >
               {navLinks.map((link) => (
                 <a
@@ -113,7 +112,12 @@ export function Navigation({
                 </a>
               ))}
               <hr className="my-2 border-border/50" />
-              {authSlotMobile}
+              <Button variant="ghost" asChild className="justify-start">
+                <a href="/sign-in">Login</a>
+              </Button>
+              <Button asChild>
+                <a href="/sign-up">Get Started</a>
+              </Button>
             </div>
           </motion.div>
         )}

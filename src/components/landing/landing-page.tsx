@@ -12,16 +12,10 @@ import { Faq } from "@/components/landing/faq"
 import { Footer } from "@/components/landing/footer"
 
 
-export function LandingPage({
-  authSlotDesktop,
-  authSlotMobile,
-}: {
-  authSlotDesktop: React.ReactNode
-  authSlotMobile: React.ReactNode
-}) {
+export function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground" style={{ "--background": "white" } as React.CSSProperties}>
-      <Navigation authSlotDesktop={authSlotDesktop} authSlotMobile={authSlotMobile} />
+      <Navigation />
       <main
         style={{
           backgroundImage: `
