@@ -3,7 +3,7 @@
 import { useTransition } from "react"
 
 import { Switch } from "@/components/ui/switch"
-import { disconnectIntegration } from "@/app/(dashboard)/integrations/actions"
+import { disconnectIntegration } from "@/lib/actions/integrations"
 
 interface Props {
   provider: string

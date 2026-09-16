@@ -128,30 +128,30 @@ export async function GET(
   const stateParam = searchParams.get("state")
   const error = searchParams.get("error")
 
-  const redirectBase = `${appUrl()}/integrations`
+  const redirectBase = `${appUrl()}/home?settings=integrations`
 
   if (error) {
-    return NextResponse.redirect(`${redirectBase}?error=${error}_denied`)
+    return NextResponse.redirect(`${redirectBase}&error=${error}_denied`)
   }
 
   if (!code || !stateParam) {
-    return NextResponse.redirect(`${redirectBase}?error=missing_params`)
+    return NextResponse.redirect(`${redirectBase}&error=missing_params`)
   }
 
   const state = verifyState(stateParam)
   if (!state) {
-    return NextResponse.redirect(`${redirectBase}?error=invalid_state`)
+    return NextResponse.redirect(`${redirectBase}&error=invalid_state`)
   }
 
   const config = TOKEN_ENDPOINTS[provider]
   if (!config) {
-    return NextResponse.redirect(`${redirectBase}?error=unknown_provider`)
+    return NextResponse.redirect(`${redirectBase}&error=unknown_provider`)
   }
 
   const clientId = process.env[config.clientIdEnv]
   const clientSecret = process.env[config.clientSecretEnv]
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(`${redirectBase}?error=provider_not_configured`)
+    return NextResponse.redirect(`${redirectBase}&error=provider_not_configured`)
   }
 
   const redirectUri = `${appUrl()}/api/integrations/callback/${provider}`
@@ -194,12 +194,12 @@ export async function GET(
 
     tokenData = (await tokenRes.json()) as Record<string, unknown>
   } catch {
-    return NextResponse.redirect(`${redirectBase}?error=token_exchange_failed`)
+    return NextResponse.redirect(`${redirectBase}&error=token_exchange_failed`)
   }
 
   const accessToken = tokenData[config.tokenField] as string | undefined
   if (!accessToken) {
-    return NextResponse.redirect(`${redirectBase}?error=token_exchange_failed`)
+    return NextResponse.redirect(`${redirectBase}&error=token_exchange_failed`)
   }
 
   const refreshToken = config.refreshField
@@ -251,5 +251,5 @@ export async function GET(
     })
   }
 
-  return NextResponse.redirect(`${redirectBase}?success=true`)
+  return NextResponse.redirect(`${redirectBase}&success=true`)
 }

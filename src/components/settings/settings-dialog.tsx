@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Lock, TriangleAlert, User, Building2, SlidersHorizontal, CreditCard } from "lucide-react"
+import { Loader2, Lock, TriangleAlert, User, Building2, SlidersHorizontal, CreditCard, Users, Puzzle } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -29,6 +29,8 @@ import {
   updateProfile,
   updateWorkspace,
 } from "@/lib/api/settings"
+import { MembersPanel } from "@/components/members/members-panel"
+import { IntegrationsPanel } from "@/components/integrations/integrations-panel"
 
 type Profile = {
   name: string
@@ -59,11 +61,19 @@ type SettingsData = {
   subscription: Subscription | null
 }
 
-type Section = "profile" | "workspace" | "preferences" | "billing"
+export type Section =
+  | "profile"
+  | "workspace"
+  | "members"
+  | "integrations"
+  | "preferences"
+  | "billing"
 
 const SECTIONS: { id: Section; label: string; icon: typeof User }[] = [
   { id: "profile", label: "Profile", icon: User },
   { id: "workspace", label: "Workspace", icon: Building2 },
+  { id: "members", label: "Members", icon: Users },
+  { id: "integrations", label: "Integrations", icon: Puzzle },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
   { id: "billing", label: "Billing", icon: CreditCard },
 ]
@@ -123,16 +133,37 @@ function Field({
 export function SettingsDialog({
   open,
   onOpenChange,
+  initialSection,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
+  initialSection?: Section
 }) {
   const router = useRouter()
 
-  const [section, setSection] = React.useState<Section>("profile")
+  const [section, setSection] = React.useState<Section>(initialSection ?? "profile")
   const [query, setQuery] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [data, setData] = React.useState<SettingsData | null>(null)
+
+  React.useEffect(() => {
+    if (open && initialSection) setSection(initialSection)
+  }, [open, initialSection])
+
+  // Defensive cleanup: if a Dialog open/close races with another Radix
+  // primitive closing at the same time (e.g. the dropdown menu item that
+  // triggers this dialog), `pointer-events: none` can get stuck on <body>
+  // and the whole page stops responding to clicks. Nothing else should be
+  // setting this, so clearing it on close is always safe.
+  React.useEffect(() => {
+    if (open) return
+    const id = setTimeout(() => {
+      if (document.body.style.pointerEvents === "none") {
+        document.body.style.pointerEvents = ""
+      }
+    }, 350)
+    return () => clearTimeout(id)
+  }, [open])
 
   const load = React.useCallback(() => {
     setLoading(true)
@@ -164,7 +195,7 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[600px] max-w-4xl gap-0 overflow-hidden p-0">
+      <DialogContent className="h-[600px] max-w-6xl gap-0 overflow-hidden p-0">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your profile and workspace settings.
@@ -222,6 +253,10 @@ export function SettingsDialog({
                   router.refresh()
                 }}
               />
+            ) : section === "members" ? (
+              <MembersPanel />
+            ) : section === "integrations" ? (
+              <IntegrationsPanel />
             ) : section === "preferences" ? (
               <PreferencesPanel />
             ) : (

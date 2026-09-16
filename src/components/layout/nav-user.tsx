@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useEffect, useState } from "react"
+import { toast } from "sonner"
 import {
   Avatar,
   AvatarFallback,
@@ -21,7 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronsUpDown,
   Settings,
@@ -29,7 +30,65 @@ import {
   LogOut,
 } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
-import { SettingsDialog } from "@/components/settings/settings-dialog"
+import { SettingsDialog, type Section } from "@/components/settings/settings-dialog"
+
+const INTEGRATION_ERRORS: Record<string, string> = {
+  missing_params: "The provider did not return an authorization code.",
+  invalid_state: "That authorization link expired. Try connecting again.",
+  user_mismatch: "That authorization was started by a different account.",
+  forbidden: "You are not a member of that workspace.",
+  token_exchange_failed: "Could not exchange the authorization code for a token.",
+  unknown_provider: "That integration is not supported.",
+  provider_not_configured: "This provider's OAuth credentials are not configured on the server.",
+}
+
+const VALID_SECTIONS: Section[] = [
+  "profile",
+  "workspace",
+  "members",
+  "integrations",
+  "preferences",
+  "billing",
+]
+
+/** Reads ?settings=/&success=/&error= once per navigation and clears them. */
+function SettingsQuerySync({
+  onSection,
+}: {
+  onSection: (section: Section) => void
+}) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const settings = searchParams.get("settings")
+    const success = searchParams.get("success")
+    const error = searchParams.get("error")
+
+    if (!settings && !success && !error) return
+
+    if (settings && (VALID_SECTIONS as string[]).includes(settings)) {
+      onSection(settings as Section)
+    }
+    if (success) toast.success("Connected successfully.")
+    if (error) {
+      toast.error(
+        INTEGRATION_ERRORS[error] ??
+          (error.endsWith("_denied") ? "Authorization was denied." : "Failed to connect integration. Please try again.")
+      )
+    }
+
+    const params = new URLSearchParams(searchParams)
+    params.delete("settings")
+    params.delete("success")
+    params.delete("error")
+    const rest = params.toString()
+    router.replace(rest ? `${window.location.pathname}?${rest}` : window.location.pathname, { scroll: false })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
+
+  return null
+}
 
 export function NavUser({
   user,
@@ -43,6 +102,7 @@ export function NavUser({
   const router = useRouter()
   const { isMobile } = useSidebar()
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSection, setSettingsSection] = useState<Section | undefined>(undefined)
 
   return (
     <SidebarMenu>
@@ -88,7 +148,16 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
+              <DropdownMenuItem
+                onSelect={(e) => {
+                  // Opening a Dialog synchronously from a DropdownMenuItem races
+                  // Radix's own close cleanup and can leave `pointer-events: none`
+                  // stuck on <body> — deferring a tick lets the menu finish closing
+                  // first, which is the documented workaround for that bug.
+                  e.preventDefault()
+                  setTimeout(() => setSettingsOpen(true), 0)
+                }}
+              >
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>
@@ -106,7 +175,20 @@ export function NavUser({
         </DropdownMenu>
       </SidebarMenuItem>
 
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <Suspense fallback={null}>
+        <SettingsQuerySync
+          onSection={(section) => {
+            setSettingsSection(section)
+            setSettingsOpen(true)
+          }}
+        />
+      </Suspense>
+
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        initialSection={settingsSection}
+      />
     </SidebarMenu>
   )
 }

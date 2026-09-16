@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { formatNote, noteInclude } from "@/lib/notes"
 import { logActivity } from "@/lib/activity"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -29,8 +29,13 @@ export async function GET() {
       )
     }
 
+    const projectId = new URL(req.url).searchParams.get("projectId")
+
     const notes = await prisma.note.findMany({
-      where: { workspaceId: membership.workspaceId },
+      where: {
+        workspaceId: membership.workspaceId,
+        ...(projectId ? { projectId } : {}),
+      },
       include: noteInclude,
       orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }],
     })
@@ -75,13 +80,22 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { title, tags, content } = body
+    const { title, tags, content, projectId } = body
 
     if (!title?.trim()) {
       return NextResponse.json(
         { success: false, error: "Title is required" },
         { status: 400 }
       )
+    }
+
+    let validProjectId: string | null = null
+    if (projectId) {
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, workspaceId: membership.workspaceId },
+        select: { id: true },
+      })
+      validProjectId = project?.id ?? null
     }
 
     const note = await prisma.note.create({
@@ -92,6 +106,7 @@ export async function POST(req: Request) {
         tags: Array.isArray(tags) ? tags : [],
         workspaceId: membership.workspaceId,
         authorId: session.user.id,
+        projectId: validProjectId,
       },
       include: noteInclude,
     })

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity"
+import { notifyTaskAssignment, notifyTaskCompletion, notifyTaskUpdate } from "@/lib/notifications"
 
 export async function PATCH(
   req: Request,
@@ -93,6 +94,14 @@ export async function PATCH(
           to: status,
         },
       })
+      if (status === "DONE" && task.createdById) {
+        await notifyTaskCompletion({
+          recipientId: task.createdById,
+          actorId: session.user.id,
+          taskId: task.id,
+          taskTitle: task.title,
+        })
+      }
     } else if (assigneeId !== undefined && assigneeId !== existing.assigneeId) {
       await logActivity({
         ...base,
@@ -102,12 +111,28 @@ export async function PATCH(
           to: task.assignee?.name ?? undefined,
         },
       })
+      if (assigneeId) {
+        await notifyTaskAssignment({
+          assigneeId,
+          actorId: session.user.id,
+          taskId: task.id,
+          taskTitle: task.title,
+        })
+      }
     } else {
       await logActivity({
         ...base,
         type: "TASK_UPDATED",
         metadata: { target: task.title },
       })
+      if (task.assigneeId) {
+        await notifyTaskUpdate({
+          recipientId: task.assigneeId,
+          actorId: session.user.id,
+          taskId: task.id,
+          taskTitle: task.title,
+        })
+      }
     }
 
     const formatted = {

@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth.api.getSession({
       headers: await headers(),
@@ -27,8 +27,16 @@ export async function GET() {
       )
     }
 
+    const searchParams = new URL(req.url).searchParams
+    const mine = searchParams.get("assignee") === "me"
+    const projectId = searchParams.get("projectId")
+
     const tasks = await prisma.task.findMany({
-      where: { workspaceId: membership.workspaceId },
+      where: {
+        workspaceId: membership.workspaceId,
+        ...(mine ? { assigneeId: session.user.id } : {}),
+        ...(projectId ? { projectId } : {}),
+      },
       include: {
         project: { select: { name: true } },
         assignee: { select: { name: true } },

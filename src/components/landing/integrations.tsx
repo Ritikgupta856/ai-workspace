@@ -69,7 +69,7 @@ export function Integrations() {
               className="border-line text-ink hover:bg-surface-1 h-10 gap-2 rounded-lg bg-white text-[14px] font-medium shadow-rest"
               asChild
             >
-              <Link href="/integrations">
+              <Link href="/sign-up">
                 Browse all integrations
                 <ArrowRight className="size-4" />
               </Link>

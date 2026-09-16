@@ -17,18 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { toast } from "sonner"
-import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
-// PROJECT_STATUS_CONFIG is typed as Record<string, …>, so its key type widens
-// to `string`. ProjectStatus is the narrow union the API actually validates.
-import type { ProjectStatus } from "@/lib/projects"
 import { createProject, updateProject } from "@/lib/api/projects"
 import type { ProjectCardData } from "@/components/projects/project-card"
 
@@ -37,15 +26,10 @@ const ICONS = ["📁", "🚀", "🎯", "⚙️", "📊", "🧪", "🎨", "🔐",
 const formSchema = z.object({
   name: z.string().min(1, "Project name is required"),
   description: z.string().optional(),
-  status: z.string().optional(),
   icon: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
-
-const statusOptions = Object.entries(PROJECT_STATUS_CONFIG).map(
-  ([value, config]) => ({ value, ...config })
-)
 
 export interface ProjectDialogProps {
   open: boolean
@@ -68,7 +52,6 @@ export function ProjectDialog({
     defaultValues: {
       name: "",
       description: "",
-      status: "ACTIVE",
       icon: "📁",
     },
   })
@@ -84,14 +67,12 @@ export function ProjectDialog({
       form.reset({
         name: project.name,
         description: project.description,
-        status: project.status,
         icon: project.icon,
       })
     } else {
       form.reset({
         name: "",
         description: "",
-        status: "ACTIVE",
         icon: "📁",
       })
     }
@@ -102,12 +83,9 @@ export function ProjectDialog({
     setSubmitting(true)
     setError(null)
     try {
-      // Status and icon are sent now — the form collected them before but the
-      // request body dropped them on the floor.
       const payload = {
         name: data.name,
         description: data.description ?? "",
-        status: data.status as ProjectStatus,
         icon: data.icon || "📁",
       }
 
@@ -200,32 +178,6 @@ export function ProjectDialog({
                   className="min-h-[80px] resize-y"
                   {...form.register("description")}
                 />
-              </div>
-
-              {/* Status */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Status</label>
-                <Select
-                  value={form.watch("status")}
-                  onValueChange={(v) => form.setValue("status", v)}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select status..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map((opt) => {
-                      const Icon = opt.icon
-                      return (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          <div className="flex items-center gap-2">
-                            <Icon className="size-4 shrink-0" />
-                            {opt.label}
-                          </div>
-                        </SelectItem>
-                      )
-                    })}
-                  </SelectContent>
-                </Select>
               </div>
 
               {/* Icon — replaces the old Visibility control, which had no

@@ -4,7 +4,7 @@ import { useTransition } from "react"
 import { Loader2, Link2, Link2Off } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { disconnectIntegration } from "@/app/(dashboard)/integrations/actions"
+import { disconnectIntegration } from "@/lib/actions/integrations"
 
 interface Props {
   provider: string

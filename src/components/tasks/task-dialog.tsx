@@ -45,7 +45,7 @@ import {
   TASK_STATUS_CONFIG,
   TASK_PRIORITY_CONFIG,
 } from "@/lib/constants"
-import type { TaskStatus, TaskPriority, Task } from "@/app/(dashboard)/tasks/page"
+import type { TaskStatus, TaskPriority, Task } from "@/components/tasks/tasks-view"
 import { createTask, updateTask } from "@/lib/api/tasks"
 import { fetchProjects } from "@/lib/api/projects"
 
@@ -227,6 +227,8 @@ export interface TaskDialogProps {
   mode: "create" | "edit"
   task?: Task
   onSuccess?: () => void
+  /** Pre-fills the project field when creating from inside a project page. Still editable. */
+  defaultProjectId?: string
 }
 
 export function TaskDialog({
@@ -235,6 +237,7 @@ export function TaskDialog({
   mode,
   task,
   onSuccess,
+  defaultProjectId,
 }: TaskDialogProps) {
   const [projectsList, setProjectsList] = React.useState<{ id: string; name: string }[]>([])
   const [membersList, setMembersList] = React.useState<MemberOption[]>([])
@@ -296,7 +299,7 @@ export function TaskDialog({
       form.reset({
         title: "",
         description: "",
-        projectId: "",
+        projectId: defaultProjectId ?? "",
         assigneeId: "",
         status: "TODO",
         priority: "MEDIUM",
@@ -306,7 +309,7 @@ export function TaskDialog({
         addToBacklog: false,
       })
     }
-  }, [open, task, isEdit, form])
+  }, [open, task, isEdit, form, defaultProjectId])
 
   async function onSubmit(data: FormValues) {
     if (submitting) return

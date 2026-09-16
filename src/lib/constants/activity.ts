@@ -2,6 +2,7 @@ import {
   Activity,
   ArrowRight,
   CheckCircle2,
+  FileText,
   FileUp,
   FolderKanban,
   FolderPlus,
@@ -109,6 +110,17 @@ export const ACTIVITY_CONFIG: Record<
     className:
       "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
     icon: PenTool,
+  },
+  PAGE_CREATED: {
+    label: "Page",
+    className:
+      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    icon: FileText,
+  },
+  PAGE_DELETED: {
+    label: "Page",
+    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+    icon: Trash2,
   },
   MEMBER_INVITED: {
     label: "Member",

@@ -24,6 +24,8 @@ export type ActivityType =
   | "NOTE_CREATED"
   | "NOTE_DELETED"
   | "WHITEBOARD_CREATED"
+  | "PAGE_CREATED"
+  | "PAGE_DELETED"
   // People
   | "MEMBER_INVITED"
   | "MEMBER_JOINED"
@@ -161,6 +163,10 @@ export function describeActivity(
       return `deleted note ${quoted}`.trim()
     case "WHITEBOARD_CREATED":
       return `created board ${quoted}`.trim()
+    case "PAGE_CREATED":
+      return `created page ${quoted}`.trim()
+    case "PAGE_DELETED":
+      return `deleted page ${quoted}`.trim()
 
     case "MEMBER_INVITED":
       return `invited ${target || "a member"}`

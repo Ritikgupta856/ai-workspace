@@ -12,6 +12,7 @@ type NoteRow = {
   tags: string[]
   pinned: boolean
   authorId: string
+  projectId: string | null
   createdAt: Date
   updatedAt: Date
   author: { name: string | null }
@@ -31,6 +32,7 @@ export function formatNote(note: NoteRow) {
     tags: note.tags,
     author: note.author.name ?? "Unknown",
     authorId: note.authorId,
+    projectId: note.projectId,
     pinned: note.pinned,
     createdAt: note.createdAt.toISOString(),
     updatedAt: note.updatedAt.toISOString(),

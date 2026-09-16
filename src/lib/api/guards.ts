@@ -56,3 +56,59 @@ export async function requireProject(projectId: string) {
     workspaceId: membership.workspaceId,
   } as const
 }
+
+/** Session + workspace membership only, for routes that aren't scoped to one project. */
+export async function requireWorkspace() {
+  const session = await auth.api.getSession({ headers: await headers() })
+
+  if (!session?.user) {
+    return {
+      error: NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      ),
+    } as const
+  }
+
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { userId: session.user.id },
+  })
+
+  if (!membership) {
+    return {
+      error: NextResponse.json(
+        { success: false, error: "No workspace found" },
+        { status: 404 }
+      ),
+    } as const
+  }
+
+  return {
+    error: null,
+    session,
+    membership,
+    workspaceId: membership.workspaceId,
+  } as const
+}
+
+/** Session + workspace membership + the task belongs to that workspace. */
+export async function requireTask(taskId: string) {
+  const ctx = await requireWorkspace()
+  if (ctx.error) return ctx
+
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, workspaceId: ctx.workspaceId },
+    select: { id: true, title: true, workspaceId: true, projectId: true, assigneeId: true, createdById: true },
+  })
+
+  if (!task) {
+    return {
+      error: NextResponse.json(
+        { success: false, error: "Task not found" },
+        { status: 404 }
+      ),
+    } as const
+  }
+
+  return { ...ctx, error: null, task } as const
+}

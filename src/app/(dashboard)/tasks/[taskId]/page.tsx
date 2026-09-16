@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
+import { toast } from "sonner"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
 import { TaskDetailsHeader } from "@/components/tasks/task-details-header"
@@ -31,12 +32,72 @@ export default function TaskDetailsPage() {
   const [activeTab, setActiveTab] = React.useState("overview")
   const [favorite, setFavorite] = React.useState(false)
 
+  React.useEffect(() => {
+    fetch(`/api/favorites?entityType=TASK&entityId=${taskId}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setFavorite(json.favorited)
+      })
+      .catch(() => {})
+  }, [taskId])
+
+  async function handleToggleFavorite() {
+    const next = !favorite
+    setFavorite(next)
+    try {
+      await fetch("/api/favorites", {
+        method: next ? "POST" : "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entityType: "TASK", entityId: taskId }),
+      })
+    } catch {
+      setFavorite(!next)
+      toast.error("Failed to update favorite")
+    }
+  }
+
+  type TaskCommentDTO = {
+    id: string
+    content: string
+    createdAt: string
+    author: { id: string; name: string; image: string | null }
+  }
+  const [comments, setComments] = React.useState<TaskCommentDTO[]>([])
+
+  const loadComments = React.useCallback(() => {
+    fetch(`/api/tasks/${taskId}/comments`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success) setComments(json.comments)
+      })
+      .catch(() => {})
+  }, [taskId])
+
+  React.useEffect(() => {
+    loadComments()
+  }, [loadComments])
+
+  async function handleAddComment(content: string) {
+    try {
+      const res = await fetch(`/api/tasks/${taskId}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content }),
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(json.error || "Failed to post comment")
+      loadComments()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to post comment")
+    }
+  }
+
   return (
     <div className="flex flex-1 flex-col gap-6">
       <TaskDetailsHeader
         title="Fix authentication bug in staging"
         favorite={favorite}
-        onFavorite={() => setFavorite(!favorite)}
+        onFavorite={handleToggleFavorite}
         onShare={() => console.log("Share")}
         onEdit={() => console.log("Edit")}
         onDuplicate={() => console.log("Duplicate")}
@@ -92,28 +153,14 @@ export default function TaskDetailsPage() {
               />
 
               <TaskCommentsSection
-                comments={[
-                  {
-                    id: "c1",
-                    author: "Priya Sharma",
-                    content: "I've been able to reproduce this consistently on staging-2. It seems related to the rate limiter intercepting auth headers.",
-                    createdAt: "2026-06-25T14:30:00",
-                    reactions: [
-                      { emoji: "👍", count: 3 },
-                      { emoji: "🔍", count: 1 },
-                    ],
-                  },
-                  {
-                    id: "c2",
-                    author: "Arjun Patel",
-                    content: "Found the issue. The `checkRateLimit` middleware runs before `verifyToken` in the middleware chain. On the second request, the rate limiter returns a 429 but incorrectly masks as a 401.",
-                    createdAt: "2026-06-26T09:15:00",
-                    reactions: [
-                      { emoji: "🎯", count: 5 },
-                      { emoji: "🔥", count: 2 },
-                    ],
-                  },
-                ]}
+                comments={comments.map((c) => ({
+                  id: c.id,
+                  author: c.author.name,
+                  content: c.content,
+                  createdAt: c.createdAt,
+                  reactions: [],
+                }))}
+                onAddComment={handleAddComment}
               />
             </TabsContent>
 

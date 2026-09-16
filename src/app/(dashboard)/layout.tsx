@@ -9,7 +9,6 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { SearchCommand } from "@/components/layout/search-command";
 import type { MemberRoleKey } from "@/lib/constants";
 
 export const instant = false;

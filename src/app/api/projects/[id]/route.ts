@@ -36,11 +36,7 @@ export async function GET(
 
     const project = await prisma.project.findFirst({
       where: { id, workspaceId: membership.workspaceId },
-      include: {
-        _count: {
-          select: { tasks: true, documents: true, chats: true },
-        },
-      },
+      include: projectInclude,
     })
 
     if (!project) {

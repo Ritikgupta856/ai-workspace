@@ -427,13 +427,13 @@ export default async function DashboardPage() {
             icon={FileText}
           />
           <MetricCard
-            label="Notes"
+            label="Pages"
             value={data.metrics.notes.value}
             delta={data.metrics.notes.delta}
             ratio={data.metrics.notes.ratio}
             ratioLabel={data.metrics.notes.ratioLabel}
             tone="amber"
-            href="/notes"
+            href="/pages"
             icon={StickyNote}
           />
         </MetricBar>
@@ -546,7 +546,7 @@ export default async function DashboardPage() {
               />
             </Card>
 
-            <Card title="Workspace" href="/members" linkLabel="Manage">
+            <Card title="Workspace" href="?settings=members" linkLabel="Manage">
               <div className="grid grid-cols-2 gap-3 px-5 pt-1 pb-5">
                 <div className="bg-muted/40 rounded-lg border px-4 py-3">
                   <p className="text-2xl leading-none font-semibold tabular-nums">
@@ -575,14 +575,14 @@ export default async function DashboardPage() {
               emptyMessage="No activity yet. Events appear as your team works."
             />
 
-            <Card title="Connected tools" href="/integrations" linkLabel="Manage">
+            <Card title="Connected tools" href="?settings=integrations" linkLabel="Manage">
               {data.integrations.length === 0 ? (
                 <PanelEmpty
                   icon={Plug}
                   title="Nothing connected"
                   description="Connect GitHub to pull work in automatically."
                   actionLabel="Connect a tool"
-                  href="/integrations"
+                  href="?settings=integrations"
                 />
               ) : (
                 <div className="pb-3">

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { type IntegrationStatusKey } from "@/lib/constants"
 import { GitHubColor, NotionColor, LinearColor, FigmaColor } from "@/components/landing/brand-logos"
 import { IntegrationDetailSheet } from "@/components/integrations/integration-detail-sheet"
-import { disconnectIntegration } from "@/app/(dashboard)/integrations/actions"
+import { disconnectIntegration } from "@/lib/actions/integrations"
 
 export interface IntegrationRuntime {
   id: string

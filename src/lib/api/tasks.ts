@@ -1,11 +1,18 @@
-import type { Task, TaskStatus, TaskPriority } from "@/app/(dashboard)/tasks/page"
+import type { Task, TaskStatus, TaskPriority } from "@/components/tasks/tasks-view"
 
 type ApiResponse<T> = { success: true; task?: T; tasks?: T[]; message?: string } | { success: false; error: string }
 
 const BASE = "/api/tasks"
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch(BASE)
+export async function fetchTasks(projectId?: string): Promise<Task[]> {
+  const res = await fetch(projectId ? `${BASE}?projectId=${projectId}` : BASE)
+  const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()
+  if (!json.success) throw new Error(json.error)
+  return json.tasks ?? []
+}
+
+export async function fetchMyTasks(): Promise<Task[]> {
+  const res = await fetch(`${BASE}?assignee=me`)
   const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()
   if (!json.success) throw new Error(json.error)
   return json.tasks ?? []

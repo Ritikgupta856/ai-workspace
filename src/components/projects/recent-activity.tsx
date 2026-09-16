@@ -23,7 +23,7 @@ export function RecentActivity({
       items={activities}
       limit={6}
       title="Recent activity"
-      viewAllHref={projectId ? `/projects/${projectId}?tab=activity` : undefined}
+      viewAllHref={projectId ? `/projects/${projectId}/activity` : undefined}
       emptyMessage="No activity yet. Start working to see events here."
     />
   )

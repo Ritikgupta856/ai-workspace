@@ -3,11 +3,7 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity"
-import {
-  formatProject,
-  isProjectStatus,
-  projectInclude,
-} from "@/lib/projects"
+import { formatProject, projectInclude } from "@/lib/projects"
 
 export async function GET() {
   try {
@@ -113,18 +109,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { name, description, icon, status } = body
+    const { name, description, icon } = body
 
     if (!name?.trim()) {
       return NextResponse.json(
         { success: false, error: "Project name is required" },
-        { status: 400 }
-      )
-    }
-
-    if (status !== undefined && !isProjectStatus(status)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid project status" },
         { status: 400 }
       )
     }
@@ -134,7 +123,6 @@ export async function POST(req: Request) {
         name: name.trim(),
         description: description?.trim() || null,
         icon: icon || null,
-        status: status || "ACTIVE",
         workspaceId: membership.workspaceId,
       },
       include: projectInclude,

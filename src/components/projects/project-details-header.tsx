@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { FavoriteButton } from "@/components/common/favorite-button"
 import { Progress } from "@/components/ui/progress"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -65,7 +66,13 @@ export interface ProjectDetailsHeaderProps {
   onDuplicate?: () => void
   onStatusChange?: (status: ProjectStatus) => void
   onDelete?: () => void
+  /** Opens a tab that has no sidebar entry of its own (Documents, Knowledge, etc). */
+  onNavigateTab?: (tab: string) => void
 }
+
+const MORE_SECTIONS = [
+  { value: "integrations", label: "Integrations", icon: Puzzle },
+] as const
 
 export function ProjectDetailsHeader({
   project,
@@ -74,6 +81,7 @@ export function ProjectDetailsHeader({
   onDuplicate,
   onStatusChange,
   onDelete,
+  onNavigateTab,
 }: ProjectDetailsHeaderProps) {
   const statusConfig = PROJECT_STATUS_CONFIG[project.status]
   const StatusIcon = statusConfig.icon
@@ -194,6 +202,8 @@ export function ProjectDetailsHeader({
               Invite
             </Button>
 
+            <FavoriteButton entityType="PROJECT" entityId={project.id} />
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -206,6 +216,23 @@ export function ProjectDetailsHeader({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                {onNavigateTab && (
+                  <>
+                    <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                      More
+                    </DropdownMenuLabel>
+                    {MORE_SECTIONS.map((section) => (
+                      <DropdownMenuItem
+                        key={section.value}
+                        onClick={() => onNavigateTab(section.value)}
+                      >
+                        <section.icon className="size-4" />
+                        {section.label}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 <DropdownMenuItem onClick={onEdit}>
                   <PenLine className="size-4" />
                   Edit project

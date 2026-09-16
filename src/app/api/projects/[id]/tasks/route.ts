@@ -3,6 +3,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { requireProject } from "@/lib/api/guards"
 import { logActivity } from "@/lib/activity"
+import { notifyTaskAssignment } from "@/lib/notifications"
 
 const STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
@@ -143,6 +144,15 @@ export async function POST(
       description: `created task ${task.title}`,
       metadata: { target: task.title },
     })
+
+    if (task.assignee?.id) {
+      await notifyTaskAssignment({
+        assigneeId: task.assignee.id,
+        actorId: ctx.session.user.id,
+        taskId: task.id,
+        taskTitle: task.title,
+      })
+    }
 
     return NextResponse.json(
       { success: true, task: formatTask(task) },

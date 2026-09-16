@@ -18,12 +18,17 @@ async function currentWorkspace() {
   return { userId: session.user.id, workspaceId: membership.workspaceId }
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const ctx = await currentWorkspace()
   if (!ctx) return NextResponse.json({ boards: [] })
 
+  const projectId = new URL(req.url).searchParams.get("projectId")
+
   const boards = await prisma.whiteboard.findMany({
-    where: { workspaceId: ctx.workspaceId },
+    where: {
+      workspaceId: ctx.workspaceId,
+      ...(projectId ? { projectId } : {}),
+    },
     orderBy: { updatedAt: "desc" },
     // The scene is deliberately excluded — a list of boards should not ship
     // every element of every drawing.
