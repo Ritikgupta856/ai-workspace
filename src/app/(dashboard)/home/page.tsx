@@ -122,7 +122,7 @@ function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
     TASK_PRIORITY_CONFIG.LOW
 
   return (
-    <Link href={`/tasks/${task.id}`} className={rowClass}>
+    <Link href={`/tasks?task=${task.id}`} className={rowClass}>
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",

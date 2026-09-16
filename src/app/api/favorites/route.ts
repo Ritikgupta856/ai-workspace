@@ -45,7 +45,7 @@ async function resolveEntities(
 
   const map = new Map<string, { name: string; href: string; icon: string | null }>()
   for (const p of projects) map.set(`PROJECT:${p.id}`, { name: p.name, href: `/projects/${p.id}`, icon: p.icon })
-  for (const t of tasks) map.set(`TASK:${t.id}`, { name: t.title, href: `/tasks/${t.id}`, icon: null })
+  for (const t of tasks) map.set(`TASK:${t.id}`, { name: t.title, href: `/tasks?task=${t.id}`, icon: null })
   for (const n of notes) map.set(`NOTE:${n.id}`, { name: n.title, href: `/pages/${n.id}`, icon: null })
   for (const w of whiteboards) map.set(`WHITEBOARD:${w.id}`, { name: w.title, href: `/boards/${w.id}`, icon: null })
   for (const pg of pages) map.set(`PAGE:${pg.id}`, { name: pg.title, href: `/pages/${pg.id}`, icon: pg.icon })

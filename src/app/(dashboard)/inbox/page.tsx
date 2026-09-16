@@ -121,7 +121,7 @@ function NotificationRow({
         <div className="flex shrink-0 items-center gap-1">
           {notification.taskId && (
             <Button variant="ghost" size="sm" asChild>
-              <Link href={`/tasks/${notification.taskId}`}>Open</Link>
+              <Link href={`/tasks?task=${notification.taskId}`}>Open</Link>
             </Button>
           )}
           {canReply && (

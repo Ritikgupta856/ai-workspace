@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import { nanoid } from "nanoid"
-import Link from "next/link"
 import { LayoutList, Columns3, CalendarDays } from "lucide-react"
 import { SearchInput } from "@/components/ui/search-input"
 import { PageHeader } from "@/components/dashboard/page-header"
@@ -24,6 +23,7 @@ import {
 import { cn } from "@/lib/utils"
 import { NewTaskButton } from "@/components/tasks/new-task-button"
 import { TaskDialog } from "@/components/tasks/task-dialog"
+import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet"
 import { TasksCalendar } from "@/components/tasks/tasks-calendar"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
 import { fetchTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
@@ -83,14 +83,18 @@ export const columns: ColumnDef<Task>[] = [
   {
     accessorKey: "title",
     header: "Task",
-    cell: ({ row }) => (
-      <Link
-        href={`/tasks/${row.original.id}`}
-        className="font-medium text-foreground transition-colors hover:text-primary"
-      >
-        {row.original.title}
-      </Link>
-    ),
+    cell: ({ row, table }) => {
+      const meta = table.options.meta as { onOpen?: (task: Task) => void } | undefined
+      return (
+        <button
+          type="button"
+          onClick={() => meta?.onOpen?.(row.original)}
+          className="text-left font-medium text-foreground transition-colors hover:text-primary"
+        >
+          {row.original.title}
+        </button>
+      )
+    },
   },
   {
     accessorKey: "project",
@@ -178,11 +182,12 @@ export const columns: ColumnDef<Task>[] = [
         onDelete?: (id: string) => void
         onDuplicate?: (id: string) => void
         onEdit?: (id: string) => void
+        onOpen?: (task: Task) => void
       } | undefined
       return (
         <TaskCardMenu
           taskId={row.original.id}
-          onView={(id) => { window.location.href = `/tasks/${id}` }}
+          onView={() => meta?.onOpen?.(row.original)}
           onEdit={(id) => meta?.onEdit?.(id)}
           onDuplicate={(id) => meta?.onDuplicate?.(id)}
           onMove={(id) => console.log("Move", id)}
@@ -198,9 +203,11 @@ export const columns: ColumnDef<Task>[] = [
 function TaskCard({
   task,
   onEdit,
+  onOpen,
 }: {
   task: Task
   onEdit?: (task: Task) => void
+  onOpen?: (task: Task) => void
 }) {
   const statusConfig = TASK_STATUS_CONFIG[task.status]
   const priorityConfig = TASK_PRIORITY_CONFIG[task.priority]
@@ -209,9 +216,13 @@ function TaskCard({
   return (
     <div className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow">
       <div className="mb-2 flex items-start justify-between gap-2">
-        <span className="text-sm font-medium leading-snug text-foreground">
+        <button
+          type="button"
+          onClick={() => onOpen?.(task)}
+          className="text-left text-sm font-medium leading-snug text-foreground hover:text-primary"
+        >
           {task.title}
-        </span>
+        </button>
         <PriorityIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
       </div>
       <div className="mb-2 flex flex-wrap gap-1">
@@ -231,7 +242,7 @@ function TaskCard({
           <span className="text-[11px] text-muted-foreground">{task.assignee}</span>
           <TaskCardMenu
             taskId={task.id}
-            onView={(id) => { window.location.href = `/tasks/${id}` }}
+            onView={() => onOpen?.(task)}
             onEdit={(id) => onEdit?.(task)}
             onDuplicate={(id) => console.log("Duplicate", id)}
             onMove={(id) => console.log("Move", id)}
@@ -260,6 +271,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create")
   const [editingTask, setEditingTask] = React.useState<Task | undefined>(undefined)
+  const [openTask, setOpenTask] = React.useState<Task | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
@@ -275,6 +287,26 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
   React.useEffect(() => {
     loadTasks()
   }, [loadTasks])
+
+  // Deep-link support: /tasks?task=<id> opens the detail sheet directly,
+  // so favorites/notifications/home links keep working without a full page.
+  React.useEffect(() => {
+    if (loading || typeof window === "undefined") return
+    const params = new URLSearchParams(window.location.search)
+    const taskId = params.get("task")
+    if (!taskId) return
+    const match = taskList.find((t) => t.id === taskId)
+    if (match) {
+      setOpenTask(match)
+      params.delete("task")
+      const rest = params.toString()
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""))
+    }
+  }, [loading, taskList])
+
+  function handleOpenTask(task: Task) {
+    setOpenTask(task)
+  }
 
   const filteredTasks = React.useMemo(() => {
     let result = taskList
@@ -391,9 +423,19 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
         const task = taskList.find((t) => t.id === id)
         if (task) handleOpenEdit(task)
       },
+      onOpen: handleOpenTask,
     }),
     [taskList]
   )
+
+  function handleTaskChanged(updated: Task) {
+    setTaskList((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
+    setOpenTask(updated)
+  }
+
+  function handleTaskDeleted(id: string) {
+    setTaskList((prev) => prev.filter((t) => t.id !== id))
+  }
 
   const body = (
     <div className={showPageHeader ? "flex flex-1 flex-col gap-6 p-6" : "flex flex-1 flex-col gap-4"}>
@@ -447,7 +489,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
       ) : viewMode === "table" ? (
         <DataTable columns={visibleColumns} data={filteredTasks} meta={tableMeta} />
       ) : viewMode === "calendar" ? (
-        <TasksCalendar tasks={filteredTasks} onSelectTask={handleOpenEdit} />
+        <TasksCalendar tasks={filteredTasks} onSelectTask={handleOpenTask} />
       ) : (
         <Kanban
           columns={boardColumns}
@@ -455,7 +497,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
           getItemId={(item) => item.id}
           getColumn={(item) => item.status}
           onMove={handleMove}
-          renderCard={(item) => <TaskCard task={item} onEdit={handleOpenEdit} />}
+          renderCard={(item) => <TaskCard task={item} onEdit={handleOpenEdit} onOpen={handleOpenTask} />}
         />
       )}
 
@@ -468,6 +510,14 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
         onSuccess={() => {
           loadTasks()
         }}
+      />
+
+      <TaskDetailSheet
+        task={openTask}
+        open={openTask !== null}
+        onOpenChange={(next) => { if (!next) setOpenTask(null) }}
+        onChanged={handleTaskChanged}
+        onDeleted={handleTaskDeleted}
       />
     </div>
   )
