@@ -2,31 +2,48 @@
 
 import * as React from "react"
 import { nanoid } from "nanoid"
-import { LayoutList, Columns3, CalendarDays } from "lucide-react"
-import { SearchInput } from "@/components/ui/search-input"
+import {
+  List,
+  LayoutGrid,
+  Calendar,
+  LayoutDashboard,
+  ArrowUpDown,
+  SlidersHorizontal,
+  Filter,
+  Search,
+  X,
+} from "lucide-react"
 import { PageHeader } from "@/components/dashboard/page-header"
-import { DataTable } from "@/components/ui/data-table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ToolbarSelect, toolbarPillClass } from "@/components/common/toolbar-select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { StatusBadge } from "@/components/common/status-badge"
 import { TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from "@/lib/constants"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Kanban, type KanbanColumn } from "@/components/ui/kanban"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { NewTaskButton } from "@/components/tasks/new-task-button"
 import { TaskDialog } from "@/components/tasks/task-dialog"
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet"
 import { TasksCalendar } from "@/components/tasks/tasks-calendar"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
-import { fetchTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
+import {
+  TaskGroupedList,
+  groupByStatus,
+  groupByPriority,
+  groupAll,
+  type TaskGroup,
+} from "@/components/tasks/task-grouped-list"
+import { fetchTasks, fetchMyTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
 import { formatUpdatedDate, formatDueDate } from "@/lib/date"
 import { BoardSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 
@@ -43,6 +60,9 @@ export type Task = {
   priority: TaskPriority
   assignee: string
   assigneeId: string | null
+  assigneeImage?: string | null
+  commentCount: number
+  subtaskCount: number
   labels: string[]
   dueDate: string | null
   updatedAt: string
@@ -56,10 +76,34 @@ const boardColumns: KanbanColumn[] = [
 ]
 
 type TaskFilter = "all" | "my"
+type GroupBy = "status" | "priority" | "none"
+type SortBy = "dueDate" | "updatedAt" | "priority"
+type ViewMode = "list" | "kanban" | "calendar"
 
-const taskFilterOptions: { value: TaskFilter; label: string }[] = [
-  { value: "all", label: "All Tasks" },
-  { value: "my", label: "My Tasks" },
+// The pill reads "Filter by Assignee" until a filter is active, then "Filter by Me".
+const taskFilterOptions: { value: TaskFilter; label: string; pill: string }[] = [
+  { value: "all", label: "Anyone", pill: "Assignee" },
+  { value: "my", label: "Assigned to me", pill: "Me" },
+]
+
+const groupByOptions: { value: GroupBy; label: string }[] = [
+  { value: "status", label: "Status" },
+  { value: "priority", label: "Priority" },
+  { value: "none", label: "None" },
+]
+
+const sortByOptions: { value: SortBy; label: string }[] = [
+  { value: "dueDate", label: "Due date" },
+  { value: "updatedAt", label: "Last updated" },
+  { value: "priority", label: "Priority" },
+]
+
+const PRIORITY_RANK: Record<TaskPriority, number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }
+
+const viewTabs: { value: ViewMode; label: string; icon: React.ElementType }[] = [
+  { value: "list", label: "List", icon: List },
+  { value: "kanban", label: "Kanban", icon: LayoutGrid },
+  { value: "calendar", label: "Calendar", icon: Calendar },
 ]
 
 export const columns: ColumnDef<Task>[] = [
@@ -256,17 +300,35 @@ function TaskCard({
   )
 }
 
+/** What a custom header slot can drive: mirrors the controls in the toolbar. */
+export interface TasksViewControls {
+  viewMode: ViewMode
+  setViewMode: (mode: ViewMode) => void
+  openSearch: () => void
+  openCreate: () => void
+}
+
 export interface TasksViewProps {
   /** Scopes the whole view (fetch, create, table columns) to one project. */
   projectId?: string
   /** Shows the page-level header (title + New task button). Off inside a project page, which has its own header. */
   showPageHeader?: boolean
+  /** Renders a custom header above the toolbar, wired to the view controls. */
+  header?: (controls: TasksViewControls) => React.ReactNode
+  /** Loads only tasks assigned to the signed-in user (My work) and hides the assignee filter. */
+  assignedToMe?: boolean
 }
 
-export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) {
+export function TasksView({ projectId, showPageHeader = true, header, assignedToMe = false }: TasksViewProps) {
   const [taskFilter, setTaskFilter] = React.useState<TaskFilter>("all")
   const [search, setSearch] = React.useState("")
-  const [viewMode, setViewMode] = React.useState("table")
+  const [viewMode, setViewMode] = React.useState<ViewMode>("list")
+  const [groupBy, setGroupBy] = React.useState<GroupBy>("status")
+  const [sortBy, setSortBy] = React.useState<SortBy>("dueDate")
+  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [createStatus, setCreateStatus] = React.useState<TaskStatus | undefined>(undefined)
+  const [showCompleted, setShowCompleted] = React.useState(true)
+  const [showEmptyGroups, setShowEmptyGroups] = React.useState(false)
   const [taskList, setTaskList] = React.useState<Task[]>([])
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create")
@@ -275,14 +337,19 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
 
+  const fetchList = React.useCallback(
+    () => (assignedToMe ? fetchMyTasks() : fetchTasks(projectId)),
+    [assignedToMe, projectId]
+  )
+
   const loadTasks = React.useCallback(() => {
     setLoading(true)
     setError(null)
-    return fetchTasks(projectId)
+    return fetchList()
       .then((tasks) => setTaskList(tasks))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false))
-  }, [projectId])
+  }, [fetchList])
 
   React.useEffect(() => {
     loadTasks()
@@ -327,13 +394,38 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
     return result
   }, [taskFilter, taskList, search])
 
-  const visibleColumns = React.useMemo(
-    () =>
-      projectId
-        ? columns.filter((c) => !("accessorKey" in c) || c.accessorKey !== "project")
-        : columns,
-    [projectId]
+  const sortedTasks = React.useMemo(() => {
+    const list = [...filteredTasks]
+    switch (sortBy) {
+      case "dueDate":
+        // Undated tasks float to the top (they read as "Add date"), then ascending.
+        return list.sort((a, b) => {
+          if (!a.dueDate && !b.dueDate) return 0
+          if (!a.dueDate) return -1
+          if (!b.dueDate) return 1
+          return a.dueDate.localeCompare(b.dueDate)
+        })
+      case "priority":
+        return list.sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority])
+      case "updatedAt":
+      default:
+        return list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    }
+  }, [filteredTasks, sortBy])
+
+  const visibleTasks = React.useMemo(
+    () => (showCompleted ? sortedTasks : sortedTasks.filter((t) => t.status !== "DONE")),
+    [sortedTasks, showCompleted]
   )
+
+  const groups = React.useMemo<TaskGroup[]>(() => {
+    if (groupBy === "status") {
+      const all = groupByStatus(visibleTasks, showEmptyGroups)
+      return showCompleted ? all : all.filter((g) => g.status !== "DONE")
+    }
+    if (groupBy === "priority") return groupByPriority(visibleTasks)
+    return groupAll(visibleTasks)
+  }, [visibleTasks, groupBy, showEmptyGroups, showCompleted])
 
   async function handleMove(itemId: string, from: string, to: string, index: number) {
     setTaskList((prev) => {
@@ -358,9 +450,10 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
     }
   }
 
-  function handleOpenCreate() {
+  function handleOpenCreate(status?: TaskStatus) {
     setDialogMode("create")
     setEditingTask(undefined)
+    setCreateStatus(status)
     setDialogOpen(true)
   }
 
@@ -375,7 +468,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
     try {
       await deleteTask(id)
     } catch (err) {
-      const tasks = await fetchTasks(projectId)
+      const tasks = await fetchList()
       setTaskList(tasks)
     }
   }
@@ -415,19 +508,6 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
     }
   }
 
-  const tableMeta = React.useMemo(
-    () => ({
-      onDelete: handleDelete,
-      onDuplicate: handleDuplicate,
-      onEdit: (id: string) => {
-        const task = taskList.find((t) => t.id === id)
-        if (task) handleOpenEdit(task)
-      },
-      onOpen: handleOpenTask,
-    }),
-    [taskList]
-  )
-
   function handleTaskChanged(updated: Task) {
     setTaskList((prev) => prev.map((t) => (t.id === updated.id ? updated : t)))
     setOpenTask(updated)
@@ -437,69 +517,167 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
     setTaskList((prev) => prev.filter((t) => t.id !== id))
   }
 
+  const controls: TasksViewControls = {
+    viewMode,
+    setViewMode,
+    openSearch: () => setSearchOpen(true),
+    openCreate: () => handleOpenCreate(),
+  }
+
   const body = (
-    <div className={showPageHeader ? "flex flex-1 flex-col gap-6 p-6" : "flex flex-1 flex-col gap-4"}>
-      <div className="flex flex-wrap items-center gap-3">
-        <SearchInput
-          value={search}
-          onValueChange={setSearch}
-          placeholder="Search tasks..."
-          compact
-          className="max-w-sm"
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      {header?.(controls)}
 
-        <div className="ml-auto flex items-center gap-3">
-          {!showPageHeader && <NewTaskButton onNewTask={handleOpenCreate} />}
+      {/* Toolbar: view switcher on the left, group / sort / view / filter / search on the right */}
+      <div className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/70 px-5 py-1.5">
+        <div className="flex items-center gap-1.5">
+          {viewTabs.map((tab) => {
+            const Icon = tab.icon
+            const active = viewMode === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setViewMode(tab.value)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors",
+                  active
+                    ? "border border-border/80 bg-card font-medium text-foreground shadow-xs"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                )}
+              >
+                <Icon className="size-3.5" />
+                <span className={cn(tab.value !== "list" && "hidden sm:inline")}>{tab.label}</span>
+              </button>
+            )
+          })}
+        </div>
 
-          <Select value={taskFilter} onValueChange={(v) => setTaskFilter(v as TaskFilter)}>
-            <SelectTrigger className="h-9 w-40 text-sm">
-              <SelectValue placeholder="Filter" />
-            </SelectTrigger>
-            <SelectContent>
-              {taskFilterOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {!showPageHeader && !header && <NewTaskButton onNewTask={() => handleOpenCreate()} />}
 
-          <Tabs value={viewMode} onValueChange={setViewMode}>
-            <TabsList>
-              <TabsTrigger value="table" className="px-3" aria-label="Table view">
-                <LayoutList className="size-4" />
-              </TabsTrigger>
-              <TabsTrigger value="board" className="px-3" aria-label="Board view">
-                <Columns3 className="size-4" />
-              </TabsTrigger>
-              <TabsTrigger value="calendar" className="px-3" aria-label="Calendar view">
-                <CalendarDays className="size-4" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <ToolbarSelect
+            icon={LayoutDashboard}
+            prefix="Group by"
+            value={groupBy}
+            options={groupByOptions}
+            onChange={setGroupBy}
+          />
+          <ToolbarSelect
+            icon={ArrowUpDown}
+            prefix="Sort"
+            value={sortBy}
+            options={sortByOptions}
+            onChange={setSortBy}
+          />
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className={toolbarPillClass}>
+                <SlidersHorizontal className="size-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground">View</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                Display
+              </DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={showCompleted} onCheckedChange={(v) => setShowCompleted(!!v)}>
+                Show completed
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={showEmptyGroups}
+                disabled={groupBy !== "status"}
+                onCheckedChange={(v) => setShowEmptyGroups(!!v)}
+              >
+                Show empty groups
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {!assignedToMe && (
+            <ToolbarSelect
+              icon={Filter}
+              prefix="Filter by"
+              value={taskFilter}
+              options={taskFilterOptions}
+              onChange={setTaskFilter}
+            />
+          )}
+
+          {searchOpen ? (
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search tasks..."
+                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearch("")
+                    setSearchOpen(false)
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("")
+                  setSearchOpen(false)
+                }}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Close search"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="size-8 rounded-lg border-border/80 shadow-none"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search tasks"
+            >
+              <Search className="size-3.5 text-muted-foreground" />
+            </Button>
+          )}
         </div>
       </div>
 
-      {loading ? (
-        viewMode === "table" ? <TableSkeleton rows={8} /> : <BoardSkeleton />
-      ) : error ? (
-        <div className="flex items-center justify-center py-20 text-destructive">
-          {error}
-        </div>
-      ) : viewMode === "table" ? (
-        <DataTable columns={visibleColumns} data={filteredTasks} meta={tableMeta} />
-      ) : viewMode === "calendar" ? (
-        <TasksCalendar tasks={filteredTasks} onSelectTask={handleOpenTask} />
-      ) : (
-        <Kanban
-          columns={boardColumns}
-          items={filteredTasks}
-          getItemId={(item) => item.id}
-          getColumn={(item) => item.status}
-          onMove={handleMove}
-          renderCard={(item) => <TaskCard task={item} onEdit={handleOpenEdit} onOpen={handleOpenTask} />}
-        />
-      )}
+      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8">
+        {loading ? (
+          viewMode === "list" ? <TableSkeleton rows={8} /> : <BoardSkeleton />
+        ) : error ? (
+          <div className="flex items-center justify-center py-20 text-destructive">
+            {error}
+          </div>
+        ) : viewMode === "list" ? (
+          <TaskGroupedList
+            groups={groups}
+            selectedId={openTask?.id}
+            sortedByDue={sortBy === "dueDate"}
+            onOpen={handleOpenTask}
+            onEdit={handleOpenEdit}
+            onDuplicate={handleDuplicate}
+            onDelete={handleDelete}
+            onAddToGroup={(status) => handleOpenCreate(status)}
+          />
+        ) : viewMode === "calendar" ? (
+          <TasksCalendar tasks={visibleTasks} onSelectTask={handleOpenTask} />
+        ) : (
+          <Kanban
+            columns={boardColumns}
+            items={visibleTasks}
+            getItemId={(item) => item.id}
+            getColumn={(item) => item.status}
+            onMove={handleMove}
+            renderCard={(item) => <TaskCard task={item} onEdit={handleOpenEdit} onOpen={handleOpenTask} />}
+          />
+        )}
+      </div>
 
       <TaskDialog
         open={dialogOpen}
@@ -507,6 +685,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
         mode={dialogMode}
         task={editingTask}
         defaultProjectId={projectId}
+        defaultStatus={createStatus}
         onSuccess={() => {
           loadTasks()
         }}
@@ -526,7 +705,7 @@ export function TasksView({ projectId, showPageHeader = true }: TasksViewProps) 
 
   return (
     <div className="flex flex-1 flex-col">
-      <PageHeader title="Tasks" action={<NewTaskButton onNewTask={handleOpenCreate} />} />
+      <PageHeader title="Tasks" action={<NewTaskButton onNewTask={() => handleOpenCreate()} />} />
       {body}
     </div>
   )

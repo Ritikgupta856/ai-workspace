@@ -229,6 +229,8 @@ export interface TaskDialogProps {
   onSuccess?: () => void
   /** Pre-fills the project field when creating from inside a project page. Still editable. */
   defaultProjectId?: string
+  /** Pre-selects the status when creating from a status group's "+" button. Still editable. */
+  defaultStatus?: TaskStatus
 }
 
 export function TaskDialog({
@@ -238,6 +240,7 @@ export function TaskDialog({
   task,
   onSuccess,
   defaultProjectId,
+  defaultStatus,
 }: TaskDialogProps) {
   const [projectsList, setProjectsList] = React.useState<{ id: string; name: string }[]>([])
   const [membersList, setMembersList] = React.useState<MemberOption[]>([])
@@ -301,7 +304,7 @@ export function TaskDialog({
         description: "",
         projectId: defaultProjectId ?? "",
         assigneeId: "",
-        status: "TODO",
+        status: defaultStatus ?? "TODO",
         priority: "MEDIUM",
         labels: [],
         dueDate: undefined,
@@ -309,7 +312,7 @@ export function TaskDialog({
         addToBacklog: false,
       })
     }
-  }, [open, task, isEdit, form, defaultProjectId])
+  }, [open, task, isEdit, form, defaultProjectId, defaultStatus])
 
   async function onSubmit(data: FormValues) {
     if (submitting) return

@@ -12,7 +12,6 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
-import { SearchInput } from "@/components/ui/search-input"
 import {
   Dialog,
   DialogContent,
@@ -31,6 +30,8 @@ import {
 } from "@/lib/api/settings"
 import { MembersPanel } from "@/components/members/members-panel"
 import { IntegrationsPanel } from "@/components/integrations/integrations-panel"
+import { useTheme } from "next-themes"
+import { THEME_OPTIONS } from "@/components/common/theme-menu"
 
 type Profile = {
   name: string
@@ -142,7 +143,6 @@ export function SettingsDialog({
   const router = useRouter()
 
   const [section, setSection] = React.useState<Section>(initialSection ?? "profile")
-  const [query, setQuery] = React.useState("")
   const [loading, setLoading] = React.useState(true)
   const [data, setData] = React.useState<SettingsData | null>(null)
 
@@ -189,51 +189,38 @@ export function SettingsDialog({
     if (open) load()
   }, [open, load])
 
-  const filteredSections = SECTIONS.filter((s) =>
-    s.label.toLowerCase().includes(query.trim().toLowerCase())
-  )
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[600px] max-w-6xl gap-0 overflow-hidden p-0">
+      <DialogContent className="h-[min(640px,calc(100dvh-40px))] w-[min(1040px,calc(100vw-32px))] max-w-none gap-0 overflow-hidden rounded-xl p-0">
         <DialogTitle className="sr-only">Settings</DialogTitle>
         <DialogDescription className="sr-only">
           Manage your profile and workspace settings.
         </DialogDescription>
 
         <div className="flex h-full min-h-0">
-          <div className="flex w-56 shrink-0 flex-col border-r bg-muted/30 p-3">
-            <SearchInput
-              value={query}
-              onValueChange={setQuery}
-              placeholder="Search"
-              compact
-              className="mb-3 max-w-none"
-            />
-            <p className="text-muted-foreground px-2 pb-1.5 text-xs font-medium uppercase tracking-wide">
-              Settings
-            </p>
-            <div className="flex flex-col gap-0.5">
-              {filteredSections.map((s) => (
+          <aside className="flex w-48 shrink-0 flex-col border-r border-border/70 bg-sidebar px-2 pt-3 pb-2">
+            <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Settings</p>
+            <nav className="flex flex-col gap-1">
+              {SECTIONS.map((s) => (
                 <button
                   key={s.id}
                   type="button"
                   onClick={() => setSection(s.id)}
                   className={cn(
-                    "flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium transition-colors",
+                    "flex h-8 items-center gap-2 rounded-md py-2 pr-2 pl-1.5 text-left text-sm leading-5 transition-colors",
                     section === s.id
-                      ? "bg-background shadow-sm"
-                      : "text-muted-foreground hover:bg-background/60 hover:text-foreground"
+                      ? "bg-accent font-medium text-foreground"
+                      : "font-normal text-foreground/80 hover:bg-accent"
                   )}
                 >
-                  <s.icon className="size-4" />
+                  <s.icon className="size-4 text-muted-foreground" />
                   {s.label}
                 </button>
               ))}
-            </div>
-          </div>
+            </nav>
+          </aside>
 
-          <div className="min-h-0 flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
             {loading || !data ? (
               <div className="flex flex-col gap-4">
                 <Skeleton className="h-6 w-32" />
@@ -322,7 +309,7 @@ function ProfilePanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-base font-semibold tracking-tight">Profile</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight">Profile</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         How you appear to other people in this workspace.
       </p>
@@ -343,7 +330,7 @@ function ProfilePanel({
           onBlur={handleBlur}
           placeholder="Your name"
           maxLength={60}
-          className="w-56 text-right"
+          className="w-full max-w-56 text-right"
         />
       </Row>
 
@@ -442,7 +429,7 @@ function WorkspacePanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-base font-semibold tracking-tight">Workspace</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight">Workspace</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         {canEdit
           ? "Name and describe this workspace for your team."
@@ -466,7 +453,7 @@ function WorkspacePanel({
           onBlur={() => flushSave(wsName, wsDescription)}
           disabled={!canEdit}
           maxLength={50}
-          className="w-56 text-right"
+          className="w-full max-w-56 text-right"
         />
       </Row>
 
@@ -573,6 +560,7 @@ function WorkspacePanel({
 }
 
 function PreferencesPanel() {
+  const { theme, setTheme } = useTheme()
   const [emailNotifs, setEmailNotifs] = React.useState(true)
   const [desktopNotifs, setDesktopNotifs] = React.useState(true)
   const [weeklyDigest, setWeeklyDigest] = React.useState(false)
@@ -580,11 +568,32 @@ function PreferencesPanel() {
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-base font-semibold tracking-tight">Preferences</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight">Preferences</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         Control how Synapse looks and notifies you.
       </p>
 
+      <Row label="Theme" description="Light, dark, or follow your system setting.">
+        <div className="flex items-center rounded-lg bg-muted p-0.5">
+          {THEME_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setTheme(opt.value)}
+              aria-pressed={(theme ?? "system") === opt.value}
+              className={cn(
+                "flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors",
+                (theme ?? "system") === opt.value
+                  ? "bg-card font-medium text-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <opt.icon className="size-3.5" />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </Row>
       <Row label="Email notifications" description="Get updates about tasks and mentions in your inbox.">
         <Switch checked={emailNotifs} onCheckedChange={setEmailNotifs} />
       </Row>
@@ -668,12 +677,12 @@ function BillingPanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-base font-semibold tracking-tight">Billing</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight">Billing</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         Manage the plan and payment details for {workspace.name}.
       </p>
 
-      <div className="flex items-center justify-between gap-4 rounded-xl border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border p-4">
         <div>
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold">{isPaid ? "Pro plan" : "Free plan"}</p>

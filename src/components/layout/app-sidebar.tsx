@@ -7,7 +7,6 @@ import {
   Home,
   Inbox,
   CircleCheck,
-  Sparkles,
   ChevronsUpDown,
   ChevronRight,
   Plus,
@@ -15,6 +14,11 @@ import {
   FileText,
   Frame,
   LayoutPanelTop,
+  AlignLeft,
+  Check,
+  Settings,
+  LogOut,
+  type LucideIcon,
 } from "lucide-react"
 
 import { NavUser } from "@/components/layout/nav-user"
@@ -22,7 +26,10 @@ import { SearchCommand } from "@/components/layout/search-command"
 import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog"
 import { ProjectDialog } from "@/components/projects/create-project-dialog"
 import type { ProjectCardData } from "@/components/projects/project-card"
-import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
+import type { MemberRoleKey } from "@/lib/constants"
+import { signOut } from "@/lib/auth-client"
+import type { SidebarData, SidebarFavorite, SidebarProject } from "@/lib/sidebar-data"
+import { SIDEBAR_REFRESH_EVENT } from "@/lib/sidebar-events"
 import { cn } from "@/lib/utils"
 import {
   Collapsible,
@@ -44,13 +51,13 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -70,39 +77,29 @@ export interface AppSidebarProps {
   /** Resolved on the server so the switcher paints with the first frame. */
   workspaces: WorkspaceItem[]
   activeWorkspaceId: string | null
+  /** Projects, favorites and unread count, also resolved on the server. */
+  initialData: SidebarData
 }
 
-/** Places you return to — never individual records. */
-const flatNavItems = [
+/** Places you return to — never individual records. Agent leads, drawn as the brand square. */
+const flatNavItems: {
+  title: string
+  url: string
+  icon: LucideIcon | null
+  badgeKey: "inbox" | null
+}[] = [
+  { title: "Agent", url: "/agent", icon: null, badgeKey: null },
   { title: "Home", url: "/home", icon: Home, badgeKey: null },
-  { title: "Inbox", url: "/inbox", icon: Inbox, badgeKey: "inbox" as const },
+  { title: "Inbox", url: "/inbox", icon: Inbox, badgeKey: "inbox" },
   { title: "My work", url: "/my-work", icon: CircleCheck, badgeKey: null },
-  { title: "Agent", url: "/agent", icon: Sparkles, badgeKey: null },
 ]
 
-type FavoriteItem = {
-  id: string
-  entityType: "PROJECT" | "TASK" | "NOTE" | "WHITEBOARD" | "PAGE"
-  entityId: string
-  name: string
-  href: string
-}
-
-const FAVORITE_ICONS: Record<FavoriteItem["entityType"], typeof FileText> = {
+const FAVORITE_ICONS: Record<SidebarFavorite["entityType"], typeof FileText> = {
   NOTE: FileText,
   PAGE: FileText,
   WHITEBOARD: Frame,
   TASK: CircleCheck,
   PROJECT: LayoutPanelTop,
-}
-
-type ProjectItem = {
-  id: string
-  name: string
-  icon: string | null
-  taskCount: number
-  pageCount: number
-  whiteboardCount: number
 }
 
 const PROJECT_DOT_COLORS = [
@@ -122,11 +119,44 @@ function projectDotColor(id: string) {
   return PROJECT_DOT_COLORS[hash % PROJECT_DOT_COLORS.length]
 }
 
-const projectSubLinks = (counts: Pick<ProjectItem, "taskCount" | "pageCount" | "whiteboardCount">) => [
+// Workspace marks cycle through the reference's gradients, stable per id.
+const WORKSPACE_GRADIENTS = [
+  "from-blue-500 to-purple-500",
+  "from-indigo-500 to-cyan-500",
+  "from-pink-500 to-rose-500",
+  "from-amber-400 to-orange-500",
+  "from-emerald-400 to-teal-500",
+]
+
+function workspaceGradient(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return WORKSPACE_GRADIENTS[hash % WORKSPACE_GRADIENTS.length]
+}
+
+/** Filled triangle next to section titles; points right when collapsed. */
+function SectionChevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden
+      className={cn("size-4 fill-current transition-transform duration-200", !open && "-rotate-90")}
+    >
+      <path d="M7 10l5 5 5-5z" />
+    </svg>
+  )
+}
+
+const ROW =
+  "h-7 gap-2 rounded-md py-2 pr-2 pl-1.5 text-sm leading-5 transition-colors [&>svg]:size-4 [&>svg]:text-muted-foreground"
+const ROW_ACTIVE = "bg-accent font-medium text-foreground"
+const ROW_IDLE = "font-normal text-foreground/80 hover:bg-accent"
+
+const projectSubLinks = (counts: Pick<SidebarProject, "taskCount" | "pageCount" | "whiteboardCount">) => [
   { label: "Overview", tab: "overview", icon: LayoutPanelTop, count: null as number | null },
   { label: "Tasks", tab: "tasks", icon: CircleCheck, count: counts.taskCount },
   { label: "Pages", tab: "pages", icon: FileText, count: counts.pageCount },
-  { label: "Board", tab: "board", icon: Frame, count: counts.whiteboardCount },
+  { label: "White Board", tab: "board", icon: Frame, count: counts.whiteboardCount },
 ]
 
 const FAVORITES_VISIBLE = 7
@@ -136,18 +166,25 @@ export function AppSidebar({
   user,
   workspaces,
   activeWorkspaceId,
+  initialData,
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const { toggleSidebar } = useSidebar()
 
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
-  const [favorites, setFavorites] = React.useState<FavoriteItem[]>([])
   const [showAllFavorites, setShowAllFavorites] = React.useState(false)
-  const [projects, setProjects] = React.useState<ProjectItem[]>([])
   const [openProjectId, setOpenProjectId] = React.useState<string | null>(null)
-  const [unreadCount, setUnreadCount] = React.useState(0)
+  const [favoritesOpen, setFavoritesOpen] = React.useState(true)
+
+  // Server data is the source of truth; a client refetch only overrides it for
+  // the workspace it was fetched for, so a workspace switch (which re-renders
+  // the server tree with new props) can't be shadowed by stale data.
+  const [override, setOverride] = React.useState<{ workspaceId: string | null; data: SidebarData } | null>(null)
+  const { projects, favorites, unreadCount } =
+    override && override.workspaceId === activeWorkspaceId ? override.data : initialData
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
@@ -156,51 +193,27 @@ export function AppSidebar({
     return pathname.startsWith(url)
   }
 
-  const loadProjects = React.useCallback(() => {
-    fetch("/api/projects")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          type ApiProject = {
-            id: string
-            name: string
-            icon: string | null
-            taskCount: number
-            pageCount: number
-            whiteboardCount: number
-          }
-          setProjects(
-            (json.projects as ApiProject[]).map((p) => ({
-              id: p.id,
-              name: p.name,
-              icon: p.icon,
-              taskCount: p.taskCount,
-              pageCount: p.pageCount,
-              whiteboardCount: p.whiteboardCount,
-            }))
-          )
-        }
-      })
-      .catch(() => {})
-  }, [])
+  const refresh = React.useCallback(async () => {
+    try {
+      const res = await fetch("/api/sidebar")
+      const json = await res.json()
+      if (json.success) {
+        setOverride({
+          workspaceId: activeWorkspaceId,
+          data: { projects: json.projects, favorites: json.favorites, unreadCount: json.unreadCount },
+        })
+      }
+    } catch {
+      // The server copy stays on screen; nothing to do.
+    }
+  }, [activeWorkspaceId])
 
+  // Mutations elsewhere (new project, favorite toggled, notification read)
+  // announce themselves instead of the sidebar polling on every navigation.
   React.useEffect(() => {
-    fetch("/api/favorites")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setFavorites(json.favorites)
-      })
-      .catch(() => {})
-
-    loadProjects()
-
-    fetch("/api/notifications?view=unread")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setUnreadCount(json.unreadCount)
-      })
-      .catch(() => {})
-  }, [pathname, loadProjects])
+    window.addEventListener(SIDEBAR_REFRESH_EVENT, refresh)
+    return () => window.removeEventListener(SIDEBAR_REFRESH_EVENT, refresh)
+  }, [refresh])
 
   // The project the user is currently looking at always stays open — a
   // collapse elsewhere shouldn't hide the row they're actively reading.
@@ -214,14 +227,7 @@ export function AppSidebar({
   const active =
     workspaces.find((w) => w.id === activeWorkspaceId) ?? workspaces[0] ?? null
 
-  const activeTeam = active
-    ? {
-        id: active.id,
-        name: active.name,
-        abbr: active.name.charAt(0).toUpperCase(),
-        plan: MEMBER_ROLE_CONFIG[active.role]?.label || "Member",
-      }
-    : null
+  const activeTeam = active ? { id: active.id, name: active.name } : null
 
   const handleSwitchWorkspace = async (w: WorkspaceItem) => {
     if (w.id === activeWorkspaceId) return
@@ -281,75 +287,108 @@ export function AppSidebar({
   return (
     <Sidebar
       collapsible="icon"
-      className="[&_[data-sidebar=sidebar]]:bg-white border-r border-border text-sm"
+      className="[&_[data-sidebar=sidebar]]:bg-sidebar border-r border-border"
       {...props}
     >
-      {/* ── Header ── */}
-      <SidebarHeader className="gap-2 px-2 py-2">
+      {/* ── Header: workspace switcher + collapse toggle (48px) ── */}
+      <SidebarHeader className="h-12 flex-row items-center gap-1 p-2 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col">
         {activeTeam && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                size="lg"
-                className="data-[state=open]:bg-accent data-[state=open]:text-accent-foreground gap-2"
+                tooltip={activeTeam.name}
+                className="h-8 min-w-0 flex-1 gap-2 rounded-md p-2 data-[state=open]:bg-accent"
               >
-                <div className="flex size-[30px] shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground text-sm font-semibold">
-                  {activeTeam.abbr}
-                </div>
-                <div className="grid flex-1 text-left leading-tight">
-                  <span className="truncate text-sm font-semibold tracking-tight">{activeTeam.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{activeTeam.plan}</span>
-                </div>
-                <ChevronsUpDown className="ml-auto size-3.5 text-muted-foreground" />
+                <span
+                  className={cn("size-4 shrink-0 rounded bg-gradient-to-tr", workspaceGradient(activeTeam.id))}
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-foreground">
+                  {activeTeam.name}
+                </span>
+                <ChevronsUpDown className="size-2 shrink-0 text-foreground/70" />
               </SidebarMenuButton>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56 rounded-lg">
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Workspaces</DropdownMenuLabel>
-              {workspaces.map((team) => (
+
+            <DropdownMenuContent
+              side="bottom"
+              align="start"
+              sideOffset={4}
+              className="w-48 rounded-[10px] p-2 pt-3 shadow-xl"
+            >
+              <DropdownMenuLabel className="px-2 py-0 text-xs font-medium text-muted-foreground">
+                Switch workspace:
+              </DropdownMenuLabel>
+              <div className="mt-3 flex flex-col gap-1">
+                {workspaces.map((team) => {
+                  const current = activeTeam.id === team.id
+                  return (
+                    <DropdownMenuItem
+                      key={team.id}
+                      onClick={() => handleSwitchWorkspace(team)}
+                      className={cn(
+                        "h-7 cursor-pointer gap-2.5 rounded-lg p-1.5 text-sm leading-5",
+                        current && "bg-accent"
+                      )}
+                    >
+                      <span className={cn("size-4 shrink-0 rounded bg-gradient-to-tr", workspaceGradient(team.id))} />
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 truncate",
+                          current ? "font-medium text-foreground" : "text-foreground/80"
+                        )}
+                      >
+                        {team.name}
+                      </span>
+                      {current && <Check className="size-4 shrink-0 text-green-600" />}
+                    </DropdownMenuItem>
+                  )
+                })}
+              </div>
+              <div className="mt-4 flex flex-col gap-1">
                 <DropdownMenuItem
-                  key={team.id}
-                  onClick={() => handleSwitchWorkspace(team)}
-                  className={cn(
-                    "gap-2 p-2 cursor-pointer",
-                    activeTeam.id === team.id && "bg-accent text-accent-foreground"
-                  )}
+                  onClick={() => setCreateDialogOpen(true)}
+                  className="h-7 cursor-pointer gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-sm text-foreground/80"
                 >
-                  <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground text-[10px] font-bold">
-                    {team.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[13px] font-medium">{team.name}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {MEMBER_ROLE_CONFIG[team.role]?.label || "Member"}
-                    </span>
-                  </div>
+                  <Plus className="size-4 text-muted-foreground" />
+                  New workspace
                 </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                className="gap-2 p-2 cursor-pointer"
-                onClick={() => setCreateDialogOpen(true)}
-              >
-                <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                  <Plus className="size-3.5" />
-                </div>
-                <span className="text-[13px] text-muted-foreground font-medium">Create workspace</span>
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => router.push(`${pathname}?settings=workspace`)}
+                  className="h-7 cursor-pointer gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-sm text-foreground/80"
+                >
+                  <Settings className="size-4 text-muted-foreground" />
+                  Quick settings
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => signOut().then(() => router.push("/"))}
+                  className="h-7 cursor-pointer gap-2 rounded-md py-1.5 pr-2.5 pl-2 text-sm text-foreground/80"
+                >
+                  <LogOut className="size-4 text-muted-foreground" />
+                  Sign out
+                </DropdownMenuItem>
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
 
-        {/* Hidden in icon-collapsed mode along with Favorites and Projects —
-            collapsed rail shows only the 4 top-level icons + avatar. */}
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-border"
+        >
+          <AlignLeft className="size-4" />
+        </button>
+      </SidebarHeader>
+
+      {/* ── Links: search · nav · sections, 20px apart ── */}
+      <SidebarContent className="gap-5 px-2 pt-3 pb-2">
         <div className="group-data-[collapsible=icon]:hidden">
           <SearchCommand />
         </div>
-      </SidebarHeader>
 
-      {/* ── Content ── */}
-      <SidebarContent className="px-2 py-1">
-        <SidebarGroup className="px-0 py-1">
-          <SidebarMenu className="gap-0.5">
+        <SidebarGroup className="p-0">
+          <SidebarMenu className="gap-1">
             {flatNavItems.map((item) => {
               const active = isActive(item.url)
               const badge = item.badgeKey === "inbox" && unreadCount > 0 ? unreadCount : null
@@ -360,12 +399,7 @@ export function AppSidebar({
                     asChild
                     isActive={active}
                     tooltip={item.title}
-                    className={cn(
-                      "h-8 rounded-md text-sm transition-colors",
-                      active
-                        ? "bg-accent text-accent-foreground font-semibold"
-                        : "text-foreground/80 font-normal hover:bg-accent/50"
-                    )}
+                    className={cn(ROW, active ? ROW_ACTIVE : ROW_IDLE)}
                   >
                     <Link
                       href={item.url}
@@ -373,11 +407,19 @@ export function AppSidebar({
                       onMouseEnter={() => prefetchRoute(item.url)}
                       onFocus={() => prefetchRoute(item.url)}
                     >
-                      <item.icon className="size-4" />
-                      <span>{item.title}</span>
+                      {item.icon ? (
+                        <item.icon />
+                      ) : (
+                        <span className="size-4 shrink-0 rounded-sm bg-gradient-to-tr from-blue-500 to-purple-500" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {badge !== null && <SidebarMenuBadge>{badge}</SidebarMenuBadge>}
+                  {badge !== null && (
+                    <SidebarMenuBadge className="top-1 h-5 min-w-5 text-[11px] text-muted-foreground">
+                      {badge}
+                    </SidebarMenuBadge>
+                  )}
                 </SidebarMenuItem>
               )
             })}
@@ -386,146 +428,169 @@ export function AppSidebar({
 
         {/* ── Favorites — hidden entirely when empty, no empty state ── */}
         {favorites.length > 0 && (
-          <SidebarGroup className="px-0 py-1 group-data-[collapsible=icon]:hidden">
-            <SidebarGroupLabel>Favorites</SidebarGroupLabel>
-            <SidebarMenu className="gap-0.5">
-              {visibleFavorites.map((fav) => {
-                const Icon = FAVORITE_ICONS[fav.entityType]
-                const active = pathname.startsWith(fav.href)
+          <Collapsible open={favoritesOpen} onOpenChange={setFavoritesOpen} asChild>
+            <SidebarGroup className="gap-2 p-0 group-data-[collapsible=icon]:hidden">
+              <CollapsibleTrigger asChild>
+                <SidebarGroupLabel
+                  asChild
+                  className="h-auto cursor-pointer gap-1.5 rounded-none px-1.5 pb-[3px] text-xs font-medium leading-4 text-muted-foreground hover:text-foreground/80"
+                >
+                  <button type="button">
+                    Favorites
+                    <SectionChevron open={favoritesOpen} />
+                  </button>
+                </SidebarGroupLabel>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenu className="gap-1">
+                  {visibleFavorites.map((fav) => {
+                    const Icon = FAVORITE_ICONS[fav.entityType]
+                    const active = pathname.startsWith(fav.href)
+                    return (
+                      <SidebarMenuItem key={fav.id}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={active}
+                          tooltip={fav.name}
+                          className={cn(ROW, active ? ROW_ACTIVE : ROW_IDLE)}
+                        >
+                          <Link href={fav.href} prefetch>
+                            {fav.entityType === "PROJECT" ? (
+                              <span className="flex size-4 shrink-0 items-center justify-center">
+                                <span className={cn("size-[7px] rounded-full", projectDotColor(fav.entityId))} />
+                              </span>
+                            ) : (
+                              <Icon />
+                            )}
+                            <span className="min-w-0 flex-1 truncate">{fav.name}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )
+                  })}
+                  {!showAllFavorites && favorites.length > FAVORITES_VISIBLE && (
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        onClick={() => setShowAllFavorites(true)}
+                        className="h-7 rounded-md pl-1.5 text-xs text-muted-foreground"
+                      >
+                        Show more
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  )}
+                </SidebarMenu>
+              </CollapsibleContent>
+            </SidebarGroup>
+          </Collapsible>
+        )}
+
+        {/* ── Projects — always open; the title links to the full list ── */}
+        <SidebarGroup className="relative gap-2 p-0 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel
+            asChild
+            className={cn(
+              "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-xs font-medium leading-4 hover:text-foreground/80",
+              pathname === "/projects" ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            <Link href="/projects" prefetch onMouseEnter={() => prefetchRoute("/projects")}>
+              Projects
+            </Link>
+          </SidebarGroupLabel>
+          <SidebarGroupAction
+            onClick={() => setCreateProjectOpen(true)}
+            title="New project"
+            className="top-0 right-1 size-4 text-muted-foreground hover:text-foreground [&>svg]:size-3.5"
+          >
+            <Plus />
+          </SidebarGroupAction>
+            <SidebarMenu className="gap-1">
+              {visibleProjects.map((project) => {
+                const href = `/projects/${project.id}`
+                const active = pathname.startsWith(href)
+                const isOpen = openProjectId === project.id
+                const favorited = favoritedProjectIds.has(project.id)
+
                 return (
-                  <SidebarMenuItem key={fav.id}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={active}
-                      tooltip={fav.name}
-                      className={cn(
-                        "h-8 rounded-md text-sm transition-colors",
-                        active
-                          ? "bg-accent text-accent-foreground font-semibold"
-                          : "text-foreground/80 font-normal hover:bg-accent/50"
-                      )}
-                    >
-                      <Link href={fav.href} prefetch>
-                        {fav.entityType === "PROJECT" ? (
-                          <span className={cn("size-[7px] shrink-0 rounded-full", projectDotColor(fav.entityId))} />
-                        ) : (
-                          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-                        )}
-                        <span className="truncate">{fav.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <Collapsible
+                    key={project.id}
+                    open={isOpen}
+                    onOpenChange={(next) => setOpenProjectId(next ? project.id : null)}
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton
+                          isActive={active && !isOpen}
+                          tooltip={project.name}
+                          className={cn(ROW, "group/project cursor-pointer", active && !isOpen ? ROW_ACTIVE : ROW_IDLE)}
+                        >
+                          <span className="flex size-4 shrink-0 items-center justify-center">
+                            <span className={cn("size-[7px] rounded-full", projectDotColor(project.id))} />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{project.name}</span>
+                          {favorited && (
+                            <Star className="!size-[11px] shrink-0 fill-current !text-muted-foreground/60 group-hover/project:hidden" />
+                          )}
+                          {/* Expand/collapse hint: right edge, hover-only; points down while open. */}
+                          <ChevronRight
+                            className={cn(
+                              "!size-3 shrink-0 text-muted-foreground/70 opacity-0 transition-[opacity,transform] duration-150 group-hover/project:opacity-100",
+                              isOpen && "rotate-90"
+                            )}
+                          />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent>
+                        <SidebarMenuSub className="mx-2.5 gap-0.5 pr-0">
+                          {projectSubLinks(project).map((link) => {
+                            const linkHref = `${href}/${link.tab}`
+                            const isLinkActive = pathname === linkHref || pathname.startsWith(`${linkHref}/`)
+                            return (
+                              <SidebarMenuSubItem key={link.tab}>
+                                <SidebarMenuSubButton
+                                  asChild
+                                  isActive={isLinkActive}
+                                  className={cn(
+                                    "h-7 gap-2 rounded-md text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
+                                    isLinkActive ? "bg-accent font-medium text-foreground" : "text-foreground/80"
+                                  )}
+                                >
+                                  <Link href={linkHref} prefetch onMouseEnter={() => prefetchRoute(linkHref)}>
+                                    <link.icon />
+                                    <span className="truncate">{link.label}</span>
+                                    {link.count !== null && link.count > 0 && (
+                                      <span className="ml-auto font-mono text-[11px] text-muted-foreground/70">
+                                        {link.count}
+                                      </span>
+                                    )}
+                                  </Link>
+                                </SidebarMenuSubButton>
+                              </SidebarMenuSubItem>
+                            )
+                          })}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
                 )
               })}
-              {!showAllFavorites && favorites.length > FAVORITES_VISIBLE && (
+
+              {projects.length > PROJECTS_VISIBLE && (
                 <SidebarMenuItem>
-                  <SidebarMenuButton
-                    onClick={() => setShowAllFavorites(true)}
-                    className="h-7 rounded-md text-xs text-muted-foreground"
-                  >
-                    Show more
+                  <SidebarMenuButton asChild className="h-7 rounded-md pl-1.5 text-xs text-muted-foreground">
+                    <Link href="/projects" prefetch>
+                      All projects ({projects.length})
+                      <ChevronRight className="ml-auto size-3" />
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               )}
             </SidebarMenu>
-          </SidebarGroup>
-        )}
-
-        {/* ── Projects — favorited first, currently-open project pinned in ── */}
-        <SidebarGroup className="relative px-0 py-1 group-data-[collapsible=icon]:hidden">
-          <SidebarGroupLabel>Projects</SidebarGroupLabel>
-          <SidebarGroupAction onClick={() => setCreateProjectOpen(true)} title="New project">
-            <Plus />
-          </SidebarGroupAction>
-          <SidebarMenu className="gap-0.5">
-            {visibleProjects.map((project) => {
-              const href = `/projects/${project.id}`
-              const active = pathname.startsWith(href)
-              const isOpen = openProjectId === project.id
-              const favorited = favoritedProjectIds.has(project.id)
-
-              return (
-                <Collapsible
-                  key={project.id}
-                  open={isOpen}
-                  onOpenChange={(next) => setOpenProjectId(next ? project.id : null)}
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        isActive={active && !isOpen}
-                        tooltip={project.name}
-                        className={cn(
-                          "h-8 cursor-pointer rounded-md text-sm transition-colors",
-                          active && !isOpen
-                            ? "bg-accent text-accent-foreground font-semibold"
-                            : "text-foreground/80 font-normal hover:bg-accent/50"
-                        )}
-                      >
-                        <ChevronRight
-                          className={cn(
-                            "size-3 shrink-0 text-muted-foreground/70 transition-transform duration-150",
-                            isOpen && "rotate-90"
-                          )}
-                        />
-                        <span className={cn("size-[7px] shrink-0 rounded-full", projectDotColor(project.id))} />
-                        <span className="min-w-0 flex-1 truncate font-medium">{project.name}</span>
-                        {favorited && (
-                          <Star className="size-[11px] shrink-0 fill-current text-muted-foreground/60" />
-                        )}
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {projectSubLinks(project).map((link) => {
-                          const linkHref = `${href}/${link.tab}`
-                          const isLinkActive = pathname === linkHref || pathname.startsWith(`${linkHref}/`)
-                          return (
-                            <SidebarMenuSubItem key={link.tab}>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={isLinkActive}
-                                className={cn(
-                                  "[&>svg]:size-[13px]",
-                                  isLinkActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                                )}
-                              >
-                                <Link href={linkHref} prefetch onMouseEnter={() => prefetchRoute(linkHref)}>
-                                  <link.icon />
-                                  <span className="truncate">{link.label}</span>
-                                  {link.count !== null && link.count > 0 && (
-                                    <span className="ml-auto font-mono text-[11px] text-muted-foreground/70">
-                                      {link.count}
-                                    </span>
-                                  )}
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          )
-                        })}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )
-            })}
-
-            {projects.length > PROJECTS_VISIBLE && (
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild className="h-7 rounded-md text-xs text-muted-foreground">
-                  <Link href="/projects" prefetch>
-                    All projects ({projects.length})
-                    <ChevronRight className="ml-auto size-3" />
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            )}
-          </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="px-2 py-2">
+      <SidebarFooter className="mt-auto p-2 pt-0">
         <NavUser user={resolvedUser} />
       </SidebarFooter>
 
@@ -544,7 +609,7 @@ export function AppSidebar({
         onOpenChange={setCreateProjectOpen}
         mode="create"
         onSuccess={(project: ProjectCardData) => {
-          loadProjects()
+          refresh()
           router.push(`/projects/${project.id}/overview`)
         }}
       />

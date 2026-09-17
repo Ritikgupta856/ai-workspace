@@ -96,3 +96,22 @@ export async function fetchProjectBoards(projectId: string): Promise<ProjectBoar
   const json = await res.json()
   return json.boards ?? []
 }
+
+export async function createProjectBoard(projectId: string): Promise<{ id: string }> {
+  const res = await fetch("/api/boards", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ projectId }),
+  })
+  const json = await res.json()
+  if (!res.ok) throw new Error(json.error ?? "Could not create board")
+  return json.board
+}
+
+export async function deleteBoard(id: string): Promise<void> {
+  const res = await fetch(`/api/boards/${id}`, { method: "DELETE" })
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}))
+    throw new Error(json.error ?? "Could not delete board")
+  }
+}

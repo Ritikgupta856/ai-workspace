@@ -1,68 +1,48 @@
-"use client"
+import { headers } from "next/headers"
+import { notFound, redirect } from "next/navigation"
 
-import * as React from "react"
-import { useParams } from "next/navigation"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { buildProjectDashboard } from "@/lib/project-dashboard"
+import { ProjectDashboardShell } from "@/components/projects/project-dashboard-shell"
+import type { ProjectDashboardResponse } from "@/components/projects/project-dashboard-context"
 
-import { Button } from "@/components/ui/button"
-import { DetailPageSkeleton } from "@/components/dashboard/loading-states"
-import {
-  ProjectDashboardProvider,
-  type ProjectDashboardResponse,
-} from "@/components/projects/project-dashboard-context"
+// Reads the session (headers) on every request, so it can't be prerendered.
+export const instant = false
 
-export default function ProjectLayout({ children }: { children: React.ReactNode }) {
-  const params = useParams()
-  const projectId = params.projectId as string
+/**
+ * Resolves the project's dashboard data on the server so every section
+ * (overview, tasks, pages, board) paints complete — no client fetch, no
+ * skeleton. Padding lives on each page: tasks runs its header edge-to-edge.
+ */
+export default async function ProjectLayout({
+  params,
+  children,
+}: {
+  params: Promise<{ projectId: string }>
+  children: React.ReactNode
+}) {
+  const { projectId } = await params
 
-  const [data, setData] = React.useState<ProjectDashboardResponse | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) redirect("/sign-in")
 
-  const loadDashboard = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/projects/${projectId}/dashboard`)
-      const json: ProjectDashboardResponse = await res.json()
-      if (!json.success) throw new Error(json.error || "Failed to load project")
-      setData(json)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong")
-    } finally {
-      setLoading(false)
-    }
-  }, [projectId, setData])
+  const membership = await prisma.workspaceMember.findFirst({
+    where: { userId: session.user.id },
+    select: { workspaceId: true },
+  })
+  if (!membership) redirect("/projects")
 
-  React.useEffect(() => {
-    loadDashboard()
-  }, [loadDashboard])
+  const dashboard = await buildProjectDashboard(projectId, membership.workspaceId)
+  if (!dashboard) notFound()
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <DetailPageSkeleton />
-      </div>
-    )
-  }
-
-  if (error || !data) {
-    return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 py-20">
-        <p className="text-sm font-medium text-destructive">
-          {error || "Failed to load project"}
-        </p>
-        <Button variant="outline" size="sm" onClick={loadDashboard}>
-          Try again
-        </Button>
-      </div>
-    )
-  }
+  const initialData: ProjectDashboardResponse = { success: true, ...dashboard }
 
   return (
-    <div className="flex flex-1 flex-col gap-5 p-6">
-      <ProjectDashboardProvider projectId={projectId} data={data} reload={loadDashboard} setData={setData}>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <ProjectDashboardShell key={projectId} projectId={projectId} initialData={initialData}>
         {children}
-      </ProjectDashboardProvider>
+      </ProjectDashboardShell>
     </div>
   )
 }

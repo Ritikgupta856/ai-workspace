@@ -3,18 +3,21 @@ import { headers, cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
-  ArrowUpRight,
   CalendarClock,
   CheckCircle2,
   FileText,
   FolderKanban,
+  Home,
   ListTodo,
+  PieChart,
   Plug,
   RefreshCw,
   StickyNote,
   UserRound,
+  Users,
 } from "lucide-react"
 
 import { auth } from "@/lib/auth"
@@ -22,143 +25,82 @@ import { prisma } from "@/lib/prisma"
 import { getDashboardData, type FocusTask } from "@/lib/dashboard"
 import { MetricBar, MetricCard } from "@/components/dashboard/metric-card"
 import { ActivityChart } from "@/components/dashboard/activity-chart"
+import { Section, SectionEmpty, sectionRowClass } from "@/components/dashboard/section"
+import { SectionHeader } from "@/components/dashboard/section-header"
+import { ActivityRows } from "@/components/projects/project-overview-sections"
 import {
-  TASK_PRIORITY_CONFIG,
+  TASK_PRIORITY_PILL,
   TASK_STATUS_CONFIG,
   INTEGRATION_STATUS_CONFIG,
+  PROJECT_STATUS_PILL,
   type IntegrationStatusKey,
   type TaskPriorityKey,
   type TaskStatusKey,
+  type ProjectStatusKey,
 } from "@/lib/constants"
-import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
-import { StatusBadge } from "@/components/common/status-badge"
-import { ActivityFeed } from "@/components/activity/activity-feed"
-import { PageHeader } from "@/components/dashboard/page-header"
-import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { formatDueDate, formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 
 export const instant = false
 
-/* ── Small presentational helpers, local to this page ─────────
-   One card shape, one row shape. Everything on this page is a
-   panel with a quiet header and content that runs edge to edge. */
+/* ── Row shapes, local to this page ─────────────────────────── */
 
-function Card({
-  title,
-  href,
-  linkLabel = "View all",
-  children,
-  className,
-  action,
-}: {
-  title: string
-  href?: string
-  linkLabel?: string
-  children: React.ReactNode
-  className?: string
-  action?: React.ReactNode
-}) {
-  return (
-    <section
-      className={cn("bg-card flex flex-col rounded-xl border shadow-sm", className)}
-    >
-      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
-        <h2 className="truncate text-sm font-semibold tracking-tight">{title}</h2>
-        {action ??
-          (href && (
-            <Link
-              href={href}
-              className="text-muted-foreground hover:text-foreground inline-flex shrink-0 items-center gap-1 text-xs font-medium transition-colors"
-            >
-              {linkLabel}
-              <ArrowUpRight className="size-3.5" />
-            </Link>
-          ))}
-      </div>
-      {children}
-    </section>
-  )
-}
+const pillClass = "inline-flex h-4.5 shrink-0 items-center rounded px-1.5 text-[11px] font-medium leading-none"
 
-/** Row-level hover surface, inset so it reads as a chip rather than a band. */
-const rowClass =
-  "mx-2 flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/60"
-
-/** Shared shape for the page's "nothing here yet" panels. */
-function PanelEmpty({
-  icon: Icon,
-  title,
-  description,
+function EmptyWithAction({
+  message,
   actionLabel,
   href,
 }: {
-  icon: typeof CheckCircle2
-  title: string
-  description: string
+  message: string
   actionLabel: string
   href: string
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-5 pt-2 pb-8 text-center">
-      <div className="bg-muted flex size-10 items-center justify-center rounded-xl">
-        <Icon className="text-muted-foreground size-4" />
-      </div>
-      <p className="mt-3 text-sm font-medium">{title}</p>
-      <p className="text-muted-foreground mt-1 max-w-xs text-sm text-balance">
-        {description}
-      </p>
-      <Button variant="outline" size="sm" className="mt-4" asChild>
-        <Link href={href}>{actionLabel}</Link>
-      </Button>
+    <div className="flex flex-col items-center gap-2 py-6 text-center">
+      <p className="text-[13px] text-muted-foreground">{message}</p>
+      <Link
+        href={href}
+        className="inline-flex h-7 items-center rounded-lg border border-border/80 px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-accent/60"
+      >
+        {actionLabel}
+      </Link>
     </div>
   )
 }
 
 function TaskRow({ task, tone }: { task: FocusTask; tone?: "overdue" }) {
-  const priority =
-    TASK_PRIORITY_CONFIG[task.priority as TaskPriorityKey] ??
-    TASK_PRIORITY_CONFIG.LOW
+  const priority = TASK_PRIORITY_PILL[task.priority as TaskPriorityKey] ?? TASK_PRIORITY_PILL.LOW
 
   return (
-    <Link href={`/tasks?task=${task.id}`} className={rowClass}>
+    <Link href={`/tasks?task=${task.id}`} className={sectionRowClass}>
       <span
         className={cn(
           "size-1.5 shrink-0 rounded-full",
           tone === "overdue" ? "bg-destructive" : "bg-muted-foreground/40"
         )}
       />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{task.title}</p>
-        <p className="text-muted-foreground truncate text-xs">
-          {task.project
-            ? `${task.project.icon ?? "📁"} ${task.project.name}`
-            : "No project"}
-        </p>
-      </div>
+      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-foreground">{task.title}</span>
+      <span className="hidden min-w-0 max-w-40 truncate text-[13px] text-muted-foreground md:inline">
+        {task.project ? `${task.project.icon ?? "📁"} ${task.project.name}` : "No project"}
+      </span>
       {task.dueDate && (
         <span
           className={cn(
-            "hidden shrink-0 text-xs tabular-nums sm:inline",
-            tone === "overdue"
-              ? "text-destructive font-medium"
-              : "text-muted-foreground"
+            "hidden w-16 shrink-0 text-right text-[13px] tabular-nums sm:inline",
+            tone === "overdue" ? "font-medium text-destructive" : "text-muted-foreground"
           )}
         >
           {formatDueDate(task.dueDate)}
         </span>
       )}
-      <StatusBadge
-        label={priority.label}
-        className={cn("shrink-0", priority.className)}
-        icon={priority.icon}
-      />
+      <span className={cn(pillClass, priority.className)}>{priority.label}</span>
     </Link>
   )
 }
 
-/** Group label inside "Your focus" — micro-caps, same as the rest of the app. */
+/** Group label inside "Your focus". */
 function GroupLabel({
   children,
   tone,
@@ -171,7 +113,7 @@ function GroupLabel({
   return (
     <p
       className={cn(
-        "flex items-center gap-1.5 px-5 pt-3 pb-1.5 text-[11px] font-semibold tracking-wider uppercase",
+        "flex items-center gap-1.5 px-4 pt-2.5 pb-1 text-[11px] font-medium tracking-wider uppercase",
         tone === "danger" ? "text-destructive" : "text-muted-foreground"
       )}
     >
@@ -181,9 +123,7 @@ function GroupLabel({
   )
 }
 
-/* Segment colour per task status. Local to this page: the shared status config
-   carries a badge className, which is a pill treatment (background + text +
-   ring) and can't be reused as a solid fill. */
+/* Segment colour per task status: solid fills for the stacked bar. */
 const STATUS_FILL: Record<TaskStatusKey, string> = {
   TODO: "bg-muted-foreground/35",
   IN_PROGRESS: "bg-blue-500",
@@ -193,17 +133,7 @@ const STATUS_FILL: Record<TaskStatusKey, string> = {
 
 const TASK_STATUS_KEYS = Object.keys(TASK_STATUS_CONFIG) as TaskStatusKey[]
 
-/**
- * Work breakdown: one stacked bar plus a legend.
- *
- * This replaces four separate progress bars, each measuring its status against
- * the same total. They were four views of one composition, drawn as four
- * unrelated widgets — so a status at 40% and one at 35% looked alike and you
- * could not see that together they were most of the work.
- *
- * Segments are sized with `flex-grow` from the raw counts rather than rounded
- * percentages, so the bar always fills exactly and never drifts to 99% or 101%.
- */
+/** One stacked bar plus a legend; segments grow from raw counts so the bar always fills exactly. */
 function WorkBreakdown({
   byStatus,
   total,
@@ -212,16 +142,12 @@ function WorkBreakdown({
   total: number
 }) {
   if (total === 0) {
-    return (
-      <p className="text-muted-foreground px-5 pt-1 pb-6 text-center text-sm">
-        No tasks yet. Create one to see the breakdown here.
-      </p>
-    )
+    return <SectionEmpty>No tasks yet. Create one to see the breakdown here.</SectionEmpty>
   }
 
   return (
-    <div className="px-5 pt-1 pb-5">
-      <div className="bg-muted flex h-2 w-full overflow-hidden rounded-full">
+    <div className="px-4 pt-3 pb-2">
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
         {TASK_STATUS_KEYS.map((key) => {
           const count = byStatus[key] ?? 0
           if (count === 0) return null
@@ -236,27 +162,18 @@ function WorkBreakdown({
         })}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className="mt-3 flex flex-col">
         {TASK_STATUS_KEYS.map((key) => {
           const count = byStatus[key] ?? 0
           const pct = Math.round((count / total) * 100)
           return (
-            <div key={key} className="flex items-center gap-2">
-              <span
-                className={cn(
-                  "size-2 shrink-0 rounded-full",
-                  STATUS_FILL[key]
-                )}
-              />
-              <span className="text-muted-foreground min-w-0 flex-1 truncate text-xs">
+            <div key={key} className="flex h-8 items-center gap-2.5">
+              <span className={cn("size-2 shrink-0 rounded-full", STATUS_FILL[key])} />
+              <span className="min-w-0 flex-1 truncate text-[13px] text-foreground/80">
                 {TASK_STATUS_CONFIG[key].label}
               </span>
-              <span className="shrink-0 text-xs font-semibold tabular-nums">
-                {count}
-              </span>
-              <span className="text-muted-foreground w-8 shrink-0 text-right text-[11px] tabular-nums">
-                {pct}%
-              </span>
+              <span className="text-[13px] font-medium tabular-nums text-foreground">{count}</span>
+              <span className="w-9 shrink-0 text-right text-[12px] tabular-nums text-muted-foreground">{pct}%</span>
             </div>
           )
         })}
@@ -321,13 +238,13 @@ export default async function DashboardPage() {
     attention.overdueCount > 0 && {
       icon: AlertTriangle,
       label: `${attention.overdueCount} of your tasks ${attention.overdueCount === 1 ? "is" : "are"} overdue`,
-      href: "/tasks",
+      href: "/my-work",
       tone: "danger" as const,
     },
     attention.unassignedCount > 0 && {
       icon: UserRound,
       label: `${attention.unassignedCount} task${attention.unassignedCount === 1 ? "" : "s"} unassigned`,
-      href: "/tasks",
+      href: "/my-work",
       tone: "warn" as const,
     },
     attention.failedDocs > 0 && {
@@ -344,57 +261,51 @@ export default async function DashboardPage() {
   }[]
 
   return (
-    <div className="flex flex-1 flex-col">
-      {/* The greeting IS the page title. It used to sit in the content as a
-          second <h1> directly under the header's "Dashboard" — two headings of
-          the same size, stacked, saying the same thing. */}
-      <PageHeader
-        title="Overview"
-        action={
-          lastSync ? (
-            <span className="text-muted-foreground bg-card inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs shadow-sm">
-          
-              <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="hidden sm:inline">Synced</span>{" "}
-              {formatUpdatedDate(lastSync)}
-              <RefreshCw className="size-3 shrink-0" />
-            </span>
-          ) : null
-        }
-      />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <SectionHeader icon={Home} title="Home">
+        {lastSync && (
+          <span className="inline-flex h-8 items-center gap-2 rounded-lg border border-border/80 px-3 text-[13px] text-muted-foreground">
+            <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+            <span className="hidden sm:inline">Synced</span> {formatUpdatedDate(lastSync)}
+            <RefreshCw className="size-3 shrink-0" />
+          </span>
+        )}
+      </SectionHeader>
 
-      {/* Capped so the grid doesn't stretch across an ultrawide display, where
-          every row turns into a metre-long horizontal scan. */}
-      <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <p className="text-muted-foreground text-sm">
-            {workspace?.name
-              ? `Here's what's happening in ${workspace.name}.`
-              : "Here's what's happening in your workspace."}
-          </p>
+      {/* Toolbar: greeting on the left, things that need attention on the right */}
+      <div className="flex min-h-12 flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-border/70 px-5 py-1.5">
+        <p className="text-[13px] text-muted-foreground">
+          <span className="font-medium text-foreground">
+            {greeting()}, {firstName}
+          </span>
+          {" — "}
+          {workspace?.name ? `here's what's happening in ${workspace.name}.` : "here's what's happening in your workspace."}
+        </p>
 
-          {alerts.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              {alerts.map((alert) => (
-                <Link
-                  key={alert.label}
-                  href={alert.href}
-                  className={cn(
-                    "group inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
-                    alert.tone === "danger"
-                      ? "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
-                      : "border-amber-500/25 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
-                  )}
-                >
-                  <alert.icon className="size-3.5 shrink-0" />
-                  {alert.label}
-                  <ArrowRight className="size-3 shrink-0 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        {alerts.length > 0 && (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {alerts.map((alert) => (
+              <Link
+                key={alert.label}
+                href={alert.href}
+                className={cn(
+                  "group inline-flex h-7 items-center gap-1.5 rounded-lg border px-2.5 text-[12px] font-medium transition-colors",
+                  alert.tone === "danger"
+                    ? "border-destructive/25 bg-destructive/5 text-destructive hover:bg-destructive/10"
+                    : "border-amber-500/25 bg-amber-500/5 text-amber-700 hover:bg-amber-500/10 dark:text-amber-400"
+                )}
+              >
+                <alert.icon className="size-3.5 shrink-0" />
+                {alert.label}
+                <ArrowRight className="size-3 shrink-0 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
 
+      {/* Capped so the grid doesn't stretch across an ultrawide display. */}
+      <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col gap-5 px-5 pt-5 pb-8">
         <MetricBar>
           <MetricCard
             label="Projects"
@@ -413,7 +324,7 @@ export default async function DashboardPage() {
             ratio={data.metrics.tasks.ratio}
             ratioLabel={data.metrics.tasks.ratioLabel}
             tone="violet"
-            href="/tasks"
+            href="/my-work"
             icon={ListTodo}
           />
           <MetricCard
@@ -438,24 +349,24 @@ export default async function DashboardPage() {
           />
         </MetricBar>
 
-        {/* The chart sits inside the left column rather than full-bleed above
-            the grid, so both columns start on the same baseline instead of the
-            right column beginning a panel-height lower than the left. */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <div className="flex flex-col gap-4 lg:col-span-2">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="flex min-w-0 flex-col gap-5">
             <ActivityChart trend={data.trend} />
 
-            <Card title="Your focus" href="/tasks" linkLabel="All tasks">
+            <Section
+              icon={ListTodo}
+              title="Your focus"
+              count={focus.totalAssigned}
+              action={{ label: "All tasks", href: "/my-work" }}
+            >
               {focus.totalAssigned === 0 ? (
-                <PanelEmpty
-                  icon={CheckCircle2}
-                  title="You’re all clear"
-                  description="No open tasks are assigned to you. Pick something up from the board when you’re ready."
+                <EmptyWithAction
+                  message="No open tasks are assigned to you."
                   actionLabel="Browse tasks"
-                  href="/tasks"
+                  href="/my-work"
                 />
               ) : (
-                <div className="pb-3">
+                <>
                   {focus.overdue.length > 0 && (
                     <>
                       <GroupLabel tone="danger" icon={AlertTriangle}>
@@ -482,142 +393,113 @@ export default async function DashboardPage() {
                       ))}
                     </>
                   )}
-                </div>
+                </>
               )}
-            </Card>
+            </Section>
 
-            <Card title="Active projects" href="/projects">
+            <Section
+              icon={FolderKanban}
+              title="Active projects"
+              count={data.projects.length}
+              action={{ label: "All projects", href: "/projects" }}
+            >
               {data.projects.length === 0 ? (
-                <PanelEmpty
-                  icon={FolderKanban}
-                  title="No active projects"
-                  description="Create a project to group tasks, documents and conversations together."
+                <EmptyWithAction
+                  message="Create a project to group tasks, pages and boards together."
                   actionLabel="Create a project"
                   href="/projects"
                 />
               ) : (
-                <div className="pb-3">
-                  {data.projects.map((project) => {
-                    const status =
-                      PROJECT_STATUS_CONFIG[project.status] ??
-                      PROJECT_STATUS_CONFIG.ACTIVE
-                    return (
-                      <Link
-                        key={project.id}
-                        href={`/projects/${project.id}`}
-                        className={rowClass}
-                      >
-                        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border text-base">
-                          {project.icon}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {project.name}
-                          </p>
-                          <p className="text-muted-foreground truncate text-xs">
-                            {project.doneCount}/{project.taskCount} tasks ·
-                            updated {formatUpdatedDate(project.updatedAt)}
-                          </p>
-                        </div>
-                        <div className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
-                          <Progress value={project.progress} className="h-1.5" />
-                          <span className="text-muted-foreground w-8 shrink-0 text-right text-xs tabular-nums">
-                            {project.progress}%
-                          </span>
-                        </div>
-                        <StatusBadge
-                          label={status.label}
-                          className={cn("shrink-0", status.className)}
-                          icon={status.icon}
-                        />
-                      </Link>
-                    )
-                  })}
-                </div>
+                data.projects.map((project) => {
+                  const status =
+                    PROJECT_STATUS_PILL[project.status as ProjectStatusKey] ?? PROJECT_STATUS_PILL.ACTIVE
+                  return (
+                    <Link key={project.id} href={`/projects/${project.id}/overview`} className={sectionRowClass}>
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-sm leading-none">
+                        {project.icon}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium leading-5 text-foreground">
+                        {project.name}
+                      </span>
+                      <span className="hidden shrink-0 text-[13px] text-muted-foreground md:inline">
+                        {project.doneCount}/{project.taskCount} tasks · {formatUpdatedDate(project.updatedAt)}
+                      </span>
+                      <span className="hidden w-28 shrink-0 items-center gap-2 sm:flex">
+                        <Progress value={project.progress} className="h-1.5 flex-1" />
+                        <span className="w-8 shrink-0 text-right text-[13px] tabular-nums text-muted-foreground">
+                          {project.progress}%
+                        </span>
+                      </span>
+                      <span className={cn(pillClass, status.className)}>{status.label}</span>
+                    </Link>
+                  )
+                })
               )}
-            </Card>
+            </Section>
           </div>
 
-          <div className="flex flex-col gap-4">
-            <Card title="Work breakdown" href="/tasks" linkLabel="Open board">
-              <WorkBreakdown
-                byStatus={taskBoard.byStatus}
-                total={taskBoard.total}
-              />
-            </Card>
+          <div className="flex min-w-0 flex-col gap-5">
+            <Section
+              icon={PieChart}
+              title="Work breakdown"
+              aside={<span className="text-[13px] text-muted-foreground">{taskBoard.total} tasks</span>}
+            >
+              <WorkBreakdown byStatus={taskBoard.byStatus} total={taskBoard.total} />
+            </Section>
 
-            <Card title="Workspace" href="?settings=members" linkLabel="Manage">
-              <div className="grid grid-cols-2 gap-3 px-5 pt-1 pb-5">
-                <div className="bg-muted/40 rounded-lg border px-4 py-3">
-                  <p className="text-2xl leading-none font-semibold tabular-nums">
-                    {data.memberCount}
-                  </p>
-                  <p className="text-muted-foreground mt-1.5 text-xs">
-                    {data.memberCount === 1 ? "Member" : "Members"}
-                  </p>
-                </div>
-                <div className="bg-muted/40 rounded-lg border px-4 py-3">
-                  <p className="text-2xl leading-none font-semibold tabular-nums">
-                    {taskBoard.completedThisWeek}
-                  </p>
-                  <p className="text-muted-foreground mt-1.5 text-xs">
-                    Done this week
-                  </p>
-                </div>
+            <Section icon={Users} title="Workspace" action={{ label: "Manage", href: "?settings=members" }}>
+              <div className={cn(sectionRowClass, "h-9")}>
+                <Users className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 text-[13px] text-foreground/80">
+                  {data.memberCount === 1 ? "Member" : "Members"}
+                </span>
+                <span className="text-sm font-medium tabular-nums text-foreground">{data.memberCount}</span>
               </div>
-            </Card>
+              <div className={cn(sectionRowClass, "h-9")}>
+                <CheckCircle2 className="size-3.5 shrink-0 text-emerald-500" />
+                <span className="min-w-0 flex-1 text-[13px] text-foreground/80">Done this week</span>
+                <span className="text-sm font-medium tabular-nums text-foreground">
+                  {taskBoard.completedThisWeek}
+                </span>
+              </div>
+            </Section>
 
-            <ActivityFeed
-              variant="card"
-              items={data.activity}
-              limit={5}
-              title="Recent activity"
-              emptyMessage="No activity yet. Events appear as your team works."
-            />
+            <Section icon={Activity} title="Recent activity" count={data.activity.length}>
+              <ActivityRows items={data.activity} limit={5} />
+            </Section>
 
-            <Card title="Connected tools" href="?settings=integrations" linkLabel="Manage">
+            <Section icon={Plug} title="Connected tools" action={{ label: "Manage", href: "?settings=integrations" }}>
               {data.integrations.length === 0 ? (
-                <PanelEmpty
-                  icon={Plug}
-                  title="Nothing connected"
-                  description="Connect GitHub to pull work in automatically."
+                <EmptyWithAction
+                  message="Connect GitHub to pull work in automatically."
                   actionLabel="Connect a tool"
                   href="?settings=integrations"
                 />
               ) : (
-                <div className="pb-3">
-                  {data.integrations.map((integration) => {
-                    const status =
-                      INTEGRATION_STATUS_CONFIG[
-                        integration.status as IntegrationStatusKey
-                      ] ?? INTEGRATION_STATUS_CONFIG.DISCONNECTED
-                    return (
-                      <div key={integration.id} className={rowClass}>
-                        <div className="bg-muted flex size-9 shrink-0 items-center justify-center rounded-lg border">
-                          <Plug className="text-muted-foreground size-4" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">
-                            {integration.name}
-                          </p>
-                          <p className="text-muted-foreground truncate text-xs">
-                            {integration.documentCount} document
-                            {integration.documentCount === 1 ? "" : "s"}
-                            {integration.lastSyncAt &&
-                              ` · synced ${formatUpdatedDate(integration.lastSyncAt)}`}
-                          </p>
-                        </div>
-                        <StatusBadge
-                          label={status.label}
-                          className={cn("shrink-0", status.className)}
-                          icon={status.icon}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
+                data.integrations.map((integration) => {
+                  const status =
+                    INTEGRATION_STATUS_CONFIG[integration.status as IntegrationStatusKey] ??
+                    INTEGRATION_STATUS_CONFIG.DISCONNECTED
+                  return (
+                    <div key={integration.id} className={sectionRowClass}>
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted">
+                        <Plug className="size-3.5 text-muted-foreground" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium leading-5 text-foreground">
+                          {integration.name}
+                        </span>
+                        <span className="block truncate text-[12px] text-muted-foreground">
+                          {integration.documentCount} document{integration.documentCount === 1 ? "" : "s"}
+                          {integration.lastSyncAt && ` · synced ${formatUpdatedDate(integration.lastSyncAt)}`}
+                        </span>
+                      </span>
+                      <span className={cn(pillClass, status.className)}>{status.label}</span>
+                    </div>
+                  )
+                })
               )}
-            </Card>
+            </Section>
           </div>
         </div>
       </div>

@@ -35,6 +35,7 @@ type SaveState = "idle" | "saving" | "saved" | "error"
 export type BoardData = {
   id: string
   title: string
+  projectId: string | null
   scene: { elements?: unknown[]; appState?: Record<string, unknown> } | null
   files: Record<string, unknown> | null
 }
@@ -105,17 +106,20 @@ export function BoardEditor({ board }: { board: BoardData }) {
     void save({ title: next })
   }, [title, board.title, save])
 
+  // Boards are only listed inside a project; a detached one falls back to Projects.
+  const backHref = board.projectId ? `/projects/${board.projectId}/board` : "/projects"
+
   const handleDelete = React.useCallback(async () => {
     await fetch(`/api/boards/${board.id}`, { method: "DELETE" })
-    router.push("/boards")
+    router.push(backHref)
     router.refresh()
-  }, [board.id, router])
+  }, [board.id, backHref, router])
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-3 pb-3">
         <Button variant="ghost" size="icon" className="size-8 shrink-0" asChild>
-          <Link href="/boards" aria-label="Back to boards">
+          <Link href={backHref} aria-label="Back to project board">
             <ArrowLeft className="size-4" />
           </Link>
         </Button>

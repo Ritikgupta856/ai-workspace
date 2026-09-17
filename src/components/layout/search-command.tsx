@@ -11,9 +11,7 @@ import {
   ListChecks,
   Bot,
   FolderOpen,
-  CheckSquare,
   FileText as NotesIcon,
-  PenTool,
   Puzzle,
   Users,
 } from "lucide-react"
@@ -34,9 +32,7 @@ const navigationItems = [
   { title: "My Work", subtitle: "Tasks assigned to you", url: "/my-work", icon: ListChecks },
   { title: "Agent", subtitle: "Ask the agent about your workspace", url: "/agent", icon: Bot },
   { title: "Projects", subtitle: "Every project in this workspace", url: "/projects", icon: FolderOpen },
-  { title: "Tasks", subtitle: "All tasks across projects", url: "/tasks", icon: CheckSquare },
   { title: "Pages", subtitle: "Docs and notes", url: "/pages", icon: NotesIcon },
-  { title: "Boards", subtitle: "Whiteboards", url: "/boards", icon: PenTool },
   { title: "Integrations", subtitle: "Connect GitHub, Linear, Notion…", url: "?settings=integrations", icon: Puzzle },
   { title: "Members", subtitle: "Workspace members and roles", url: "?settings=members", icon: Users },
 ]
@@ -68,13 +64,20 @@ export function SearchCommand() {
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="w-full justify-start gap-2 font-normal text-muted-foreground"
+        className="h-7 w-full justify-start gap-2 rounded-md border-border bg-card py-2 pr-2 pl-1.5 font-normal text-muted-foreground shadow-none hover:bg-card"
       >
-        <Search className="size-3.5" />
-        <span className="flex-1 text-left">Search or ask</span>
-        <kbd className="rounded border bg-background px-1.5 py-0.5 font-mono text-[10px]">
-          ⌘K
-        </kbd>
+        <Search className="size-4" />
+        <span className="flex-1 truncate text-left text-sm leading-5">Search</span>
+        <span className="flex items-center gap-0.5">
+          {["⌘", "K"].map((key) => (
+            <kbd
+              key={key}
+              className="flex size-4 items-center justify-center rounded bg-muted px-1 font-sans text-[10px] font-medium leading-4 text-foreground/70"
+            >
+              {key}
+            </kbd>
+          ))}
+        </span>
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>

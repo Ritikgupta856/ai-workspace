@@ -3,6 +3,7 @@
 import * as React from "react"
 import { Star } from "lucide-react"
 import { toast } from "sonner"
+import { requestSidebarRefresh } from "@/lib/sidebar-events"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -44,6 +45,7 @@ export function FavoriteButton({
       })
       const json = await res.json()
       if (!json.success) throw new Error(json.error || "Failed to update favorite")
+      requestSidebarRefresh()
     } catch (error) {
       setFavorited(!next)
       toast.error(error instanceof Error ? error.message : "Failed to update favorite")

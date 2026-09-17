@@ -6,10 +6,10 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import type { MemberRoleKey } from "@/lib/constants";
+import { getSidebarData } from "@/lib/sidebar-data";
 
 export const instant = false;
 
@@ -85,6 +85,9 @@ export default async function DashboardLayout({
     avatar: session.user.image ?? "",
   };
 
+  // Rendered into the sidebar's first paint — no client fetch, no pop-in.
+  const sidebar = await getSidebarData(session.user.id, membership.workspaceId);
+
   return (
     <TooltipProvider>
         <SidebarProvider className="overflow-hidden max-h-dvh">
@@ -92,6 +95,7 @@ export default async function DashboardLayout({
           user={user}
           workspaces={workspaces}
           activeWorkspaceId={membership?.workspaceId ?? workspaces[0]?.id ?? null}
+          initialData={sidebar}
         />
 
         {/* min-h-0 lets the inset respect the provider's max-h-dvh instead of

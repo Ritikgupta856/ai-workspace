@@ -26,7 +26,7 @@ export function IntegrationsPanel() {
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-base font-semibold tracking-tight">Integrations</h2>
+      <h2 className="text-[15px] font-semibold tracking-tight">Integrations</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         Connect GitHub, Linear, Notion and more to your workspace.
       </p>

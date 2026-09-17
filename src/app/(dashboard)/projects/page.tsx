@@ -2,23 +2,23 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Clock, Plus } from "lucide-react"
-import { toast } from "sonner"
-import type { ColumnDef } from "@tanstack/react-table"
-
-import { SearchInput } from "@/components/ui/search-input"
-import { Button } from "@/components/ui/button"
-import { PageHeader } from "@/components/dashboard/page-header"
-import { DataTable } from "@/components/ui/data-table"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { CardGridSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
+  ArrowUpDown,
+  Filter,
+  LayoutDashboard,
+  LayoutGrid,
+  LayoutPanelTop,
+  List,
+  Plus,
+  Search,
+  X,
+  type LucideIcon,
+} from "lucide-react"
+import { toast } from "sonner"
+import { requestSidebarRefresh } from "@/lib/sidebar-events"
+
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -27,59 +27,99 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { CardGridSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
+import {
+  HeaderPrimaryButton,
+  HeaderSearchButton,
+  SectionHeader,
+} from "@/components/dashboard/section-header"
+import { ViewToggle } from "@/components/common/view-toggle"
+import { ToolbarSelect } from "@/components/common/toolbar-select"
 import { ProjectGrid } from "@/components/projects/project-grid"
 import {
-  ProjectToolbar,
-  type ProjectSortKey,
-} from "@/components/projects/project-toolbar"
-import { ProjectEmptyState } from "@/components/projects/project-empty-state"
-import { ProjectCardMenu } from "@/components/projects/project-card-menu"
+  ProjectGroupedList,
+  groupAllProjects,
+  groupProjectsByStatus,
+  type ProjectRowActions,
+} from "@/components/projects/project-rows"
 import { ProjectDialog } from "@/components/projects/create-project-dialog"
-import {
-  getInitials,
-  type ProjectCardData,
-} from "@/components/projects/project-card"
+import type { ProjectCardData } from "@/components/projects/project-card"
 import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
 import type { ProjectStatus } from "@/lib/projects"
 import { cn } from "@/lib/utils"
-import { formatUpdatedDate } from "@/lib/date"
-import {
-  fetchProjects,
-  createProject,
-  updateProject,
-  deleteProject,
-} from "@/lib/api/projects"
+import { fetchProjects, createProject, updateProject, deleteProject } from "@/lib/api/projects"
+
+type ViewMode = "list" | "grid"
+type GroupBy = "status" | "none"
+type SortBy = "updated" | "name" | "progress"
+type StatusFilter = "all" | ProjectStatus
+
+const VIEW_TABS: { value: ViewMode; label: string; icon: LucideIcon }[] = [
+  { value: "list", label: "List", icon: List },
+  { value: "grid", label: "Grid", icon: LayoutGrid },
+]
+
+const GROUP_OPTIONS: { value: GroupBy; label: string }[] = [
+  { value: "status", label: "Status" },
+  { value: "none", label: "None" },
+]
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "updated", label: "Last updated" },
+  { value: "name", label: "Name A–Z" },
+  { value: "progress", label: "Progress" },
+]
+
+// "Filter by Status" until one is chosen, then "Filter by Active" etc.
+const STATUS_OPTIONS: { value: StatusFilter; label: string; pill: string }[] = [
+  { value: "all", label: "All (except archived)", pill: "Status" },
+  ...(Object.keys(PROJECT_STATUS_CONFIG) as ProjectStatus[]).map((s) => ({
+    value: s,
+    label: PROJECT_STATUS_CONFIG[s].label,
+    pill: PROJECT_STATUS_CONFIG[s].label,
+  })),
+]
 
 export default function ProjectsPage() {
   const router = useRouter()
   const [projectList, setProjectList] = React.useState<ProjectCardData[]>([])
   const [loading, setLoading] = React.useState(true)
   const [error, setError] = React.useState<string | null>(null)
+  const [reloadKey, setReloadKey] = React.useState(0)
   const [search, setSearch] = React.useState("")
-  const [statusFilter, setStatusFilter] = React.useState("all")
-  const [sortBy, setSortBy] = React.useState<ProjectSortKey>("updated")
-  const [viewMode, setViewMode] = React.useState<"grid" | "list">("list")
+  const [searchOpen, setSearchOpen] = React.useState(false)
+  const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
+  const [groupBy, setGroupBy] = React.useState<GroupBy>("status")
+  const [sortBy, setSortBy] = React.useState<SortBy>("updated")
+  const [viewMode, setViewMode] = React.useState<ViewMode>("list")
   const [dialogOpen, setDialogOpen] = React.useState(false)
-  const [editingProject, setEditingProject] =
-    React.useState<ProjectCardData | null>(null)
-  const [pendingDelete, setPendingDelete] =
-    React.useState<ProjectCardData | null>(null)
-
-  const loadProjects = React.useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      setProjectList(await fetchProjects())
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load projects")
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const [editingProject, setEditingProject] = React.useState<ProjectCardData | null>(null)
+  const [pendingDelete, setPendingDelete] = React.useState<ProjectCardData | null>(null)
 
   React.useEffect(() => {
-    loadProjects()
-  }, [loadProjects])
+    let cancelled = false
+    fetchProjects()
+      .then((projects) => {
+        if (cancelled) return
+        setProjectList(projects)
+        setError(null)
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects")
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
+
+  function retry() {
+    setLoading(true)
+    setError(null)
+    setReloadKey((k) => k + 1)
+  }
 
   const filtered = React.useMemo(() => {
     let result = [...projectList]
@@ -95,9 +135,7 @@ export default function ProjectsPage() {
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q)
+        (p) => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
       )
     }
 
@@ -109,21 +147,25 @@ export default function ProjectsPage() {
         result.sort((a, b) => b.progress - a.progress)
         break
       default:
-        result.sort(
-          (a, b) =>
-            new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-        )
+        result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     }
 
     return result
   }, [projectList, search, statusFilter, sortBy])
 
+  const groups = React.useMemo(
+    () => (groupBy === "status" ? groupProjectsByStatus(filtered) : groupAllProjects(filtered)),
+    [filtered, groupBy]
+  )
+
   /* ── Actions ────────────────────────────────────────────── */
 
-  const handleView = React.useCallback(
-    (id: string) => router.push(`/projects/${id}`),
-    [router]
-  )
+  function openCreate() {
+    setEditingProject(null)
+    setDialogOpen(true)
+  }
+
+  const handleView = React.useCallback((id: string) => router.push(`/projects/${id}/overview`), [router])
 
   const handleOpenEdit = React.useCallback(
     (id: string) => {
@@ -138,16 +180,12 @@ export default function ProjectsPage() {
   const handleStatusChange = React.useCallback(
     async (id: string, status: ProjectStatus) => {
       const previous = projectList
-      setProjectList((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, status } : p))
-      )
+      setProjectList((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)))
       try {
         const updated = await updateProject(id, { status })
         setProjectList((prev) => prev.map((p) => (p.id === id ? updated : p)))
         toast.success(
-          status === "ARCHIVED"
-            ? "Project archived"
-            : `Status set to ${PROJECT_STATUS_CONFIG[status].label}`
+          status === "ARCHIVED" ? "Project archived" : `Status set to ${PROJECT_STATUS_CONFIG[status].label}`
         )
       } catch (err) {
         setProjectList(previous)
@@ -169,6 +207,7 @@ export default function ProjectsPage() {
           icon: project.icon,
         })
         setProjectList((prev) => [created, ...prev])
+        requestSidebarRefresh()
         toast.success("Project duplicated")
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to duplicate")
@@ -193,6 +232,7 @@ export default function ProjectsPage() {
     setProjectList((prev) => prev.filter((p) => p.id !== project.id))
     try {
       await deleteProject(project.id)
+      requestSidebarRefresh()
       toast.success(`Deleted "${project.name}"`)
     } catch (err) {
       setProjectList(previous)
@@ -203,233 +243,156 @@ export default function ProjectsPage() {
   function handleDialogSuccess(project: ProjectCardData) {
     setProjectList((prev) => {
       const exists = prev.some((p) => p.id === project.id)
-      return exists
-        ? prev.map((p) => (p.id === project.id ? project : p))
-        : [project, ...prev]
+      return exists ? prev.map((p) => (p.id === project.id ? project : p)) : [project, ...prev]
     })
     setEditingProject(null)
   }
 
-  /* ── Table columns ──────────────────────────────────────── */
-  // Built inside the component so the handlers are the real ones. This used to
-  // rely on module-level mutable `handleViewStatic`/`handleEditStatic`, which
-  // captured stale closures and left duplicate/delete unwired in list view.
-  const listColumns = React.useMemo<ColumnDef<ProjectCardData>[]>(
-    () => [
-      {
-        accessorKey: "name",
-        header: "Name",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-base">
-              {row.original.icon}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{row.original.name}</p>
-              <p className="line-clamp-1 text-xs text-muted-foreground">
-                {row.original.description || "No description"}
-              </p>
-            </div>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "status",
-        header: "Status",
-        cell: ({ row }) => {
-          const config = PROJECT_STATUS_CONFIG[row.original.status]
-          const Icon = config.icon
-          return (
-            <Badge
-              variant="secondary"
-              className={cn(
-                "gap-1 px-2 py-0.5 text-[11px] font-medium",
-                config.className
-              )}
-            >
-              <Icon className="size-3" />
-              {config.label}
-            </Badge>
-          )
-        },
-      },
-      {
-        accessorKey: "progress",
-        header: "Progress",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-2">
-            <Progress value={row.original.progress} className="h-1.5 w-20" />
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {row.original.progress}%
-            </span>
-          </div>
-        ),
-      },
-      {
-        accessorKey: "taskCount",
-        header: "Tasks",
-        cell: ({ row }) => (
-          <span className="text-sm tabular-nums text-muted-foreground">
-            {row.original.doneTaskCount}/{row.original.taskCount}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "members",
-        header: "Team",
-        cell: ({ row }) => {
-          const members = row.original.members
-          const visible = members.slice(0, 4)
-          const remaining = members.length - visible.length
-          return (
-            <div className="flex -space-x-2">
-              {visible.map((m) => (
-                <Tooltip key={m.id}>
-                  <TooltipTrigger asChild>
-                    <Avatar className="size-7 border-2 border-background">
-                      <AvatarImage src={m.image ?? undefined} alt={m.name} />
-                      <AvatarFallback className="text-[10px]">
-                        {getInitials(m.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    <p className="text-xs">{m.name}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-              {remaining > 0 && (
-                <div className="flex size-7 items-center justify-center rounded-full border-2 border-background bg-muted text-[10px] text-muted-foreground">
-                  +{remaining}
-                </div>
-              )}
-            </div>
-          )
-        },
-      },
-      {
-        accessorKey: "updatedAt",
-        header: "Updated",
-        cell: ({ row }) => (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Clock className="size-3" />
-            {formatUpdatedDate(row.original.updatedAt)}
-          </div>
-        ),
-      },
-      {
-        id: "actions",
-        cell: ({ row }) => (
-          <div onClick={(e) => e.stopPropagation()}>
-            <ProjectCardMenu
-              projectId={row.original.id}
-              status={row.original.status}
-              onView={handleView}
-              onEdit={handleOpenEdit}
-              onDuplicate={handleDuplicate}
-              onStatusChange={handleStatusChange}
-              onDelete={handleRequestDelete}
-            />
-          </div>
-        ),
-      },
-    ],
-    [
-      handleView,
-      handleOpenEdit,
-      handleDuplicate,
-      handleStatusChange,
-      handleRequestDelete,
-    ]
-  )
+  const rowActions: ProjectRowActions = {
+    onView: handleView,
+    onEdit: handleOpenEdit,
+    onDuplicate: handleDuplicate,
+    onStatusChange: handleStatusChange,
+    onDelete: handleRequestDelete,
+  }
 
   /* ── Render ─────────────────────────────────────────────── */
 
+  const hasFilters = search.trim() !== "" || statusFilter !== "all"
+
   return (
-    <div className="flex flex-1 flex-col">
-      <PageHeader
-        title="Projects"
-        action={
-          <Button
-            size="sm"
-            onClick={() => {
-              setEditingProject(null)
-              setDialogOpen(true)
-            }}
-          >
-            <Plus className="size-4" />
-            New project
-          </Button>
-        }
-      />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <SectionHeader icon={LayoutPanelTop} title="Projects" count={projectList.length}>
+        <ViewToggle className="hidden sm:flex" value={viewMode} options={VIEW_TABS} onChange={setViewMode} />
+        <HeaderSearchButton onClick={() => setSearchOpen(true)} />
+        <HeaderPrimaryButton onClick={openCreate}>Add</HeaderPrimaryButton>
+      </SectionHeader>
 
-      <div className="flex flex-1 flex-col gap-6 p-6">
-        <div className="flex flex-wrap items-center gap-3">
-          <SearchInput
-            value={search}
-            onValueChange={setSearch}
-            placeholder="Search projects..."
-            compact
-            className="max-w-sm"
-          />
-          <div className="ml-auto">
-            <ProjectToolbar
-              statusFilter={statusFilter}
-              onStatusFilterChange={setStatusFilter}
-              sortBy={sortBy}
-              onSortChange={setSortBy}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-            />
-          </div>
+      {/* Toolbar */}
+      <div className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/70 px-5 py-1.5">
+        <div className="flex items-center gap-1.5">
+          {VIEW_TABS.map((tab) => {
+            const active = viewMode === tab.value
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setViewMode(tab.value)}
+                className={cn(
+                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors",
+                  active
+                    ? "border border-border/80 bg-card font-medium text-foreground shadow-xs"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                )}
+              >
+                <tab.icon className="size-3.5" />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {viewMode === "list" && (
+            <ToolbarSelect icon={LayoutDashboard} prefix="Group by" value={groupBy} options={GROUP_OPTIONS} onChange={setGroupBy} />
+          )}
+          <ToolbarSelect icon={ArrowUpDown} prefix="Sort" value={sortBy} options={SORT_OPTIONS} onChange={setSortBy} />
+          <ToolbarSelect icon={Filter} prefix="Filter by" value={statusFilter} options={STATUS_OPTIONS} onChange={setStatusFilter} />
+
+          {searchOpen ? (
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                autoFocus
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search projects..."
+                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    setSearch("")
+                    setSearchOpen(false)
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch("")
+                  setSearchOpen(false)
+                }}
+                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label="Close search"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="icon-sm"
+              className="size-8 rounded-lg border-border/80 shadow-none"
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search projects"
+            >
+              <Search className="size-3.5 text-muted-foreground" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8">
         {loading ? (
-        viewMode === "grid" ? <CardGridSkeleton /> : <TableSkeleton />
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20">
-          <p className="text-sm text-destructive">{error}</p>
-          <Button variant="outline" size="sm" onClick={loadProjects}>
-            Try again
-          </Button>
-        </div>
-      ) : projectList.length === 0 ? (
-        <ProjectEmptyState
-          onCreate={() => {
-            setEditingProject(null)
-            setDialogOpen(true)
-          }}
-        />
-      ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
-          <p className="text-sm font-medium">No projects match these filters</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Try a different search or status.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-4"
-            onClick={() => {
-              setSearch("")
-              setStatusFilter("all")
-            }}
-          >
-            Clear filters
-          </Button>
-        </div>
-      ) : viewMode === "grid" ? (
-        <ProjectGrid
-          projects={filtered}
-          onView={handleView}
-          onEdit={handleOpenEdit}
-          onDuplicate={handleDuplicate}
-          onStatusChange={handleStatusChange}
-          onDelete={handleRequestDelete}
-        />
-      ) : (
-        <DataTable columns={listColumns} data={filtered} />
-      )}
+          viewMode === "grid" ? <CardGridSkeleton /> : <TableSkeleton rows={6} />
+        ) : error ? (
+          <div className="flex flex-col items-center gap-3 py-16">
+            <p className="text-sm text-destructive">{error}</p>
+            <Button variant="outline" size="sm" onClick={retry}>
+              Try again
+            </Button>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-1.5 py-24 text-center">
+            <LayoutPanelTop className="mb-1 size-7 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-foreground">
+              {hasFilters ? "No projects match these filters" : "No projects yet"}
+            </p>
+            <p className="text-[13px] text-muted-foreground">
+              {hasFilters ? "Try a different search or status." : "Create a project to organise tasks, pages and boards."}
+            </p>
+            {hasFilters ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 h-8 rounded-lg text-[13px]"
+                onClick={() => {
+                  setSearch("")
+                  setStatusFilter("all")
+                }}
+              >
+                Clear filters
+              </Button>
+            ) : (
+              <Button size="sm" onClick={openCreate} className="mt-3 h-8 gap-1.5 rounded-lg text-[13px]">
+                <Plus className="size-3.5" />
+                New project
+              </Button>
+            )}
+          </div>
+        ) : viewMode === "grid" ? (
+          <ProjectGrid
+            projects={filtered}
+            onView={handleView}
+            onEdit={handleOpenEdit}
+            onDuplicate={handleDuplicate}
+            onStatusChange={handleStatusChange}
+            onDelete={handleRequestDelete}
+          />
+        ) : (
+          <ProjectGroupedList groups={groups} actions={rowActions} />
+        )}
+      </div>
 
       <ProjectDialog
         open={dialogOpen}
@@ -442,17 +405,13 @@ export default function ProjectsPage() {
         onSuccess={handleDialogSuccess}
       />
 
-      <Dialog
-        open={Boolean(pendingDelete)}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-      >
+      <Dialog open={Boolean(pendingDelete)} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Delete project?</DialogTitle>
             <DialogDescription>
-              &ldquo;{pendingDelete?.name}&rdquo; and its{" "}
-              {pendingDelete?.taskCount ?? 0} tasks will be permanently removed.
-              This cannot be undone.
+              &ldquo;{pendingDelete?.name}&rdquo; and its {pendingDelete?.taskCount ?? 0} tasks will be
+              permanently removed. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -466,6 +425,5 @@ export default function ProjectsPage() {
         </DialogContent>
       </Dialog>
     </div>
-  </div>
   )
 }

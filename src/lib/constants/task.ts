@@ -61,3 +61,11 @@ export const TASK_PRIORITY_CONFIG = {
 
 export type TaskStatusKey = keyof typeof TASK_STATUS_CONFIG
 export type TaskPriorityKey = keyof typeof TASK_PRIORITY_CONFIG
+
+/** Solid pill treatment used by the dense list views (task rows, home focus). */
+export const TASK_PRIORITY_PILL: Record<TaskPriorityKey, { label: string; className: string }> = {
+  LOW: { label: "Low", className: "bg-emerald-500 text-white" },
+  MEDIUM: { label: "Medium", className: "bg-blue-500 text-white" },
+  HIGH: { label: "High", className: "bg-amber-500 text-white" },
+  URGENT: { label: "Urgent", className: "bg-red-500 text-white" },
+}

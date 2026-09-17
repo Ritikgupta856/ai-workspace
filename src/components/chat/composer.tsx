@@ -2,9 +2,67 @@
 
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { ArrowUp, Paperclip, Square, RotateCcw, Loader2 } from "lucide-react"
+import {
+  Paperclip,
+  Plus,
+  Square,
+  RotateCcw,
+  Loader2,
+  SendHorizontal,
+  ChevronDown,
+  Check,
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { SpeechInput } from "@/components/ai-elements/speech-input"
 import { cn } from "@/lib/utils"
 import { useChatContext } from "./chat-provider"
+import { AGENT_MODELS } from "./models"
+
+// The agent page's accent — warm orange, distinct from the app's indigo primary.
+const ACCENT = "bg-orange-400 text-white hover:bg-orange-500"
+
+/** Pill that switches which model the next turn runs on. */
+function ModelPicker() {
+  const { model, setModel } = useChatContext()
+  const current = AGENT_MODELS.find((m) => m.id === model) ?? AGENT_MODELS[0]
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-foreground/90 transition-colors hover:bg-accent"
+          aria-label="Choose model"
+        >
+          <span className="flex -space-x-1">
+            <span className="size-3 rounded-full bg-violet-400 ring-1 ring-card" />
+            <span className="size-3 rounded-full bg-pink-400 ring-1 ring-card" />
+            <span className="size-3 rounded-full bg-orange-400 ring-1 ring-card" />
+          </span>
+          <span className="hidden sm:inline">{current.label}</span>
+          <ChevronDown className="size-3 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-60">
+        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Model</DropdownMenuLabel>
+        {AGENT_MODELS.map((m) => (
+          <DropdownMenuItem key={m.id} onSelect={() => setModel(m.id)} className="gap-2">
+            <span className="min-w-0 flex-1">
+              <span className="block text-[13px]">{m.label}</span>
+              <span className="block text-[11px] text-muted-foreground">{m.hint}</span>
+            </span>
+            {m.id === model && <Check className="size-3.5 text-muted-foreground" />}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 type AttachmentState = {
   id: string
@@ -38,10 +96,7 @@ function SendButton({
     return (
       <button
         onClick={onStop}
-        className={cn(
-          "bg-primary text-primary-foreground hover:bg-primary/90 flex size-8 items-center justify-center transition-colors",
-          shape
-        )}
+        className={cn("flex size-8 items-center justify-center transition-colors", ACCENT, shape)}
         aria-label="Stop generation"
         type="button"
       >
@@ -54,10 +109,7 @@ function SendButton({
     return (
       <button
         onClick={onRetry}
-        className={cn(
-          "bg-primary text-primary-foreground hover:bg-primary/90 flex size-8 items-center justify-center transition-colors",
-          shape
-        )}
+        className={cn("flex size-8 items-center justify-center transition-colors", ACCENT, shape)}
         aria-label="Retry"
         type="button"
       >
@@ -73,14 +125,12 @@ function SendButton({
       className={cn(
         "flex size-8 items-center justify-center transition-all",
         shape,
-        canSend
-          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-          : "bg-muted text-muted-foreground"
+        canSend ? ACCENT : "bg-orange-200/70 text-white dark:bg-orange-500/30"
       )}
       aria-label="Send message"
       type="button"
     >
-      <ArrowUp className="size-4" strokeWidth={2.25} />
+      <SendHorizontal className="size-4" strokeWidth={2.25} />
     </button>
   )
 }
@@ -293,34 +343,52 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
           /* Input on top, controls on their own row underneath — the tall
              composer from the reference, where the box invites a paragraph
              rather than a one-liner. */
-          <div className="focus-within:border-primary/40 rounded-2xl border bg-background px-4 pt-3.5 pb-2.5 shadow-md transition-colors">
+          <div
+            className={cn(
+              "rounded-xl border bg-card px-4 pt-3.5 pb-3 transition-[border-color,box-shadow]",
+              // Glow in the app's primary blue; the send button and name stay orange.
+              "border-primary/25 shadow-[0_12px_40px_-18px_rgba(79,107,255,0.45)]",
+              "focus-within:border-primary/45 focus-within:shadow-[0_14px_44px_-16px_rgba(79,107,255,0.55)]",
+              "dark:border-primary/30 dark:focus-within:border-primary/50"
+            )}
+          >
             <textarea
               ref={textareaRef}
               value={input}
               onChange={handleChange}
               onKeyDown={handleKeyDown}
               onPaste={handlePaste}
-              placeholder="Ask Synapse…"
+              placeholder="Example: Summarise what shipped this week and flag anything at risk…"
               rows={3}
-              className="placeholder:text-muted-foreground/60 max-h-64 min-h-20 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
+              className="placeholder:text-muted-foreground/60 max-h-64 min-h-16 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
               disabled={isGenerating}
               aria-label="Message input"
             />
 
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-muted-foreground/70 text-xs">
-                Enter to send · Shift + Enter for a new line
-              </span>
-
-              <div className="flex items-center gap-1">
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-0.5">
                 <button
                   onClick={() => fileInputRef.current?.click()}
                   className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-8 items-center justify-center rounded-lg transition-colors"
                   aria-label="Attach files"
                   type="button"
                 >
-                  <Paperclip className="size-4" />
+                  <Plus className="size-4" />
                 </button>
+                <span className="mx-1.5 h-4 w-px bg-border" />
+                <ModelPicker />
+              </div>
+
+              <div className="flex shrink-0 items-center gap-1.5">
+                <SpeechInput
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-8 rounded-lg bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-foreground"
+                  onTranscriptionChange={(text) =>
+                    setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text))
+                  }
+                  aria-label="Dictate"
+                />
                 <SendButton
                   isGenerating={isGenerating}
                   canSend={canSend}
@@ -328,7 +396,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
                   onSend={handleSubmit}
                   onStop={stopGeneration}
                   onRetry={retryLast}
-                  rounded="full"
+                  rounded="lg"
                 />
               </div>
             </div>
@@ -358,6 +426,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
             />
 
             <div className="mb-0.5 flex shrink-0 items-center gap-1">
+              <ModelPicker />
               <SendButton
                 isGenerating={isGenerating}
                 canSend={canSend}

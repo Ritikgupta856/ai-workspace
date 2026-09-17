@@ -6,7 +6,13 @@ import { ChatMessages } from "./chat-messages"
 import { Composer } from "./composer"
 import { EmptyState } from "./empty-state"
 
-function ChatInner() {
+export interface ChatLayoutProps {
+  /** "Good morning" etc. — resolved on the server so it matches the home page. */
+  greeting: string
+  firstName: string
+}
+
+function ChatInner({ greeting, firstName }: ChatLayoutProps) {
   const { messages } = useChatContext()
   const isEmpty = messages.length === 0
 
@@ -16,7 +22,7 @@ function ChatInner() {
       {/* Empty conversations carry their own centred composer, so the docked
           one would be a second input on the same screen. */}
       {isEmpty ? (
-        <EmptyState />
+        <EmptyState greeting={greeting} firstName={firstName} />
       ) : (
         <>
           <ChatMessages />
@@ -27,10 +33,10 @@ function ChatInner() {
   )
 }
 
-export function ChatLayout() {
+export function ChatLayout(props: ChatLayoutProps) {
   return (
     <ChatProvider>
-      <ChatInner />
+      <ChatInner {...props} />
     </ChatProvider>
   )
 }

@@ -47,7 +47,7 @@ export type MetricTone = keyof typeof TONES
 /** The shared frame. Cells are `MetricCard`s. */
 export function MetricBar({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-border grid gap-px overflow-hidden rounded-xl border shadow-sm sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-px overflow-hidden rounded-lg border border-border/80 bg-border/80 sm:grid-cols-2 xl:grid-cols-4">
       {children}
     </div>
   )
@@ -73,10 +73,10 @@ function DeltaChip({ delta }: { delta: Delta }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+        "inline-flex h-4.5 items-center gap-1 rounded px-1.5 text-[11px] font-medium leading-none",
         up
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/25"
-          : "bg-muted text-muted-foreground ring-border"
+          ? "bg-emerald-500 text-white"
+          : "bg-muted text-muted-foreground"
       )}
       title={`${up ? "Up" : "Down"} ${delta.percent}% vs last week`}
     >
@@ -112,18 +112,18 @@ export function MetricCard({
   return (
     <Link
       href={href}
-      className="group bg-card hover:bg-accent/40 focus-visible:ring-ring flex flex-col p-5 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:outline-none"
+      className="group bg-card hover:bg-muted/40 focus-visible:ring-ring flex flex-col p-4 transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:outline-none"
     >
       <div className="flex items-center justify-between gap-3">
-        <span className="text-muted-foreground inline-flex items-center gap-2 text-[13px] font-medium">
-          {Icon && <Icon className={cn("size-4", icon)} />}
+        <span className="text-muted-foreground inline-flex items-center gap-2 text-[13px]">
+          {Icon && <Icon className={cn("size-3.5", icon)} />}
           {label}
         </span>
-        <ArrowUpRight className="text-muted-foreground/0 group-hover:text-muted-foreground size-4 shrink-0 transition-colors" />
+        <ArrowUpRight className="text-muted-foreground/0 group-hover:text-muted-foreground size-3.5 shrink-0 transition-colors" />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-x-3 gap-y-1.5">
-        <p className="text-3xl leading-none font-semibold tracking-tight tabular-nums">
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-x-3 gap-y-1.5">
+        <p className="text-2xl leading-none font-semibold tracking-tight tabular-nums">
           {value.toLocaleString()}
         </p>
         <DeltaChip delta={delta} />
@@ -131,7 +131,7 @@ export function MetricCard({
 
       <div
         className={cn(
-          "mt-5 h-0.75 w-full overflow-hidden rounded-full",
+          "mt-4 h-0.75 w-full overflow-hidden rounded-full",
           track
         )}
         role="img"
@@ -142,7 +142,7 @@ export function MetricCard({
           style={{ width: `${clamped}%` }}
         />
       </div>
-      <p className="text-muted-foreground mt-2 text-[11px] tabular-nums">
+      <p className="text-muted-foreground mt-1.5 text-[11px] tabular-nums">
         <span className="text-foreground font-medium">{clamped}%</span>{" "}
         {ratioLabel}
       </p>

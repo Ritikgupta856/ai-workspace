@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { requestSidebarRefresh } from "@/lib/sidebar-events"
 import { createProject, updateProject } from "@/lib/api/projects"
 import type { ProjectCardData } from "@/components/projects/project-card"
 
@@ -97,6 +98,7 @@ export function ProjectDialog({
       form.reset()
       onOpenChange(false)
       onSuccess?.(saved)
+      requestSidebarRefresh()
       toast.success(isEdit ? "Project updated" : "Project created")
     } catch (err) {
       const message =

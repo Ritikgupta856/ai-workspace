@@ -71,7 +71,8 @@ export async function PATCH(
       },
       include: {
         project: { select: { name: true } },
-        assignee: { select: { name: true } },
+        assignee: { select: { name: true, image: true } },
+        _count: { select: { comments: true, subtasks: true } },
       },
     })
 
@@ -145,6 +146,9 @@ export async function PATCH(
       priority: task.priority,
       assignee: task.assignee?.name ?? "Unassigned",
       assigneeId: task.assigneeId,
+      assigneeImage: task.assignee?.image ?? null,
+      commentCount: task._count.comments,
+      subtaskCount: task._count.subtasks,
       labels: task.labels,
       dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
       updatedAt: task.updatedAt.toISOString(),

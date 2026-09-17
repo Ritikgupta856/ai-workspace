@@ -1,6 +1,7 @@
 export {
   TASK_STATUS_CONFIG,
   TASK_PRIORITY_CONFIG,
+  TASK_PRIORITY_PILL,
 } from "./task"
 export type { TaskStatusKey, TaskPriorityKey } from "./task"
 
@@ -17,5 +18,6 @@ export type { MemberRoleKey } from "./member"
 export {
   PROJECT_STATUS_CONFIG,
   PROJECT_VISIBILITY_CONFIG,
+  PROJECT_STATUS_PILL,
 } from "./project"
 export type { ProjectStatusKey, ProjectVisibilityKey } from "./project"

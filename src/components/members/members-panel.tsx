@@ -459,7 +459,7 @@ export function MembersPanel() {
     <div className="flex flex-col">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-semibold tracking-tight">Members</h2>
+          <h2 className="text-[15px] font-semibold tracking-tight">Members</h2>
           <p className="text-muted-foreground mt-1 text-sm">
             Manage who has access to this workspace and their roles.
           </p>

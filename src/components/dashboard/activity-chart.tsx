@@ -1,3 +1,6 @@
+import { BarChart3 } from "lucide-react"
+
+import { Section } from "@/components/dashboard/section"
 import { cn } from "@/lib/utils"
 
 /**
@@ -29,29 +32,19 @@ export function ActivityChart({ trend }: { trend: TrendPoint[] }) {
   const totalCompleted = trend.reduce((sum, d) => sum + d.completed, 0)
 
   return (
-    <section className="bg-card flex flex-col rounded-xl border shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3 px-5 pt-4 pb-4">
-        <div className="min-w-0">
-          <h2 className="text-sm font-semibold tracking-tight">Task activity</h2>
-          <p className="text-muted-foreground mt-0.5 text-xs">
-            Created and completed over the last 14 days
-          </p>
-        </div>
-
-        {/* Totals sit in the legend so the swatch, the word and the number the
-            swatch refers to are one object, rather than a key here and a stat
-            block somewhere else on the card. */}
+    <Section
+      icon={BarChart3}
+      title="Task activity · 14 days"
+      aside={
+        // Totals sit in the legend so the swatch, the word and the number the
+        // swatch refers to are one object.
         <div className="flex shrink-0 items-center gap-4">
           <Legend swatch="bg-violet-400" label="Created" value={totalCreated} />
-          <Legend
-            swatch="bg-emerald-500"
-            label="Completed"
-            value={totalCompleted}
-          />
+          <Legend swatch="bg-emerald-500" label="Completed" value={totalCompleted} />
         </div>
-      </div>
-
-      <div className="px-5 pb-5">
+      }
+    >
+      <div className="px-4 pt-3 pb-2">
         <div className="flex gap-3">
           {/* Y axis */}
           <div className="text-muted-foreground flex h-44 shrink-0 flex-col justify-between py-px text-[11px] tabular-nums">
@@ -113,7 +106,7 @@ export function ActivityChart({ trend }: { trend: TrendPoint[] }) {
           </div>
         </div>
       </div>
-    </section>
+    </Section>
   )
 }
 
@@ -151,10 +144,10 @@ function Legend({
   value: number
 }) {
   return (
-    <span className="flex items-center gap-1.5 text-xs">
+    <span className="flex items-center gap-1.5 text-[13px]">
       <span className={cn("size-2 rounded-full", swatch)} />
       <span className="text-muted-foreground">{label}</span>
-      <span className="font-semibold tabular-nums">{value}</span>
+      <span className="font-medium tabular-nums text-foreground">{value}</span>
     </span>
   )
 }

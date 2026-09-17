@@ -10,6 +10,8 @@ import {
   useState,
 } from "react"
 
+import { DEFAULT_AGENT_MODEL, type AgentModelId } from "./models"
+
 type Attachment = {
   id: string
   type: "file"
@@ -64,6 +66,10 @@ interface ChatContextValue {
   newChat: () => void
   openChat: (id: string) => void
   deleteChat: (id: string) => void
+  refreshChats: () => Promise<void>
+  /** Model the next turn is sent to; switchable mid-conversation. */
+  model: AgentModelId
+  setModel: (model: AgentModelId) => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -102,6 +108,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [chats, setChats] = useState<ChatSummary[]>([])
   const [chatId, setChatId] = useState<string | null>(null)
   const [loadingChats, setLoadingChats] = useState(true)
+  const [model, setModel] = useState<AgentModelId>(DEFAULT_AGENT_MODEL)
   const abortRef = useRef<AbortController | null>(null)
 
   // `chatId` is read inside sendMessage but must not re-create it on every new
@@ -171,7 +178,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: "google",
-            model: "gemini-2.5-flash",
+            model,
             messages: history,
             chatId: chatIdRef.current,
           }),
@@ -251,7 +258,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         abortRef.current = null
       }
     },
-    [messages, refreshChats]
+    [messages, refreshChats, model]
   )
 
   const stopGeneration = useCallback(() => {
@@ -360,6 +367,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
+      refreshChats,
+      model,
+      setModel,
     }),
     [
       messages,
@@ -377,6 +387,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
+      refreshChats,
+      model,
     ]
   )
 

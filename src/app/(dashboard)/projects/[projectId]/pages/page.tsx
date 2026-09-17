@@ -1,20 +1,37 @@
 "use client"
 
-import { ProjectPagesTab } from "@/components/projects/project-tabs"
-import { ProjectSectionHeading } from "@/components/projects/project-section-heading"
-import { NewPageButton } from "@/components/pages/pages-list"
+import { FileText } from "lucide-react"
+
+import { ProjectLibraryView } from "@/components/projects/project-library-view"
 import { useProjectDashboard } from "@/components/projects/project-dashboard-context"
+import { createPage, deletePage, fetchPages } from "@/lib/api/page"
 
 export default function ProjectPagesPage() {
   const { projectId } = useProjectDashboard()
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <ProjectSectionHeading title="Pages" />
-        <NewPageButton projectId={projectId} onCreated={() => {}} />
-      </div>
-      <ProjectPagesTab projectId={projectId} />
-    </div>
+    <ProjectLibraryView
+      section="pages"
+      noun="page"
+      fallbackIcon={FileText}
+      load={async () =>
+        (await fetchPages(projectId)).map((p) => ({
+          id: p.id,
+          title: p.title,
+          href: `/pages/${p.id}`,
+          icon: p.icon ?? undefined,
+          author: p.createdBy.name,
+          updatedAt: p.updatedAt,
+          createdAt: p.createdAt,
+        }))
+      }
+      create={async () => {
+        const page = await createPage({ title: "Untitled", projectId })
+        return `/pages/${page.id}`
+      }}
+      remove={deletePage}
+      emptyTitle="No pages yet"
+      emptyDescription="Create a page to start writing."
+    />
   )
 }

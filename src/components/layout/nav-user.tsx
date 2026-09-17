@@ -26,10 +26,10 @@ import { useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronsUpDown,
   Settings,
-  Bell,
   LogOut,
 } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
+import { ThemeSubmenu } from "@/components/common/theme-menu"
 import { SettingsDialog, type Section } from "@/components/settings/settings-dialog"
 
 const INTEGRATION_ERRORS: Record<string, string> = {
@@ -161,10 +161,7 @@ export function NavUser({
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Bell className="mr-2 size-4" />
-                Notifications
-              </DropdownMenuItem>
+              <ThemeSubmenu />
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut().then(() => { router.push("/") })}>

@@ -1,16 +1,37 @@
 "use client"
 
+import { Columns3, List } from "lucide-react"
+
 import { TasksView } from "@/components/tasks/tasks-view"
-import { ProjectSectionHeading } from "@/components/projects/project-section-heading"
+import { ProjectSectionHeader } from "@/components/projects/project-section-header"
 import { useProjectDashboard } from "@/components/projects/project-dashboard-context"
 
 export default function ProjectTasksPage() {
-  const { projectId } = useProjectDashboard()
+  const { projectId, data } = useProjectDashboard()
 
   return (
-    <div className="flex flex-1 flex-col gap-4">
-      <ProjectSectionHeading title="Tasks" />
-      <TasksView projectId={projectId} showPageHeader={false} />
-    </div>
+    <TasksView
+      projectId={projectId}
+      showPageHeader={false}
+      header={(controls) => (
+        <ProjectSectionHeader
+          section="tasks"
+          projectId={projectId}
+          projectName={data.project.name}
+          projectIcon={data.project.icon}
+          members={data.project.members}
+          viewToggle={{
+            value: controls.viewMode,
+            options: [
+              { value: "kanban", icon: Columns3, label: "Board view" },
+              { value: "list", icon: List, label: "List view" },
+            ],
+            onChange: controls.setViewMode,
+          }}
+          onSearch={controls.openSearch}
+          action={{ label: "Add", onClick: controls.openCreate }}
+        />
+      )}
+    />
   )
 }

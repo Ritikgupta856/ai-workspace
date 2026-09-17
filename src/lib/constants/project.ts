@@ -49,3 +49,11 @@ export const PROJECT_VISIBILITY_CONFIG = {
 } as const
 
 export type ProjectVisibilityKey = keyof typeof PROJECT_VISIBILITY_CONFIG
+
+/** Solid pill treatment used by the dense list views (project rows, home). */
+export const PROJECT_STATUS_PILL: Record<ProjectStatusKey, { label: string; className: string }> = {
+  ACTIVE: { label: "Active", className: "bg-emerald-500 text-white" },
+  ON_HOLD: { label: "On hold", className: "bg-amber-500 text-white" },
+  COMPLETED: { label: "Completed", className: "bg-blue-500 text-white" },
+  ARCHIVED: { label: "Archived", className: "bg-muted text-muted-foreground" },
+}

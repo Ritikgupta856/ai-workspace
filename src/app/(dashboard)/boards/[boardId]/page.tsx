@@ -1,17 +1,14 @@
-import type { Metadata } from "next"
 import { headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { BoardEditor, type BoardData } from "@/components/boards/board-editor"
 
-export const metadata: Metadata = {
-  title: "Board",
-  description: "Collaborative whiteboard canvas.",
-}
+// Reads the session (headers) on every request, so it can't be prerendered.
+export const instant = false
 
-export default async function BoardPage({
+/** Boards open inside their project now; forward old `/boards/<id>` links. */
+export default async function BoardRedirectPage({
   params,
 }: {
   params: Promise<{ boardId: string }>
@@ -21,18 +18,12 @@ export default async function BoardPage({
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) redirect("/sign-in")
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    select: { workspaceId: true },
-  })
-  if (!membership) redirect("/projects")
-
   const board = await prisma.whiteboard.findFirst({
-    where: { id: boardId, workspaceId: membership.workspaceId },
-    select: { id: true, title: true, scene: true, files: true },
+    where: { id: boardId, workspace: { members: { some: { userId: session.user.id } } } },
+    select: { projectId: true },
   })
 
   if (!board) notFound()
-
-  return <BoardEditor board={board as unknown as BoardData} />
+  if (!board.projectId) redirect("/projects")
+  redirect(`/projects/${board.projectId}/board/${boardId}`)
 }
