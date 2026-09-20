@@ -1,12 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { useParams, usePathname, useRouter } from "next/navigation"
 import { Command as CommandPrimitive } from "cmdk"
 import {
   Search,
   Sparkles,
-  Home,
   Inbox,
   ListChecks,
   Bot,
@@ -27,7 +26,6 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const navigationItems = [
-  { title: "Home", subtitle: "Your daily overview", url: "/home", icon: Home },
   { title: "Inbox", subtitle: "Mentions, replies and updates", url: "/inbox", icon: Inbox },
   { title: "My Work", subtitle: "Tasks assigned to you", url: "/my-work", icon: ListChecks },
   { title: "Agent", subtitle: "Ask the agent about your workspace", url: "/agent", icon: Bot },
@@ -40,6 +38,7 @@ const navigationItems = [
 export function SearchCommand() {
   const router = useRouter()
   const pathname = usePathname()
+  const slug = useParams().slug as string
   const [open, setOpen] = React.useState(false)
 
   React.useEffect(() => {
@@ -55,7 +54,7 @@ export function SearchCommand() {
 
   function handleSelect(url: string) {
     setOpen(false)
-    router.push(url.startsWith("?") ? `${pathname}${url}` : url)
+    router.push(url.startsWith("?") ? `${pathname}${url}` : `/${slug}${url}`)
   }
 
   return (

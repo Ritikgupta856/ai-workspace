@@ -39,6 +39,7 @@ export async function POST(req: Request) {
       assigneeId,
       dueDate,
       labels,
+      parentTaskId,
     } = body
 
     if (!title?.trim()) {
@@ -60,6 +61,7 @@ export async function POST(req: Request) {
         workspaceId: membership.workspaceId,
         createdById: session.user.id,
         labels: labels ?? [],
+        parentTaskId: parentTaskId ?? null,
       },
       include: {
         project: { select: { name: true } },
@@ -93,6 +95,7 @@ export async function POST(req: Request) {
       labels: task.labels,
       dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
       updatedAt: task.updatedAt.toISOString(),
+      parentTaskId: task.parentTaskId,
     }
 
     return NextResponse.json(

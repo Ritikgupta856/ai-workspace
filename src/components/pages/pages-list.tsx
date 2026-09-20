@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { FileText, MoreHorizontal, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -41,6 +41,7 @@ export function NewPageButton({
   label?: string
 }) {
   const router = useRouter()
+  const slug = useParams().slug as string
   const [creating, setCreating] = React.useState(false)
 
   async function handleCreate() {
@@ -48,7 +49,7 @@ export function NewPageButton({
     try {
       const page = await createPage({ title: "Untitled", projectId })
       onCreated()
-      router.push(`/pages/${page.id}`)
+      router.push(`/${slug}/pages/${page.id}`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create page")
       setCreating(false)
@@ -89,6 +90,7 @@ export function PagesList({ pages, projectId = null, onChanged }: PagesListProps
 }
 
 function PageRow({ page, onChanged }: { page: PageSummary; onChanged: () => void }) {
+  const slug = useParams().slug as string
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [deleting, setDeleting] = React.useState(false)
 
@@ -108,7 +110,7 @@ function PageRow({ page, onChanged }: { page: PageSummary; onChanged: () => void
 
   return (
     <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40">
-      <Link href={`/pages/${page.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+      <Link href={`/${slug}/pages/${page.id}`} className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-base">
           {page.icon || "📄"}
         </div>

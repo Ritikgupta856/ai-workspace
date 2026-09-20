@@ -288,6 +288,7 @@ export async function buildChatContext(
       knowledge,
       documentInstructions,
       viewer,
+      hasWorkspaceTools: Boolean(workspaceId),
     }),
     messages: modelMessages,
   }

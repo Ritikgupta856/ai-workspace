@@ -28,7 +28,7 @@ const columns: { heading: string; links: Link[] }[] = [
     links: [
       { label: "Create an account", href: "/sign-up" },
       { label: "Sign in", href: "/sign-in" },
-      { label: "Open workspace", href: "/home" },
+      { label: "Open workspace", href: "/agent" },
     ],
   },
   {

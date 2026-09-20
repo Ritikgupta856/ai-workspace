@@ -31,7 +31,7 @@ export async function GET() {
 
     const workspaceId = membership.workspaceId
 
-    const [projects, doneGroups, members, integrationCount] = await Promise.all([
+    const [projects, doneGroups, integrationCount] = await Promise.all([
       prisma.project.findMany({
         where: { workspaceId },
         include: projectInclude,
@@ -43,12 +43,6 @@ export async function GET() {
         where: { workspaceId, status: "DONE", projectId: { not: null } },
         _count: { _all: true },
       }),
-      prisma.workspaceMember.findMany({
-        where: { workspaceId },
-        include: {
-          user: { select: { id: true, name: true, email: true, image: true } },
-        },
-      }),
       prisma.integration.count({ where: { workspaceId } }),
     ])
 
@@ -56,20 +50,31 @@ export async function GET() {
       doneGroups.map((g) => [g.projectId as string, g._count._all])
     )
 
-    // Access is workspace-wide in the current schema, so every member can see
-    // every project. Surfacing them here keeps the avatars on the card honest.
-    const memberSummaries = members.map((m) => ({
-      id: m.user.id,
-      name: m.user.name || m.user.email,
-      email: m.user.email,
-      image: m.user.image,
-      role: m.role,
-    }))
+    // Each project's own members, not the whole workspace roster — one
+    // grouped query instead of N, same pattern as doneByProject above.
+    const projectMembers = await prisma.projectMember.findMany({
+      where: { projectId: { in: projects.map((p) => p.id) } },
+      include: {
+        user: { select: { id: true, name: true, email: true, image: true } },
+      },
+    })
+    const membersByProject = new Map<string, typeof projectMembers>()
+    for (const pm of projectMembers) {
+      const list = membersByProject.get(pm.projectId) ?? []
+      list.push(pm)
+      membersByProject.set(pm.projectId, list)
+    }
 
     const formatted = projects.map((project) =>
       formatProject(project, {
         doneTasks: doneByProject.get(project.id) ?? 0,
-        members: memberSummaries,
+        members: (membersByProject.get(project.id) ?? []).map((m) => ({
+          id: m.user.id,
+          name: m.user.name || m.user.email,
+          email: m.user.email,
+          image: m.user.image,
+          role: m.role,
+        })),
         integrationCount,
       })
     )
@@ -137,22 +142,22 @@ export async function POST(req: Request) {
       metadata: { name: project.name, target: project.name },
     })
 
-    const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId: membership.workspaceId },
-      include: {
-        user: { select: { id: true, name: true, email: true, image: true } },
-      },
+    // The creator is the project's first (and initially only) member.
+    await prisma.projectMember.create({
+      data: { projectId: project.id, userId: session.user.id, role: "OWNER" },
     })
 
     const formatted = formatProject(project, {
       doneTasks: 0,
-      members: members.map((m) => ({
-        id: m.user.id,
-        name: m.user.name || m.user.email,
-        email: m.user.email,
-        image: m.user.image,
-        role: m.role,
-      })),
+      members: [
+        {
+          id: session.user.id,
+          name: session.user.name || session.user.email,
+          email: session.user.email,
+          image: session.user.image ?? null,
+          role: "OWNER",
+        },
+      ],
       integrationCount: await prisma.integration.count({
         where: { workspaceId: membership.workspaceId },
       }),

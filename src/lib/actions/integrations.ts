@@ -25,5 +25,5 @@ export async function disconnectIntegration(formData: FormData) {
 
   await prisma.integration.delete({ where: { id: integration.id } })
 
-  revalidatePath("/home")
+  revalidatePath("/agent")
 }

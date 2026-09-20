@@ -24,7 +24,7 @@ function SignInForm() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/home"
+  const callbackUrl = searchParams.get("callbackUrl") || "/agent"
 
   const handleEmailSignIn = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

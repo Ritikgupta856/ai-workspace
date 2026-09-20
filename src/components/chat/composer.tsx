@@ -3,7 +3,6 @@
 import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
-  Paperclip,
   Plus,
   Square,
   RotateCcw,
@@ -281,7 +280,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
   return (
     <div
       className={cn(
-        !isCentered && "border-t bg-background/80 backdrop-blur-sm",
+        !isCentered && "bg-background/80 backdrop-blur-sm",
         isDragging && "bg-primary/5"
       )}
       onDragOver={handleDragOver}
@@ -339,94 +338,62 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
           aria-label="Upload files"
         />
 
-        {isCentered ? (
-          /* Input on top, controls on their own row underneath — the tall
-             composer from the reference, where the box invites a paragraph
-             rather than a one-liner. */
-          <div
-            className={cn(
-              "rounded-xl border bg-card px-4 pt-3.5 pb-3 transition-[border-color,box-shadow]",
-              // Glow in the app's primary blue; the send button and name stay orange.
-              "border-primary/25 shadow-[0_12px_40px_-18px_rgba(79,107,255,0.45)]",
-              "focus-within:border-primary/45 focus-within:shadow-[0_14px_44px_-16px_rgba(79,107,255,0.55)]",
-              "dark:border-primary/30 dark:focus-within:border-primary/50"
-            )}
-          >
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder="Example: Summarise what shipped this week and flag anything at risk…"
-              rows={3}
-              className="placeholder:text-muted-foreground/60 max-h-64 min-h-16 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
-              disabled={isGenerating}
-              aria-label="Message input"
-            />
+        {/* One box, one size, in both states — it slides from the centre of
+            an empty conversation down to the dock via the shared layoutId
+            below rather than swapping for a visually different composer. */}
+        <motion.div
+          layout
+          layoutId="chat-composer-box"
+          transition={{ type: "spring", bounce: 0.15, duration: 0.45 }}
+          className={cn(
+            "rounded-xl border bg-card px-4 pt-3.5 pb-3 transition-[border-color,box-shadow]",
+            // Glow in the app's primary blue; the send button and name stay orange.
+            "border-primary/25 shadow-[0_12px_40px_-18px_rgba(79,107,255,0.45)]",
+            "focus-within:border-primary/45 focus-within:shadow-[0_14px_44px_-16px_rgba(79,107,255,0.55)]",
+            "dark:border-primary/30 dark:focus-within:border-primary/50"
+          )}
+        >
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={
+              isCentered
+                ? "Example: Summarise what shipped this week and flag anything at risk…"
+                : "Ask anything..."
+            }
+            rows={3}
+            className="placeholder:text-muted-foreground/60 max-h-64 min-h-16 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
+            disabled={isGenerating}
+            aria-label="Message input"
+          />
 
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <div className="flex min-w-0 items-center gap-0.5">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-8 items-center justify-center rounded-lg transition-colors"
-                  aria-label="Attach files"
-                  type="button"
-                >
-                  <Plus className="size-4" />
-                </button>
-                <span className="mx-1.5 h-4 w-px bg-border" />
-                <ModelPicker />
-              </div>
-
-              <div className="flex shrink-0 items-center gap-1.5">
-                <SpeechInput
-                  variant="ghost"
-                  size="icon-sm"
-                  className="size-8 rounded-lg bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-foreground"
-                  onTranscriptionChange={(text) =>
-                    setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text))
-                  }
-                  aria-label="Dictate"
-                />
-                <SendButton
-                  isGenerating={isGenerating}
-                  canSend={canSend}
-                  showRetry={hasError || (hasMessages && !canSend)}
-                  onSend={handleSubmit}
-                  onStop={stopGeneration}
-                  onRetry={retryLast}
-                  rounded="lg"
-                />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="focus-within:border-primary/50 relative flex items-end gap-2 rounded-2xl border bg-background px-4 py-2 shadow-sm transition-shadow focus-within:shadow-md">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="text-muted-foreground hover:bg-accent hover:text-foreground mb-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors"
-              aria-label="Attach files"
-              type="button"
-            >
-              <Paperclip className="size-4" />
-            </button>
-
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onPaste={handlePaste}
-              placeholder="Ask anything..."
-              rows={1}
-              className="placeholder:text-muted-foreground/60 max-h-50 min-h-6 flex-1 resize-none bg-transparent py-1.5 text-sm leading-6 outline-none"
-              disabled={isGenerating}
-              aria-label="Message input"
-            />
-
-            <div className="mb-0.5 flex shrink-0 items-center gap-1">
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-0.5">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-8 items-center justify-center rounded-lg transition-colors"
+                aria-label="Attach files"
+                type="button"
+              >
+                <Plus className="size-4" />
+              </button>
+              <span className="mx-1.5 h-4 w-px bg-border" />
               <ModelPicker />
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              <SpeechInput
+                variant="ghost"
+                size="icon-sm"
+                className="size-8 rounded-lg bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-foreground"
+                onTranscriptionChange={(text) =>
+                  setInput((prev) => (prev.trim() ? `${prev.trimEnd()} ${text}` : text))
+                }
+                aria-label="Dictate"
+              />
               <SendButton
                 isGenerating={isGenerating}
                 canSend={canSend}
@@ -438,7 +405,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
               />
             </div>
           </div>
-        )}
+        </motion.div>
 
         {!isCentered && (
           <p className="text-muted-foreground/50 mt-2 text-center text-[10px]">

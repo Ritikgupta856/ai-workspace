@@ -234,9 +234,9 @@ export function SettingsDialog({
                 workspace={data.workspace}
                 role={data.role}
                 onSaved={load}
-                onDeleted={() => {
+                onDeleted={(nextWorkspaceSlug) => {
                   onOpenChange(false)
-                  router.push("/home")
+                  router.push(nextWorkspaceSlug ? `/${nextWorkspaceSlug}/agent` : "/agent")
                   router.refresh()
                 }}
               />
@@ -359,7 +359,7 @@ function WorkspacePanel({
   workspace: Workspace
   role: string
   onSaved: () => void
-  onDeleted: () => void
+  onDeleted: (nextWorkspaceSlug: string | null) => void
 }) {
   const router = useRouter()
   const [wsName, setWsName] = React.useState(workspace.name)
@@ -418,9 +418,9 @@ function WorkspacePanel({
   async function handleDelete() {
     setDeleting(true)
     try {
-      await deleteWorkspace(workspace.id)
+      const result = await deleteWorkspace(workspace.id)
       toast.success("Workspace deleted")
-      onDeleted()
+      onDeleted((result.nextWorkspaceSlug as string | null) ?? null)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to delete workspace")
       setDeleting(false)

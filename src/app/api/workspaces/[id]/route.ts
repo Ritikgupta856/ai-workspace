@@ -123,12 +123,13 @@ export async function DELETE(
     // layout creates a fresh one if this comes back empty.
     const next = await prisma.workspaceMember.findFirst({
       where: { userId: session.user.id },
-      select: { workspaceId: true },
+      select: { workspaceId: true, workspace: { select: { slug: true } } },
     })
 
     const response = NextResponse.json({
       success: true,
       nextWorkspaceId: next?.workspaceId ?? null,
+      nextWorkspaceSlug: next?.workspace.slug ?? null,
     })
 
     if (next) {

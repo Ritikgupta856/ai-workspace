@@ -14,6 +14,7 @@ import {
   PenTool,
   PlugZap,
   Trash2,
+  UserMinus,
   UserPlus,
   Users,
 } from "lucide-react"
@@ -53,6 +54,17 @@ export const ACTIVITY_CONFIG: Record<
     label: "Project",
     className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
     icon: Trash2,
+  },
+  PROJECT_MEMBER_ADDED: {
+    label: "Member",
+    className:
+      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+    icon: UserPlus,
+  },
+  PROJECT_MEMBER_REMOVED: {
+    label: "Member",
+    className: "bg-muted text-muted-foreground",
+    icon: UserMinus,
   },
 
   TASK_CREATED: {

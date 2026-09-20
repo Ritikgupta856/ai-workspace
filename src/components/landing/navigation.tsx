@@ -17,7 +17,7 @@ const navLinks = [
 ]
 
 // Landing page only renders for signed-out visitors (the home route
-// redirects authenticated users to /home before this ever mounts), so the
+// redirects authenticated users to /agent before this ever mounts), so the
 // nav CTA is always the logged-out state — no session check needed.
 export function Navigation() {
   const [scrolled, setScrolled] = useState(false)

@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useParams } from "next/navigation"
 import {
   ClipboardCheck,
   Database,
@@ -77,6 +78,7 @@ export function ProjectSectionHeader<V extends string = string>({
   action,
   children,
 }: ProjectSectionHeaderProps<V>) {
+  const slug = useParams().slug as string
   const current = PROJECT_SECTIONS.find((s) => s.tab === section) ?? PROJECT_SECTIONS[0]
   const CurrentIcon = current.icon
   const others = PROJECT_SECTIONS.filter((s) => s.tab !== section)
@@ -116,7 +118,7 @@ export function ProjectSectionHeader<V extends string = string>({
             </DropdownMenuLabel>
             {others.map((s) => (
               <DropdownMenuItem key={s.tab} asChild>
-                <Link href={`/projects/${projectId}/${s.tab}`}>
+                <Link href={`/${slug}/projects/${projectId}/${s.tab}`}>
                   <s.icon className="size-4" />
                   {s.label}
                 </Link>

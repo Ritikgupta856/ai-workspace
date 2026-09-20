@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
-  Home,
   Inbox,
   CircleCheck,
   ChevronsUpDown,
@@ -79,6 +78,8 @@ export interface AppSidebarProps {
   activeWorkspaceId: string | null
   /** Projects, favorites and unread count, also resolved on the server. */
   initialData: SidebarData
+  /** Current workspace's slug — every internal link/push is prefixed with it. */
+  slug: string
 }
 
 /** Places you return to — never individual records. Agent leads, drawn as the brand square. */
@@ -89,7 +90,6 @@ const flatNavItems: {
   badgeKey: "inbox" | null
 }[] = [
   { title: "Agent", url: "/agent", icon: null, badgeKey: null },
-  { title: "Home", url: "/home", icon: Home, badgeKey: null },
   { title: "Inbox", url: "/inbox", icon: Inbox, badgeKey: "inbox" },
   { title: "My work", url: "/my-work", icon: CircleCheck, badgeKey: null },
 ]
@@ -167,11 +167,13 @@ export function AppSidebar({
   workspaces,
   activeWorkspaceId,
   initialData,
+  slug,
   ...props
 }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const { toggleSidebar } = useSidebar()
+  const base = `/${slug}`
 
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false)
   const [createProjectOpen, setCreateProjectOpen] = React.useState(false)
@@ -188,14 +190,11 @@ export function AppSidebar({
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
-  const isActive = (url: string) => {
-    if (url === "/home") return pathname === "/home"
-    return pathname.startsWith(url)
-  }
+  const isActive = (url: string) => pathname.startsWith(url)
 
   const refresh = React.useCallback(async () => {
     try {
-      const res = await fetch("/api/sidebar")
+      const res = await fetch(`/api/sidebar?slug=${slug}`)
       const json = await res.json()
       if (json.success) {
         setOverride({
@@ -206,7 +205,7 @@ export function AppSidebar({
     } catch {
       // The server copy stays on screen; nothing to do.
     }
-  }, [activeWorkspaceId])
+  }, [activeWorkspaceId, slug])
 
   // Mutations elsewhere (new project, favorite toggled, notification read)
   // announce themselves instead of the sidebar polling on every navigation.
@@ -217,7 +216,8 @@ export function AppSidebar({
 
   // The project the user is currently looking at always stays open — a
   // collapse elsewhere shouldn't hide the row they're actively reading.
-  const currentProjectId = pathname.match(/^\/projects\/([^/]+)/)?.[1] ?? null
+  const relativePath = pathname.startsWith(base) ? pathname.slice(base.length) : pathname
+  const currentProjectId = relativePath.match(/^\/projects\/([^/]+)/)?.[1] ?? null
   React.useEffect(() => {
     if (currentProjectId) setOpenProjectId(currentProjectId)
   }, [currentProjectId])
@@ -238,9 +238,9 @@ export function AppSidebar({
         body: JSON.stringify({ workspaceId: w.id }),
       })
       if (res.ok) {
-        // Re-renders the server tree with the new cookie instead of a full
-        // document reload, so the switch doesn't blank the page.
-        router.refresh()
+        // A real navigation, not a soft refresh — the URL itself carries the
+        // workspace now, so switching has to actually go there.
+        router.push(`/${w.slug}/agent`)
       }
     } catch (err) {
       console.error("Failed to switch workspace:", err)
@@ -390,7 +390,8 @@ export function AppSidebar({
         <SidebarGroup className="p-0">
           <SidebarMenu className="gap-1">
             {flatNavItems.map((item) => {
-              const active = isActive(item.url)
+              const href = `${base}${item.url}`
+              const active = isActive(href)
               const badge = item.badgeKey === "inbox" && unreadCount > 0 ? unreadCount : null
 
               return (
@@ -402,10 +403,10 @@ export function AppSidebar({
                     className={cn(ROW, active ? ROW_ACTIVE : ROW_IDLE)}
                   >
                     <Link
-                      href={item.url}
+                      href={href}
                       prefetch
-                      onMouseEnter={() => prefetchRoute(item.url)}
-                      onFocus={() => prefetchRoute(item.url)}
+                      onMouseEnter={() => prefetchRoute(href)}
+                      onFocus={() => prefetchRoute(href)}
                     >
                       {item.icon ? (
                         <item.icon />
@@ -490,10 +491,10 @@ export function AppSidebar({
             asChild
             className={cn(
               "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-xs font-medium leading-4 hover:text-foreground/80",
-              pathname === "/projects" ? "text-foreground" : "text-muted-foreground"
+              pathname === `${base}/projects` ? "text-foreground" : "text-muted-foreground"
             )}
           >
-            <Link href="/projects" prefetch onMouseEnter={() => prefetchRoute("/projects")}>
+            <Link href={`${base}/projects`} prefetch onMouseEnter={() => prefetchRoute(`${base}/projects`)}>
               Projects
             </Link>
           </SidebarGroupLabel>
@@ -506,7 +507,7 @@ export function AppSidebar({
           </SidebarGroupAction>
             <SidebarMenu className="gap-1">
               {visibleProjects.map((project) => {
-                const href = `/projects/${project.id}`
+                const href = `${base}/projects/${project.id}`
                 const active = pathname.startsWith(href)
                 const isOpen = openProjectId === project.id
                 const favorited = favoritedProjectIds.has(project.id)
@@ -579,7 +580,7 @@ export function AppSidebar({
               {projects.length > PROJECTS_VISIBLE && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild className="h-7 rounded-md pl-1.5 text-xs text-muted-foreground">
-                    <Link href="/projects" prefetch>
+                    <Link href={`${base}/projects`} prefetch>
                       All projects ({projects.length})
                       <ChevronRight className="ml-auto size-3" />
                     </Link>
@@ -610,7 +611,7 @@ export function AppSidebar({
         mode="create"
         onSuccess={(project: ProjectCardData) => {
           refresh()
-          router.push(`/projects/${project.id}/overview`)
+          router.push(`${base}/projects/${project.id}/overview`)
         }}
       />
 

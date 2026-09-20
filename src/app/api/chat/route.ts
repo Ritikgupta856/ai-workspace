@@ -1,10 +1,11 @@
 import { streamText, stepCountIs, type ToolSet } from "ai"
 import { getModel } from "@/lib/ai"
 import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
+import { headers, cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { buildChatContext } from "@/lib/ai/context-builder"
 import { resolveWorkspaceTools } from "@/lib/integrations"
+import { getWorkspaceReadTools } from "@/lib/ai/tools/workspace-tools"
 
 /** First line of the opening question, used as the chat's title until renamed. */
 function deriveTitle(text: string) {
@@ -34,18 +35,34 @@ export async function POST(req: Request) {
   let workspaceName: string | undefined
 
   if (session?.user) {
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-      select: { workspaceId: true, workspace: { select: { name: true } } },
-    })
+    // Mirrors the activeWorkspaceId-cookie pattern used by /api/settings and
+    // /api/billing — without it, a user in more than one workspace could get
+    // tool results and RAG context bound to whichever membership row Postgres
+    // happened to return first, not the workspace they're currently viewing.
+    const cookieStore = await cookies()
+    const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value
+
+    const membership =
+      (activeWorkspaceId
+        ? await prisma.workspaceMember.findFirst({
+            where: { userId: session.user.id, workspaceId: activeWorkspaceId },
+            select: { workspaceId: true, workspace: { select: { name: true } } },
+          })
+        : null) ??
+      (await prisma.workspaceMember.findFirst({
+        where: { userId: session.user.id },
+        select: { workspaceId: true, workspace: { select: { name: true } } },
+      }))
 
     if (membership) {
       workspaceId = membership.workspaceId
       workspaceName = membership.workspace?.name
+
+      const nativeTools = getWorkspaceReadTools(workspaceId, session.user.id)
       const result = await resolveWorkspaceTools(workspaceId, {
         userId: session.user.id,
       })
-      tools = result.tools
+      tools = { ...nativeTools, ...result.tools }
       workspaceSystemPrompt = result.systemPrompt
       cleanupWorkspaceTools = result.cleanup
     }

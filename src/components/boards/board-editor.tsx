@@ -3,7 +3,7 @@
 import * as React from "react"
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { AlertCircle, ArrowLeft, Check, Loader2, Trash2 } from "lucide-react"
 
 import "@excalidraw/excalidraw/index.css"
@@ -44,6 +44,8 @@ const AUTOSAVE_DELAY = 1200
 
 export function BoardEditor({ board }: { board: BoardData }) {
   const router = useRouter()
+  const params = useParams()
+  const slug = params.slug as string
   const [title, setTitle] = React.useState(board.title)
   const [saveState, setSaveState] = React.useState<SaveState>("idle")
 
@@ -107,7 +109,7 @@ export function BoardEditor({ board }: { board: BoardData }) {
   }, [title, board.title, save])
 
   // Boards are only listed inside a project; a detached one falls back to Projects.
-  const backHref = board.projectId ? `/projects/${board.projectId}/board` : "/projects"
+  const backHref = board.projectId ? `/${slug}/projects/${board.projectId}/board` : `/${slug}/projects`
 
   const handleDelete = React.useCallback(async () => {
     await fetch(`/api/boards/${board.id}`, { method: "DELETE" })

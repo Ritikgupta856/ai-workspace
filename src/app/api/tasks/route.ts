@@ -61,6 +61,7 @@ export async function GET(req: Request) {
       labels: task.labels,
       dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
       updatedAt: task.updatedAt.toISOString(),
+      parentTaskId: task.parentTaskId,
     }))
 
     return NextResponse.json({ success: true, tasks: formatted })

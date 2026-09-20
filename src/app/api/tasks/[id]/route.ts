@@ -5,6 +5,87 @@ import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity"
 import { notifyTaskAssignment, notifyTaskCompletion, notifyTaskUpdate } from "@/lib/notifications"
 
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    })
+
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      )
+    }
+
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id },
+    })
+
+    if (!membership) {
+      return NextResponse.json(
+        { success: false, error: "No workspace found" },
+        { status: 404 }
+      )
+    }
+
+    const { id } = await params
+
+    const task = await prisma.task.findFirst({
+      where: { id, workspaceId: membership.workspaceId },
+      include: {
+        project: { select: { name: true } },
+        assignee: { select: { name: true, image: true } },
+        createdBy: { select: { name: true, email: true } },
+        parentTask: { select: { id: true, title: true } },
+        subtasks: { select: { id: true, title: true, status: true } },
+        _count: { select: { comments: true, subtasks: true } },
+      },
+    })
+
+    if (!task) {
+      return NextResponse.json(
+        { success: false, error: "Task not found" },
+        { status: 404 }
+      )
+    }
+
+    const formatted = {
+      id: task.id,
+      title: task.title,
+      description: task.description ?? "",
+      project: task.project?.name ?? null,
+      projectId: task.projectId,
+      status: task.status,
+      priority: task.priority,
+      assignee: task.assignee?.name ?? "Unassigned",
+      assigneeId: task.assigneeId,
+      assigneeImage: task.assignee?.image ?? null,
+      commentCount: task._count.comments,
+      subtaskCount: task._count.subtasks,
+      labels: task.labels,
+      dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
+      updatedAt: task.updatedAt.toISOString(),
+      parentTaskId: task.parentTaskId,
+      parent: task.parentTask,
+      subtasks: task.subtasks,
+      createdBy: task.createdBy.name || task.createdBy.email,
+      createdAt: task.createdAt.toISOString(),
+    }
+
+    return NextResponse.json({ success: true, task: formatted })
+  } catch (error) {
+    console.error("Fetch Task Error:", error)
+    return NextResponse.json(
+      { success: false, error: "Failed to fetch task." },
+      { status: 500 }
+    )
+  }
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -55,7 +136,15 @@ export async function PATCH(
       projectId,
       dueDate,
       labels,
+      parentTaskId,
     } = body
+
+    if (parentTaskId !== undefined && parentTaskId === id) {
+      return NextResponse.json(
+        { success: false, error: "A task can't be its own parent." },
+        { status: 400 }
+      )
+    }
 
     const task = await prisma.task.update({
       where: { id },
@@ -68,6 +157,7 @@ export async function PATCH(
         ...(projectId !== undefined && { projectId }),
         ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
         ...(labels !== undefined && { labels }),
+        ...(parentTaskId !== undefined && { parentTaskId }),
       },
       include: {
         project: { select: { name: true } },
@@ -152,6 +242,7 @@ export async function PATCH(
       labels: task.labels,
       dueDate: task.dueDate ? task.dueDate.toISOString().split("T")[0] : null,
       updatedAt: task.updatedAt.toISOString(),
+      parentTaskId: task.parentTaskId,
     }
 
     return NextResponse.json({ success: true, task: formatted })

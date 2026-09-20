@@ -48,6 +48,10 @@ Anchor every finding to \`path/to/file.ts:42\` and quote only the lines that car
 
 Separate what is wrong from what is taste, and say which is which. If the code is fine, say it's fine and name the two or three things you checked — do not manufacture findings to look thorough.`
 
+export const WORKSPACE_DATA_NOTE = `## This workspace's own data
+
+You can look up this workspace's tasks, projects, notes and pages directly — search them, open one for full detail, and pull a broad workspace snapshot for open-ended questions. Use this before falling back to retrieved excerpts or connected sources for anything about the team's own work.`
+
 export const CITATION_RULES = `## Citations
 
 Every factual claim drawn from the workspace carries its source.
@@ -72,12 +76,14 @@ export function buildSystemPrompt({
   knowledge,
   documentInstructions,
   viewer,
+  hasWorkspaceTools,
 }: {
   capabilities?: string
   consistency?: string
   knowledge?: string
   documentInstructions?: string
   viewer?: { name?: string; workspace?: string; now?: Date }
+  hasWorkspaceTools?: boolean
 }) {
   const sections = [
     AGENT_IDENTITY,
@@ -89,6 +95,10 @@ export function buildSystemPrompt({
 
   if (consistency?.trim()) {
     sections.push(consistency.trim())
+  }
+
+  if (hasWorkspaceTools) {
+    sections.push(WORKSPACE_DATA_NOTE)
   }
 
   if (viewer) {

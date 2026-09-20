@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { nanoid } from "nanoid"
 import {
   List,
   LayoutGrid,
@@ -66,6 +65,7 @@ export type Task = {
   labels: string[]
   dueDate: string | null
   updatedAt: string
+  parentTaskId: string | null
 }
 
 const boardColumns: KanbanColumn[] = [
@@ -356,7 +356,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
   }, [loadTasks])
 
   // Deep-link support: /tasks?task=<id> opens the detail sheet directly,
-  // so favorites/notifications/home links keep working without a full page.
+  // so favorites/notifications links keep working without a full page.
   React.useEffect(() => {
     if (loading || typeof window === "undefined") return
     const params = new URLSearchParams(window.location.search)
@@ -479,7 +479,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
 
     const optimistic: Task = {
       ...source,
-      id: nanoid(),
+      id: crypto.randomUUID(),
       title: `${source.title} (copy)`,
       updatedAt: new Date().toISOString(),
     }

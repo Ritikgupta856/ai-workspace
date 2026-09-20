@@ -73,7 +73,7 @@ export async function POST() {
         ? { customer_id: existing.dodoCustomerId }
         : { email: session.user.email, name: session.user.name ?? undefined },
       metadata: { workspaceId: membership.workspaceId },
-      return_url: `${appUrl}/home?billing=success`,
+      return_url: `${appUrl}/agent?billing=success`,
     })
 
     return NextResponse.json({ success: true, url: checkoutSession.checkout_url })

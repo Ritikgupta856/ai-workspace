@@ -29,6 +29,7 @@ export default function InviteClient({ token }: { token: string }) {
   const [pageState, setPageState] = useState<PageState>("loading")
   const [errorMessage, setErrorMessage] = useState("")
   const [emailMismatch, setEmailMismatch] = useState(false)
+  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null)
 
   useEffect(() => {
     if (sessionLoading) return
@@ -90,6 +91,7 @@ export default function InviteClient({ token }: { token: string }) {
         return
       }
 
+      setWorkspaceSlug(data.workspace?.slug ?? null)
       setPageState("accepted")
     } catch {
       setErrorMessage("Failed to accept invitation")
@@ -129,7 +131,7 @@ export default function InviteClient({ token }: { token: string }) {
             </p>
           )}
           <Button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push(workspaceSlug ? `/${workspaceSlug}/agent` : "/agent")}
             className="w-full h-12 rounded-2xl bg-primary text-sm font-semibold hover:bg-primary/90"
           >
             Go to Dashboard
@@ -179,7 +181,7 @@ export default function InviteClient({ token }: { token: string }) {
             </Button>
           ) : (
             <Button
-              onClick={() => router.push("/home")}
+              onClick={() => router.push("/agent")}
               variant="outline"
               className="w-full h-12 rounded-2xl text-sm font-semibold"
             >

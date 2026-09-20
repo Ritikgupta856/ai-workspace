@@ -128,20 +128,20 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
     },
   })
 
-  // ── Team members ──
-  const workspaceMembers = await prisma.workspaceMember.findMany({
-    where: { workspaceId: workspaceId },
+  // ── Team members (this project's own, not the whole workspace) ──
+  const projectMembers = await prisma.projectMember.findMany({
+    where: { projectId },
     include: {
       user: { select: { id: true, name: true, email: true, image: true } },
     },
   })
 
-  const teamMembers = workspaceMembers.map((wm) => ({
-    id: wm.user.id,
-    name: wm.user.name || wm.user.email,
-    email: wm.user.email,
-    image: wm.user.image,
-    role: wm.role,
+  const teamMembers = projectMembers.map((pm) => ({
+    id: pm.user.id,
+    name: pm.user.name || pm.user.email,
+    email: pm.user.email,
+    image: pm.user.image,
+    role: pm.role,
     online: false,
   }))
 

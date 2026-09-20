@@ -227,62 +227,6 @@ export function BoardsGridSkeleton({ count = 6 }: { count?: number }) {
   )
 }
 
-/**
- * Home dashboard shell: greeting line, the four-cell stat bar, a chart, and
- * the two-column panel layout — each panel a header row plus a few list rows,
- * matching the actual page closely enough that nothing reflows on load.
- */
-export function DashboardHomeSkeleton() {
-  return (
-    <div className="mx-auto flex w-full max-w-400 flex-1 flex-col gap-5 p-4 sm:p-6">
-      <Skeleton className="h-4 w-56" />
-
-      <div className="bg-border grid gap-px overflow-hidden rounded-xl border shadow-sm sm:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="bg-card flex flex-col gap-4 p-5">
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-0.75 w-full rounded-full" />
-          </div>
-        ))}
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="flex flex-col gap-4 lg:col-span-2">
-          <div className="bg-card space-y-4 rounded-xl border p-5 shadow-sm">
-            <Skeleton className="h-3.5 w-32" />
-            <Skeleton className="h-44 w-full rounded-lg" />
-          </div>
-          <PanelListSkeleton title rows={4} />
-          <PanelListSkeleton title rows={3} />
-        </div>
-        <div className="flex flex-col gap-4">
-          <PanelListSkeleton title rows={4} />
-          <PanelListSkeleton title rows={3} />
-          <PanelListSkeleton title rows={3} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PanelListSkeleton({ rows = 3, title = false }: { rows?: number; title?: boolean }) {
-  return (
-    <div className="bg-card flex flex-col gap-1 rounded-xl border p-5 shadow-sm">
-      {title && <Skeleton className="mb-2 h-3.5 w-28" />}
-      {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="flex items-center gap-3 py-2">
-          <Skeleton className="size-9 shrink-0 rounded-lg" />
-          <div className="min-w-0 flex-1 space-y-1.5">
-            <Skeleton className="h-3 w-2/3" />
-            <Skeleton className="h-2.5 w-1/3" />
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /** A left rail of note titles beside a blank editor pane. */
 export function NotesSkeleton() {
   return (

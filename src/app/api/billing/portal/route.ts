@@ -27,7 +27,7 @@ export async function GET() {
     }))
 
   if (!membership || membership.role !== "OWNER") {
-    return NextResponse.redirect(new URL("/home?billing=error", appUrl))
+    return NextResponse.redirect(new URL("/agent?billing=error", appUrl))
   }
 
   const subscription = await prisma.workspaceSubscription.findUnique({
@@ -35,18 +35,18 @@ export async function GET() {
   })
 
   if (!subscription) {
-    return NextResponse.redirect(new URL("/home?billing=error", appUrl))
+    return NextResponse.redirect(new URL("/agent?billing=error", appUrl))
   }
 
   try {
     const portalSession = await dodo.customers.customerPortal.create(
       subscription.dodoCustomerId,
-      { return_url: `${appUrl}/home` }
+      { return_url: `${appUrl}/agent` }
     )
 
     return NextResponse.redirect(portalSession.link)
   } catch (error) {
     console.error("Create Customer Portal Session Error:", error)
-    return NextResponse.redirect(new URL("/home?billing=error", appUrl))
+    return NextResponse.redirect(new URL("/agent?billing=error", appUrl))
   }
 }

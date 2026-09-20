@@ -120,7 +120,7 @@ enum NotificationType {
 }
 
 model User {
-  id            String   @id @default(cuid())
+  id            String   @id @default(uuid())
   name          String?
   email         String   @unique
   emailVerified Boolean  @default(false)
@@ -150,7 +150,7 @@ model User {
 }
 
 model Session {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   expiresAt DateTime
   token     String   @unique
   createdAt DateTime @default(now())
@@ -163,7 +163,7 @@ model Session {
 }
 
 model Account {
-  id                    String    @id @default(cuid())
+  id                    String    @id @default(uuid())
   accountId             String
   providerId            String
   userId                String
@@ -181,7 +181,7 @@ model Account {
 }
 
 model Verification {
-  id         String   @id @default(cuid())
+  id         String   @id @default(uuid())
   identifier String
   value      String
   expiresAt  DateTime
@@ -190,7 +190,7 @@ model Verification {
 }
 
 model Workspace {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   name        String
   slug        String   @unique
   description String?
@@ -215,7 +215,7 @@ model Workspace {
 }
 
 model WorkspaceMember {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   userId      String
   role        Role     @default(MEMBER)
@@ -230,7 +230,7 @@ model WorkspaceMember {
 // One row per paying workspace. Free workspaces simply have no row here —
 // absence of a row means "on the free plan", not an empty/default state.
 model WorkspaceSubscription {
-  id                      String             @id @default(cuid())
+  id                      String             @id @default(uuid())
   workspaceId             String             @unique
   dodoCustomerId          String
   dodoSubscriptionId      String             @unique
@@ -247,7 +247,7 @@ model WorkspaceSubscription {
 }
 
 model WorkspaceInvite {
-  id String @id @default(cuid())
+  id String @id @default(uuid())
 
   workspaceId String
   email       String
@@ -274,7 +274,7 @@ model WorkspaceInvite {
 }
 
 model Activity {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   projectId   String?
   userId      String
@@ -293,7 +293,7 @@ model Activity {
 }
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   name        String
   description String?
@@ -315,7 +315,7 @@ model Project {
 }
 
 model Task {
-  id            String       @id @default(cuid())
+  id            String       @id @default(uuid())
   workspaceId   String
   projectId     String?
   title         String
@@ -343,7 +343,7 @@ model Task {
 }
 
 model Note {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   projectId   String?
   title       String
@@ -365,7 +365,7 @@ model Note {
 // workspace notes) and Document (imported/integrated knowledge) — this is
 // for rich, user-authored documentation, optionally scoped to a project.
 model Page {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   projectId   String?
   title       String   @default("Untitled")
@@ -385,7 +385,7 @@ model Page {
 }
 
 model Whiteboard {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   projectId   String?
   title       String   @default("Untitled board")
@@ -404,7 +404,7 @@ model Whiteboard {
 }
 
 model Chat {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   workspaceId String
   projectId   String?
   createdById String
@@ -419,7 +419,7 @@ model Chat {
 }
 
 model Message {
-  id          String   @id @default(cuid())
+  id          String   @id @default(uuid())
   chatId      String
   userId      String?
   role        String
@@ -433,7 +433,7 @@ model Message {
 }
 
 model Integration {
-  id           String            @id @default(cuid())
+  id           String            @id @default(uuid())
   workspaceId  String
   type         IntegrationType
   name         String
@@ -450,7 +450,7 @@ model Integration {
 }
 
 model Document {
-  id               String                   @id @default(cuid())
+  id               String                   @id @default(uuid())
   workspaceId      String
   projectId        String?
   integrationId    String?
@@ -473,7 +473,7 @@ model Document {
 }
 
 model KnowledgeChunk {
-  id          String                     @id @default(cuid())
+  id          String                     @id @default(uuid())
   workspaceId String
   sourceType  KnowledgeSource
   sourceId    String
@@ -491,7 +491,7 @@ model KnowledgeChunk {
 }
 
 model Workflow {
-  id          String          @id @default(cuid())
+  id          String          @id @default(uuid())
   workspaceId String
   projectId   String?
   name        String
@@ -508,7 +508,7 @@ model Workflow {
 }
 
 model WorkflowRun {
-  id            String            @id @default(cuid())
+  id            String            @id @default(uuid())
   workflowId    String
   triggeredById String?
   status        WorkflowRunStatus @default(PENDING)
@@ -526,7 +526,7 @@ model WorkflowRun {
 // Every project member is implicitly a workspace member too; this model
 // scopes who's actively working on a given project.
 model ProjectMember {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   projectId String
   userId    String
   role      Role     @default(MEMBER)
@@ -543,7 +543,7 @@ model ProjectMember {
 // says it does (Project/Task/Note/Whiteboard) — no FK, since a single
 // polymorphic relation can't target multiple tables in Prisma.
 model Favorite {
-  id         String             @id @default(cuid())
+  id         String             @id @default(uuid())
   userId     String
   entityType FavoriteEntityType
   entityId   String
@@ -559,7 +559,7 @@ model Favorite {
 // letting Inbox replies land as real TaskComment rows instead of a
 // separate inbox-only message type.
 model TaskComment {
-  id        String    @id @default(cuid())
+  id        String    @id @default(uuid())
   taskId    String
   authorId  String
   content   String
@@ -581,7 +581,7 @@ model TaskComment {
 // What a specific user needs to see, as opposed to Activity which records
 // what happened workspace-wide regardless of who cares about it.
 model Notification {
-  id         String           @id @default(cuid())
+  id         String           @id @default(uuid())
   userId     String
   actorId    String?
   type       NotificationType

@@ -28,7 +28,7 @@ export type SidebarData = {
 }
 
 /** Favorites have no FK to their target, so names/hrefs are resolved here per type. */
-export async function listFavorites(userId: string, workspaceId: string): Promise<SidebarFavorite[]> {
+export async function listFavorites(userId: string, workspaceId: string, slug: string): Promise<SidebarFavorite[]> {
   const favorites = await prisma.favorite.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
@@ -63,17 +63,18 @@ export async function listFavorites(userId: string, workspaceId: string): Promis
     }),
   ])
 
+  const base = `/${slug}`
   const map = new Map<string, { name: string; href: string; icon: string | null }>()
-  for (const p of projects) map.set(`PROJECT:${p.id}`, { name: p.name, href: `/projects/${p.id}`, icon: p.icon })
-  for (const t of tasks) map.set(`TASK:${t.id}`, { name: t.title, href: `/tasks?task=${t.id}`, icon: null })
-  for (const n of notes) map.set(`NOTE:${n.id}`, { name: n.title, href: `/pages/${n.id}`, icon: null })
+  for (const p of projects) map.set(`PROJECT:${p.id}`, { name: p.name, href: `${base}/projects/${p.id}`, icon: p.icon })
+  for (const t of tasks) map.set(`TASK:${t.id}`, { name: t.title, href: `${base}/tasks?task=${t.id}`, icon: null })
+  for (const n of notes) map.set(`NOTE:${n.id}`, { name: n.title, href: `${base}/pages/${n.id}`, icon: null })
   for (const w of whiteboards)
     map.set(`WHITEBOARD:${w.id}`, {
       name: w.title,
-      href: w.projectId ? `/projects/${w.projectId}/board/${w.id}` : `/boards/${w.id}`,
+      href: w.projectId ? `${base}/projects/${w.projectId}/board/${w.id}` : `${base}/boards/${w.id}`,
       icon: null,
     })
-  for (const pg of pages) map.set(`PAGE:${pg.id}`, { name: pg.title, href: `/pages/${pg.id}`, icon: pg.icon })
+  for (const pg of pages) map.set(`PAGE:${pg.id}`, { name: pg.title, href: `${base}/pages/${pg.id}`, icon: pg.icon })
 
   return favorites.flatMap((f) => {
     const entity = map.get(`${f.entityType}:${f.entityId}`)
@@ -87,7 +88,7 @@ export async function listFavorites(userId: string, workspaceId: string): Promis
  * this on the server so the sidebar paints complete on first render; the
  * client only re-requests it (via /api/sidebar) after a mutation.
  */
-export async function getSidebarData(userId: string, workspaceId: string): Promise<SidebarData> {
+export async function getSidebarData(userId: string, workspaceId: string, slug: string): Promise<SidebarData> {
   const [projects, favorites, unreadCount] = await Promise.all([
     prisma.project.findMany({
       where: { workspaceId },
@@ -99,7 +100,7 @@ export async function getSidebarData(userId: string, workspaceId: string): Promi
         _count: { select: { tasks: true, pages: true, whiteboards: true } },
       },
     }),
-    listFavorites(userId, workspaceId),
+    listFavorites(userId, workspaceId, slug),
     prisma.notification.count({ where: { userId, archived: false, read: false } }),
   ])
 

@@ -145,7 +145,7 @@ export function CreateWorkspaceDialog({
       toast.success("Workspace created successfully.")
       onOpenChange(false)
       onSuccess?.()
-      router.push("/home")
+      router.push(`/${json.workspace.slug}/agent`)
     } catch (error: any) {
       toast.error(error.message || "Something went wrong")
     } finally {

@@ -128,7 +128,7 @@ export async function GET(
   const stateParam = searchParams.get("state")
   const error = searchParams.get("error")
 
-  const redirectBase = `${appUrl()}/home?settings=integrations`
+  const redirectBase = `${appUrl()}/agent?settings=integrations`
 
   if (error) {
     return NextResponse.redirect(`${redirectBase}&error=${error}_denied`)

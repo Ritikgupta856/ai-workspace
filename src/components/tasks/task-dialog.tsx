@@ -79,7 +79,7 @@ function getInitials(name: string): string {
     .slice(0, 2)
 }
 
-const availableLabels = [
+export const availableLabels = [
   "Backend", "Auth", "AI", "Frontend", "Bug", "Design",
   "DevOps", "Docs", "GitHub", "RAG", "Refactor", "Search", "UI",
 ]
@@ -92,7 +92,7 @@ const priorityOptions = Object.entries(TASK_PRIORITY_CONFIG).map(
   ([value, config]) => ({ value, ...config })
 )
 
-function LabelMultiSelect({
+export function LabelMultiSelect({
   selected,
   onChange,
 }: {
@@ -263,25 +263,44 @@ export function TaskDialog({
   })
 
   const watchedLabels = form.watch("labels") ?? []
+  const watchedProjectId = form.watch("projectId")
   const [submitting, setSubmitting] = React.useState(false)
   const isEdit = mode === "edit"
 
   React.useEffect(() => {
     if (!open) return
     setLoadingOptions(true)
-    Promise.all([
-      fetchProjects().catch(() => []),
-      fetch("/api/workspaces/members")
-        .then((r) => r.json())
-        .then((j) => (j.success ? j.members : []) as MemberOption[])
-        .catch(() => []),
-    ])
-      .then(([projects, members]) => {
-        setProjectsList(projects.map((p) => ({ id: p.id, name: p.name })))
-        setMembersList(members)
-      })
+    fetchProjects()
+      .catch(() => [])
+      .then((projects) => setProjectsList(projects.map((p) => ({ id: p.id, name: p.name }))))
       .finally(() => setLoadingOptions(false))
   }, [open])
+
+  // Assignable people are scoped to the selected project's own members;
+  // with no project selected there's nothing to scope to, so fall back to
+  // the full workspace roster (e.g. project-less tasks in My Work).
+  React.useEffect(() => {
+    if (!open) return
+    const url = watchedProjectId ? `/api/projects/${watchedProjectId}/members` : "/api/workspaces/members"
+    fetch(url)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!j.success) return setMembersList([])
+        const members: MemberOption[] = watchedProjectId
+          ? j.members.map((m: { id: string; name: string; image: string | null }) => ({
+              userId: m.id,
+              name: m.name,
+              avatar: m.image,
+            }))
+          : j.members.map((m: { userId: string; name: string; avatar: string | null }) => ({
+              userId: m.userId,
+              name: m.name,
+              avatar: m.avatar,
+            }))
+        setMembersList(members)
+      })
+      .catch(() => setMembersList([]))
+  }, [open, watchedProjectId])
 
   React.useEffect(() => {
     if (!open) return

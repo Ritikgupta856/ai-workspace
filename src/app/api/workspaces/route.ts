@@ -13,12 +13,22 @@ function slugify(text: string): string {
     .slice(0, 100)
 }
 
+/**
+ * Workspace URLs are bare (`/<slug>/projects/...`), so a slug can never be
+ * one of these top-level route names — otherwise a workspace called "agent"
+ * would shadow the real /agent route.
+ */
+const RESERVED_WORKSPACE_SLUGS = new Set([
+  "agent", "inbox", "my-work", "projects", "tasks", "pages", "boards",
+  "chat", "invite", "sign-in", "sign-up", "api", "settings", "home", "w",
+])
+
 async function generateUniqueSlug(name: string): Promise<string> {
   const baseSlug = slugify(name) || "workspace"
   let slug = baseSlug
   for (let i = 0; i < 20; i++) {
-    const existing = await prisma.workspace.findUnique({ where: { slug } })
-    if (!existing) return slug
+    const taken = RESERVED_WORKSPACE_SLUGS.has(slug) || (await prisma.workspace.findUnique({ where: { slug } }))
+    if (!taken) return slug
     const suffix = Math.random().toString(36).substring(2, 6)
     slug = `${baseSlug}-${suffix}`
   }

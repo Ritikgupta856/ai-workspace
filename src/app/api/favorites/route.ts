@@ -40,7 +40,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: true, favorited: favorite !== null })
     }
 
-    const items = await listFavorites(ctx.session.user.id, ctx.workspaceId)
+    const slug = searchParams.get("slug") ?? ""
+    const items = await listFavorites(ctx.session.user.id, ctx.workspaceId, slug)
 
     return NextResponse.json({ success: true, favorites: items })
   } catch (error) {

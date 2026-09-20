@@ -1,5 +1,6 @@
 "use client"
 
+import { useParams } from "next/navigation"
 import { ActivityFeed } from "@/components/activity/activity-feed"
 import type { ActivityDTO } from "@/lib/activity"
 
@@ -17,13 +18,14 @@ export function RecentActivity({
   activities: ActivityItemData[]
   projectId?: string
 }) {
+  const slug = useParams().slug as string
   return (
     <ActivityFeed
       variant="card"
       items={activities}
       limit={6}
       title="Recent activity"
-      viewAllHref={projectId ? `/projects/${projectId}/activity` : undefined}
+      viewAllHref={projectId ? `/${slug}/projects/${projectId}/activity` : undefined}
       emptyMessage="No activity yet. Start working to see events here."
     />
   )

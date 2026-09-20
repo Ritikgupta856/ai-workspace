@@ -12,6 +12,8 @@ export type ActivityType =
   | "PROJECT_UPDATED"
   | "PROJECT_STATUS_CHANGED"
   | "PROJECT_DELETED"
+  | "PROJECT_MEMBER_ADDED"
+  | "PROJECT_MEMBER_REMOVED"
   // Tasks
   | "TASK_CREATED"
   | "TASK_UPDATED"
@@ -137,6 +139,10 @@ export function describeActivity(
         : "changed project status"
     case "PROJECT_DELETED":
       return `deleted project ${quoted}`.trim()
+    case "PROJECT_MEMBER_ADDED":
+      return `added ${quoted || "a member"} to the project`
+    case "PROJECT_MEMBER_REMOVED":
+      return `removed ${quoted || "a member"} from the project`
 
     case "TASK_CREATED":
       return `created task ${quoted}`.trim()

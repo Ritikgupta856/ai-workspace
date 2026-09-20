@@ -4,6 +4,21 @@ type ApiResponse<T> = { success: true; task?: T; tasks?: T[]; message?: string }
 
 const BASE = "/api/tasks"
 
+/** Full detail returned by `GET /api/tasks/[id]` — the list endpoints only carry `subtaskCount`. */
+export type TaskDetail = Task & {
+  parent: { id: string; title: string } | null
+  subtasks: { id: string; title: string; status: TaskStatus }[]
+  createdBy: string
+  createdAt: string
+}
+
+export async function fetchTask(id: string): Promise<TaskDetail> {
+  const res = await fetch(`${BASE}/${id}`)
+  const json: ApiResponse<TaskDetail> = await res.json()
+  if (!json.success) throw new Error(json.error)
+  return json.task!
+}
+
 export async function fetchTasks(projectId?: string): Promise<Task[]> {
   const res = await fetch(projectId ? `${BASE}?projectId=${projectId}` : BASE)
   const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()
@@ -27,6 +42,7 @@ export async function createTask(data: {
   assigneeId?: string
   labels?: string[]
   dueDate?: string | null
+  parentTaskId?: string | null
 }): Promise<Task> {
   const res = await fetch(`${BASE}/generate`, {
     method: "POST",
@@ -49,6 +65,7 @@ export async function updateTask(
     projectId: string
     labels: string[]
     dueDate: string | null
+    parentTaskId: string | null
   }>
 ): Promise<Task> {
   const res = await fetch(`${BASE}/${id}`, {
