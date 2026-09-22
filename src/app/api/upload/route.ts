@@ -3,7 +3,7 @@ import { uploadFile } from "@/lib/cloudinary"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { processDocumentBackground } from "@/lib/services/processing"
+import { processDocumentBackground } from "@/lib/knowledge/rag"
 import { logActivity } from "@/lib/activity"
 
 export async function POST(req: NextRequest) {

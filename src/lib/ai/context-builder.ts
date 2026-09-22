@@ -1,7 +1,7 @@
 import type { ModelMessage, UserModelMessage } from "ai"
 
 import { prisma } from "@/lib/prisma"
-import { searchKnowledge } from "@/lib/knowledge/ingest"
+import { searchKnowledge } from "@/lib/knowledge/rag"
 import { buildSystemPrompt } from "@/lib/ai/prompts"
 
 type CoreMessage = ModelMessage

@@ -78,13 +78,16 @@ export default function ProjectOverviewPage() {
   const [deleting, setDeleting] = React.useState(false)
   const [manageMembersOpen, setManageMembersOpen] = React.useState(false)
 
-  // "Manage" in the Members section links to ?settings=members so it's a
-  // real, shareable URL rather than a dead button; this picks that up.
+  // "Manage" in the Members section links to ?manageMembers=1 so it's a real,
+  // shareable URL rather than a dead button. This is deliberately a different
+  // key from `?settings=`, which NavUser's SettingsQuerySync also watches on
+  // every dashboard page — reusing that key opened the workspace Settings
+  // dialog instead of this project-scoped one.
   React.useEffect(() => {
-    if (searchParams.get("settings") !== "members") return
+    if (searchParams.get("manageMembers") !== "1") return
     setManageMembersOpen(true)
     const params = new URLSearchParams(searchParams)
-    params.delete("settings")
+    params.delete("manageMembers")
     const rest = params.toString()
     router.replace(`/${slug}/projects/${projectId}/overview${rest ? `?${rest}` : ""}`)
   }, [searchParams, router, projectId, slug])
@@ -281,7 +284,7 @@ export default function ProjectOverviewPage() {
               icon={OVERVIEW_ICONS.members}
               title="Members"
               count={data.teamMembers.length}
-              action={{ label: "Manage", href: "?settings=members" }}
+              action={{ label: "Manage", href: "?manageMembers=1" }}
             >
               <MemberRows members={data.teamMembers} />
             </OverviewSection>

@@ -14,7 +14,7 @@ import { Footer } from "@/components/landing/footer"
 
 export function LandingPage() {
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{ "--background": "white" } as React.CSSProperties}>
+    <div className="lp-force-light min-h-screen bg-background text-foreground">
       <Navigation />
       <main
         style={{

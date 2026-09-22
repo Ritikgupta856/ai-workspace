@@ -5,7 +5,7 @@ import { headers, cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { buildChatContext } from "@/lib/ai/context-builder"
 import { resolveWorkspaceTools } from "@/lib/integrations"
-import { getWorkspaceReadTools } from "@/lib/ai/tools/workspace-tools"
+import { getWorkspaceReadTools, getWorkspaceWriteTools } from "@/lib/ai/tools/workspace-tools"
 
 /** First line of the opening question, used as the chat's title until renamed. */
 function deriveTitle(text: string) {
@@ -58,7 +58,10 @@ export async function POST(req: Request) {
       workspaceId = membership.workspaceId
       workspaceName = membership.workspace?.name
 
-      const nativeTools = getWorkspaceReadTools(workspaceId, session.user.id)
+      const nativeTools = {
+        ...getWorkspaceReadTools(workspaceId, session.user.id),
+        ...getWorkspaceWriteTools(workspaceId, session.user.id),
+      }
       const result = await resolveWorkspaceTools(workspaceId, {
         userId: session.user.id,
       })

@@ -7,6 +7,8 @@ import { formatNote, noteInclude } from "@/lib/notes"
 import { buildProjectDashboard } from "@/lib/project-dashboard"
 import { getDashboardData } from "@/lib/dashboard"
 import { pageContentToText } from "@/lib/pages"
+import { logActivity } from "@/lib/activity"
+import { TaskPriority, TaskStatus } from "@/generated/prisma/enums"
 
 const TASK_STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const
 const TASK_PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
@@ -319,6 +321,191 @@ export function getWorkspaceReadTools(
           title: page.title,
           projectId: page.projectId,
           content: pageContentToText(page.content),
+          updatedAt: page.updatedAt.toISOString(),
+        }
+      },
+    }),
+  }
+}
+
+/**
+ * Write tools — kept in their own function, separate from
+ * `getWorkspaceReadTools`, on purpose: nothing here has a confirmation step
+ * yet (no UI pauses execution before a write runs), so every one of these
+ * fires the instant the model calls it. Each tool's description says so
+ * explicitly, so the model only reaches for one when the user's intent is
+ * unambiguous rather than offering to create something speculatively.
+ *
+ * Validation and activity logging mirror the equivalent API routes exactly
+ * (`POST /api/projects`, `POST /api/tasks/generate`, `POST /api/pages`) so a
+ * project/task/page created by the agent is indistinguishable in the
+ * database from one created by hand, except for the `generatedByAI` flag.
+ */
+export function getWorkspaceWriteTools(
+  workspaceId: string,
+  userId: string
+): ToolSet {
+  return {
+    create_task: tool({
+      description:
+        "Create a new task in this workspace. Creates immediately — there is no confirmation step and no undo. Only call this when the user has clearly asked for a task to be created and given (or you already know) its title; if the title, project, or assignee is ambiguous, ask before calling.",
+      inputSchema: z.object({
+        title: z.string().min(1).describe("The task title. Required."),
+        description: z.string().optional(),
+        projectId: z.string().optional().describe("Must be a project in this workspace."),
+        priority: z.enum(TASK_PRIORITIES).optional().describe("Defaults to MEDIUM."),
+        status: z.enum(TASK_STATUSES).optional().describe("Defaults to TODO."),
+        assigneeId: z.string().optional().describe("Must be a member of this workspace."),
+        dueDate: z.string().optional().describe("ISO date, e.g. 2026-10-01."),
+        labels: z.array(z.string()).optional(),
+      }),
+      execute: async ({ title, description, projectId, priority, status, assigneeId, dueDate, labels }) => {
+        if (projectId) {
+          const project = await prisma.project.findFirst({
+            where: { id: projectId, workspaceId },
+            select: { id: true },
+          })
+          if (!project) return { error: "No project with that id in this workspace." }
+        }
+
+        if (assigneeId) {
+          const member = await prisma.workspaceMember.findFirst({
+            where: { userId: assigneeId, workspaceId },
+            select: { userId: true },
+          })
+          if (!member) return { error: "That person isn't a member of this workspace." }
+        }
+
+        const task = await prisma.task.create({
+          data: {
+            title: title.trim(),
+            description: description?.trim() || null,
+            projectId: projectId ?? null,
+            priority: (priority as TaskPriority) ?? TaskPriority.MEDIUM,
+            status: (status as TaskStatus) ?? TaskStatus.TODO,
+            assigneeId: assigneeId ?? null,
+            dueDate: dueDate ? new Date(dueDate) : null,
+            workspaceId,
+            createdById: userId,
+            labels: labels ?? [],
+            generatedByAI: true,
+          },
+          include: {
+            project: { select: { name: true } },
+            assignee: { select: { name: true, email: true } },
+          },
+        })
+
+        await logActivity({
+          type: "TASK_CREATED",
+          workspaceId,
+          userId,
+          projectId: task.projectId ?? undefined,
+          taskId: task.id,
+          metadata: { target: task.title, generatedByAI: true },
+        })
+
+        return {
+          id: task.id,
+          title: task.title,
+          status: task.status,
+          priority: task.priority,
+          project: task.project?.name ?? null,
+          assignee: task.assignee ? task.assignee.name || task.assignee.email : null,
+          dueDate: task.dueDate?.toISOString() ?? null,
+        }
+      },
+    }),
+
+    create_project: tool({
+      description:
+        "Create a new project in this workspace. Creates immediately — there is no confirmation step and no undo. Only call this when the user has clearly asked for a project to be created and given its name.",
+      inputSchema: z.object({
+        name: z.string().min(1).describe("The project name. Required."),
+        description: z.string().optional(),
+        icon: z.string().optional().describe("A single emoji to represent the project."),
+      }),
+      execute: async ({ name, description, icon }) => {
+        const project = await prisma.project.create({
+          data: {
+            name: name.trim(),
+            description: description?.trim() || null,
+            icon: icon || null,
+            workspaceId,
+          },
+          include: projectInclude,
+        })
+
+        await prisma.projectMember.create({
+          data: { projectId: project.id, userId, role: "OWNER" },
+        })
+
+        await logActivity({
+          type: "PROJECT_CREATED",
+          workspaceId,
+          userId,
+          projectId: project.id,
+          description: `created project ${project.name}`,
+          metadata: { target: project.name, generatedByAI: true },
+        })
+
+        const creator = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true, name: true, email: true, image: true },
+        })
+
+        return formatProject(project, {
+          doneTasks: 0,
+          members: creator
+            ? [{ id: creator.id, name: creator.name || creator.email, email: creator.email, image: creator.image, role: "OWNER" }]
+            : [],
+          integrationCount: 0,
+        })
+      },
+    }),
+
+    create_page: tool({
+      description:
+        "Create a new page (rich document) in this workspace. Creates immediately — there is no confirmation step and no undo. Content is left empty; the page is created as a container the user opens and fills in themselves, so a title is enough to call this.",
+      inputSchema: z.object({
+        title: z.string().optional().describe('Defaults to "Untitled" if omitted.'),
+        projectId: z.string().optional().describe("Must be a project in this workspace."),
+        icon: z.string().optional().describe("A single emoji to represent the page."),
+      }),
+      execute: async ({ title, projectId, icon }) => {
+        if (projectId) {
+          const project = await prisma.project.findFirst({
+            where: { id: projectId, workspaceId },
+            select: { id: true },
+          })
+          if (!project) return { error: "No project with that id in this workspace." }
+        }
+
+        const page = await prisma.page.create({
+          data: {
+            title: title?.trim() || "Untitled",
+            workspaceId,
+            projectId: projectId ?? null,
+            icon: icon || null,
+            createdById: userId,
+          },
+          select: { id: true, title: true, icon: true, projectId: true, updatedAt: true },
+        })
+
+        await logActivity({
+          type: "PAGE_CREATED",
+          workspaceId,
+          userId,
+          projectId: page.projectId ?? undefined,
+          description: `created page ${page.title}`,
+          metadata: { target: page.title, generatedByAI: true },
+        })
+
+        return {
+          id: page.id,
+          title: page.title,
+          icon: page.icon,
+          projectId: page.projectId,
           updatedAt: page.updatedAt.toISOString(),
         }
       },

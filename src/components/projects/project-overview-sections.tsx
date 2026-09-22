@@ -177,7 +177,7 @@ export function MemberRows({ members, limit = 5 }: { members: TeamMemberData[]; 
       })}
       {remaining > 0 && (
         <Link
-          href="?settings=members"
+          href="?manageMembers=1"
           className="flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
         >
           <Users className="size-3.5" />+{remaining} more member{remaining === 1 ? "" : "s"}
