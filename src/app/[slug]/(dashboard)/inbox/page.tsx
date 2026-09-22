@@ -13,8 +13,6 @@ import {
   ArchiveRestore,
   Inbox as InboxIcon,
   Send,
-  Search,
-  X,
   Mail,
   MailOpen,
   ExternalLink,
@@ -24,12 +22,13 @@ import {
 import { toast } from "sonner"
 import { requestSidebarRefresh } from "@/lib/sidebar-events"
 
-import { HeaderButton, HeaderSearchButton, SectionHeader } from "@/components/dashboard/section-header"
+import { HeaderButton, SectionHeader } from "@/components/dashboard/section-header"
+import { ToolbarSearch } from "@/components/common/toolbar-search"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Skeleton } from "@/components/ui/skeleton"
+import { InboxSkeleton } from "@/components/dashboard/loading-states"
 import { formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 
@@ -224,7 +223,6 @@ export default function InboxPage() {
   const [loading, setLoading] = React.useState(true)
   const [unreadCount, setUnreadCount] = React.useState(0)
   const [search, setSearch] = React.useState("")
-  const [searchOpen, setSearchOpen] = React.useState(false)
 
   const visible = React.useMemo(() => {
     if (!search.trim()) return notifications
@@ -318,8 +316,8 @@ export default function InboxPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* Search lives in the toolbar below, next to the results it filters. */}
       <SectionHeader icon={InboxIcon} title="Inbox" count={unreadCount}>
-        <HeaderSearchButton onClick={() => setSearchOpen(true)} />
         <HeaderButton icon={CheckCheck} onClick={handleMarkAllRead} disabled={unreadCount === 0}>
           Mark all read
         </HeaderButton>
@@ -354,56 +352,18 @@ export default function InboxPage() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
-          {searchOpen ? (
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search notifications..."
-                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setSearch("")
-                    setSearchOpen(false)
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("")
-                  setSearchOpen(false)
-                }}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Close search"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="size-8 rounded-lg border-border/80 shadow-none"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search notifications"
-            >
-              <Search className="size-3.5 text-muted-foreground" />
-            </Button>
-          )}
+          <ToolbarSearch
+            value={search}
+            onChange={setSearch}
+            placeholder="Search notifications..."
+          />
         </div>
       </div>
 
       {/* Content */}
       <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8">
         {loading ? (
-          <div className="flex flex-col gap-1">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-11 w-full rounded-lg" />
-            ))}
-          </div>
+          <InboxSkeleton />
         ) : visible.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-1.5 py-24 text-center">
             <InboxIcon className="mb-1 size-7 text-muted-foreground/50" />

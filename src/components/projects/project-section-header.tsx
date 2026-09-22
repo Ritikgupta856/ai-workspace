@@ -9,7 +9,6 @@ import {
   LayoutPanelTop,
   FileText,
   Frame,
-  Search,
   CirclePlus,
   Loader2,
 } from "lucide-react"
@@ -25,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { getInitials, type ProjectTeamMember } from "@/components/projects/project-card"
-import { ViewToggle, type ViewToggleOption } from "@/components/common/view-toggle"
 
 const MAX_AVATARS = 6
 
@@ -39,26 +37,24 @@ export const PROJECT_SECTIONS = [
 
 export type ProjectSectionTab = (typeof PROJECT_SECTIONS)[number]["tab"]
 
-export interface ProjectSectionHeaderProps<V extends string = string> {
+export interface ProjectSectionHeaderProps {
   section: ProjectSectionTab
   projectId: string
   projectName: string
   projectIcon?: string | null
   members: ProjectTeamMember[]
-  /** Compact segmented toggle mirroring the toolbar's view tabs. */
-  viewToggle?: {
-    value: V
-    options: ViewToggleOption<V>[]
-    onChange: (value: V) => void
-  }
-  onSearch?: () => void
   /** The black primary button on the right. */
   action?: {
     label: string
     onClick: () => void
     loading?: boolean
   }
-  /** Extra controls rendered before Search / the primary action. */
+  /**
+   * Extra controls rendered before the primary action. View switching and
+   * search deliberately do not live here — each section's own toolbar owns
+   * them, and offering them twice meant two controls that looked alike but
+   * drove different state.
+   */
   children?: React.ReactNode
 }
 
@@ -67,17 +63,15 @@ export interface ProjectSectionHeaderProps<V extends string = string> {
  * the left, team avatars and the primary actions on the right. Sits above
  * each section's own toolbar.
  */
-export function ProjectSectionHeader<V extends string = string>({
+export function ProjectSectionHeader({
   section,
   projectId,
   projectName,
   projectIcon,
   members,
-  viewToggle,
-  onSearch,
   action,
   children,
-}: ProjectSectionHeaderProps<V>) {
+}: ProjectSectionHeaderProps) {
   const slug = useParams().slug as string
   const current = PROJECT_SECTIONS.find((s) => s.tab === section) ?? PROJECT_SECTIONS[0]
   const CurrentIcon = current.icon
@@ -87,20 +81,25 @@ export function ProjectSectionHeader<V extends string = string>({
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-border/70 px-5">
-      {/* Breadcrumb */}
+      {/* Breadcrumb: project first, then the section within it — the trail
+          should read outside-in, and the project is what stays the same as you
+          move between Overview, Tasks, Pages and Board. */}
       <nav className="flex min-w-0 items-center gap-1.5 text-sm" aria-label="Breadcrumb">
-        <span className="inline-flex items-center gap-2 text-foreground">
-          <CurrentIcon className="size-3.5 text-muted-foreground" />
-          <span className="font-medium">{current.label}</span>
-        </span>
-        <span className="text-muted-foreground/60">/</span>
-        <span className="inline-flex min-w-0 items-center gap-2 text-foreground">
+        <Link
+          href={`/${slug}/projects/${projectId}/overview`}
+          className="inline-flex min-w-0 items-center gap-2 rounded px-1 py-0.5 text-foreground transition-colors hover:bg-accent"
+        >
           {projectIcon ? (
             <span className="text-sm leading-none">{projectIcon}</span>
           ) : (
             <Database className="size-3.5 text-muted-foreground" />
           )}
           <span className="truncate font-medium">{projectName}</span>
+        </Link>
+        <span className="text-muted-foreground/60">/</span>
+        <span className="inline-flex shrink-0 items-center gap-2 text-foreground">
+          <CurrentIcon className="size-3.5 text-muted-foreground" />
+          <span className="font-medium">{current.label}</span>
         </span>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -157,28 +156,7 @@ export function ProjectSectionHeader<V extends string = string>({
 
         {visible.length > 0 && <span className="hidden h-4 w-px bg-border md:block" />}
 
-        {viewToggle && (
-          <ViewToggle
-            className="hidden sm:flex"
-            value={viewToggle.value}
-            options={viewToggle.options}
-            onChange={viewToggle.onChange}
-          />
-        )}
-
         {children}
-
-        {onSearch && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onSearch}
-            className="h-8 gap-1.5 rounded-lg border-border/80 px-3 text-[13px] font-medium shadow-none"
-          >
-            <Search className="size-3.5" />
-            Search
-          </Button>
-        )}
 
         {action && (
           <Button

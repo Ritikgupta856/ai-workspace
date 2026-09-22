@@ -1,5 +1,5 @@
 import * as React from "react"
-import { CirclePlus, Loader2, Search, type LucideIcon } from "lucide-react"
+import { CirclePlus, Loader2, type LucideIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -37,7 +37,7 @@ export function SectionHeader({
   )
 }
 
-/** Outlined 32px header button ("Search", "Mark all read"). */
+/** Outlined 32px header button ("Mark all read"). */
 export function HeaderButton({
   icon: Icon,
   className,
@@ -54,14 +54,6 @@ export function HeaderButton({
       {Icon && <Icon className="size-3.5" />}
       {children}
     </Button>
-  )
-}
-
-export function HeaderSearchButton(props: Omit<React.ComponentProps<typeof Button>, "children">) {
-  return (
-    <HeaderButton icon={Search} {...props}>
-      Search
-    </HeaderButton>
   )
 }
 

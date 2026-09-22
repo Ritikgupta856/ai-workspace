@@ -20,15 +20,10 @@ import { prisma } from "@/lib/prisma"
  * changing anything here:
  *
  *  1. EMBEDDING_DIMENSIONS must equal the width of KnowledgeChunk.embedding in
- *     Postgres. The live column is vector(1536). Change one, change the other,
- *     and re-embed everything: vectors of different widths are not comparable,
- *     and Postgres rejects the insert outright.
- *
- *     Be careful here — prisma/schema.prisma currently declares vector(768) and
- *     migration 20260701000001_change_embedding_dim_to_768 was never applied to
- *     this database, so the schema file and the real column disagree. This
- *     module follows the real column. Resolve that drift before trusting the
- *     schema file over what Postgres actually reports.
+ *     Postgres. Both are vector(1536), and prisma/schema.prisma now declares the
+ *     same. Change one, change all three, and re-embed everything: vectors of
+ *     different widths are not comparable, and Postgres rejects the insert
+ *     outright.
  *  2. Documents are embedded with taskType RETRIEVAL_DOCUMENT, queries with
  *     RETRIEVAL_QUERY. Gemini deliberately projects the two sides differently;
  *     embedding a question as if it were a passage measurably worsens ranking.

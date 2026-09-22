@@ -7,7 +7,7 @@ import { ChevronRight, Inbox, Loader2 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Spinner } from "@/components/ui/spinner"
+import { ActivitySkeleton } from "@/components/dashboard/loading-states"
 import { activityConfig } from "@/lib/constants/activity"
 import { formatDateTime, formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
@@ -203,9 +203,7 @@ export function ActivityFeed({
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-8">
-            <Spinner className="size-5" />
-          </div>
+          <ActivitySkeleton rows={4} dense />
         ) : error ? (
           <p className="py-6 text-center text-sm text-destructive">{error}</p>
         ) : visible.length === 0 ? (
@@ -224,11 +222,7 @@ export function ActivityFeed({
   /* ── Timeline ─────────────────────────────────────────── */
   if (variant === "timeline") {
     if (loading) {
-      return (
-        <div className="flex justify-center py-10">
-          <Spinner className="size-5" />
-        </div>
-      )
+      return <ActivitySkeleton rows={5} />
     }
     if (error) {
       return <p className="py-8 text-center text-sm text-destructive">{error}</p>
@@ -287,9 +281,7 @@ export function ActivityFeed({
   return (
     <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Spinner className="size-5" />
-        </div>
+        <ActivitySkeleton rows={6} />
       ) : error ? (
         <div className="flex flex-col items-center gap-3 py-12">
           <p className="text-sm text-destructive">{error}</p>

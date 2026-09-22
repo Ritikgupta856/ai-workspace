@@ -472,17 +472,26 @@ model Document {
   integration Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 }
 
+/// `embedding` is vector(1536) because that is what the column in Postgres
+/// actually is — created that way by 20260630000001_add_knowledge_chunks and
+/// never changed. A later migration narrowing it to 768 was written but never
+/// applied, and has been deleted: applying it would have rewritten every stored
+/// vector to a width nothing else agrees on.
+///
+/// This width must stay in lockstep with EMBEDDING_DIMENSIONS in
+/// src/lib/knowledge/rag.ts. Changing one means changing the other and
+/// re-embedding everything.
 model KnowledgeChunk {
-  id          String                     @id @default(uuid())
+  id          String                      @id @default(uuid())
   workspaceId String
   sourceType  KnowledgeSource
   sourceId    String
   title       String?
   content     String
-  embedding   Unsupported("vector(768)")
+  embedding   Unsupported("vector(1536)")
   chunkIndex  Int
   metadata    Json?
-  createdAt   DateTime                   @default(now())
+  createdAt   DateTime                    @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 

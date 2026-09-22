@@ -10,15 +10,12 @@ import {
   LayoutPanelTop,
   List,
   Plus,
-  Search,
-  X,
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 import { requestSidebarRefresh } from "@/lib/sidebar-events"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -30,10 +27,9 @@ import {
 import { CardGridSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 import {
   HeaderPrimaryButton,
-  HeaderSearchButton,
   SectionHeader,
 } from "@/components/dashboard/section-header"
-import { ViewToggle } from "@/components/common/view-toggle"
+import { ToolbarSearch } from "@/components/common/toolbar-search"
 import { ToolbarSelect } from "@/components/common/toolbar-select"
 import { ProjectGrid } from "@/components/projects/project-grid"
 import {
@@ -88,7 +84,6 @@ export default function ProjectsPage() {
   const [error, setError] = React.useState<string | null>(null)
   const [reloadKey, setReloadKey] = React.useState(0)
   const [search, setSearch] = React.useState("")
-  const [searchOpen, setSearchOpen] = React.useState(false)
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
   const [groupBy, setGroupBy] = React.useState<GroupBy>("status")
   const [sortBy, setSortBy] = React.useState<SortBy>("updated")
@@ -263,9 +258,8 @@ export default function ProjectsPage() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* View switching and search live in the toolbar below, not here as well. */}
       <SectionHeader icon={LayoutPanelTop} title="Projects" count={projectList.length}>
-        <ViewToggle className="hidden sm:flex" value={viewMode} options={VIEW_TABS} onChange={setViewMode} />
-        <HeaderSearchButton onClick={() => setSearchOpen(true)} />
         <HeaderPrimaryButton onClick={openCreate}>Add</HeaderPrimaryButton>
       </SectionHeader>
 
@@ -300,45 +294,7 @@ export default function ProjectsPage() {
           <ToolbarSelect icon={ArrowUpDown} prefix="Sort" value={sortBy} options={SORT_OPTIONS} onChange={setSortBy} />
           <ToolbarSelect icon={Filter} prefix="Filter by" value={statusFilter} options={STATUS_OPTIONS} onChange={setStatusFilter} />
 
-          {searchOpen ? (
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search projects..."
-                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setSearch("")
-                    setSearchOpen(false)
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("")
-                  setSearchOpen(false)
-                }}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Close search"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="size-8 rounded-lg border-border/80 shadow-none"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search projects"
-            >
-              <Search className="size-3.5 text-muted-foreground" />
-            </Button>
-          )}
+          <ToolbarSearch value={search} onChange={setSearch} placeholder="Search projects..." />
         </div>
       </div>
 

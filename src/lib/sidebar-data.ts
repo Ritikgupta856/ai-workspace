@@ -59,7 +59,7 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
     }),
     prisma.page.findMany({
       where: { workspaceId, id: { in: idsByType.get("PAGE") ?? [] } },
-      select: { id: true, title: true, icon: true },
+      select: { id: true, title: true, icon: true, projectId: true },
     }),
   ])
 
@@ -74,7 +74,12 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
       href: w.projectId ? `${base}/projects/${w.projectId}/board/${w.id}` : `${base}/boards/${w.id}`,
       icon: null,
     })
-  for (const pg of pages) map.set(`PAGE:${pg.id}`, { name: pg.title, href: `${base}/pages/${pg.id}`, icon: pg.icon })
+  for (const pg of pages)
+    map.set(`PAGE:${pg.id}`, {
+      name: pg.title,
+      href: pg.projectId ? `${base}/projects/${pg.projectId}/pages/${pg.id}` : `${base}/pages/${pg.id}`,
+      icon: pg.icon,
+    })
 
   return favorites.flatMap((f) => {
     const entity = map.get(`${f.entityType}:${f.entityId}`)

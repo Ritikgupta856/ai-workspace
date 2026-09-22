@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Skeleton } from "@/components/ui/skeleton"
+import { SettingsPanelSkeleton } from "@/components/dashboard/loading-states"
 import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
@@ -222,11 +222,7 @@ export function SettingsDialog({
 
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
             {loading || !data ? (
-              <div className="flex flex-col gap-4">
-                <Skeleton className="h-6 w-32" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
+              <SettingsPanelSkeleton />
             ) : section === "profile" ? (
               <ProfilePanel profile={data.profile} onSaved={load} />
             ) : section === "workspace" ? (

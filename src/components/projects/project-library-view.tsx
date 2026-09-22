@@ -10,14 +10,11 @@ import {
   List,
   MoreHorizontal,
   Plus,
-  Search,
   Trash2,
-  X,
   type LucideIcon,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   Dialog,
   DialogContent,
@@ -32,6 +29,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ToolbarSearch } from "@/components/common/toolbar-search"
 import { ToolbarSelect } from "@/components/common/toolbar-select"
 import { TableSkeleton } from "@/components/dashboard/loading-states"
 import {
@@ -107,7 +105,6 @@ export function ProjectLibraryView({
   const [view, setView] = React.useState<ViewMode>("list")
   const [sortBy, setSortBy] = React.useState<SortBy>("updated")
   const [search, setSearch] = React.useState("")
-  const [searchOpen, setSearchOpen] = React.useState(false)
   const [creating, setCreating] = React.useState(false)
   const [pendingDelete, setPendingDelete] = React.useState<LibraryItem | null>(null)
   const [deleting, setDeleting] = React.useState(false)
@@ -225,8 +222,6 @@ export function ProjectLibraryView({
         projectName={data.project.name}
         projectIcon={data.project.icon}
         members={data.project.members}
-        viewToggle={{ value: view, options: VIEW_TABS, onChange: setView }}
-        onSearch={() => setSearchOpen(true)}
         action={{ label: "Add", onClick: handleCreate, loading: creating }}
       />
 
@@ -257,45 +252,11 @@ export function ProjectLibraryView({
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <ToolbarSelect icon={ArrowUpDown} prefix="Sort" value={sortBy} options={SORT_OPTIONS} onChange={setSortBy} />
 
-          {searchOpen ? (
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={`Search ${noun}s...`}
-                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setSearch("")
-                    setSearchOpen(false)
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("")
-                  setSearchOpen(false)
-                }}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Close search"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="size-8 rounded-lg border-border/80 shadow-none"
-              onClick={() => setSearchOpen(true)}
-              aria-label={`Search ${noun}s`}
-            >
-              <Search className="size-3.5 text-muted-foreground" />
-            </Button>
-          )}
+          <ToolbarSearch
+            value={search}
+            onChange={setSearch}
+            placeholder={`Search ${noun}s...`}
+          />
         </div>
       </div>
 

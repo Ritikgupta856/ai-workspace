@@ -20,7 +20,7 @@ export default function ProjectPagesPage() {
         (await fetchPages(projectId)).map((p) => ({
           id: p.id,
           title: p.title,
-          href: `/${slug}/pages/${p.id}`,
+          href: `/${slug}/projects/${projectId}/pages/${p.id}`,
           icon: p.icon ?? undefined,
           author: p.createdBy.name,
           updatedAt: p.updatedAt,
@@ -29,7 +29,7 @@ export default function ProjectPagesPage() {
       }
       create={async () => {
         const page = await createPage({ title: "Untitled", projectId })
-        return `/${slug}/pages/${page.id}`
+        return `/${slug}/projects/${projectId}/pages/${page.id}`
       }}
       remove={deletePage}
       emptyTitle="No pages yet"

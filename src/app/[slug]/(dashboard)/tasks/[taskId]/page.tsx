@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { NoteDetailSkeleton } from "@/components/dashboard/loading-states"
+import { TaskDetailSkeleton } from "@/components/dashboard/loading-states"
 import { TaskDetailBody } from "@/components/tasks/task-detail-body"
 import { taskKey } from "@/components/tasks/task-grouped-list"
 import { fetchTask, deleteTask, type TaskDetail } from "@/lib/api/tasks"
@@ -85,7 +85,7 @@ export default function TaskDetailPage() {
   }
 
   if (loading) {
-    return <NoteDetailSkeleton />
+    return <TaskDetailSkeleton />
   }
 
   if (error || !task) {

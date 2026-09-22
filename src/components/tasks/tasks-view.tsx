@@ -9,13 +9,10 @@ import {
   ArrowUpDown,
   SlidersHorizontal,
   Filter,
-  Search,
-  X,
 } from "lucide-react"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -23,6 +20,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { ToolbarSearch } from "@/components/common/toolbar-search"
 import { ToolbarSelect, toolbarPillClass } from "@/components/common/toolbar-select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { StatusBadge } from "@/components/common/status-badge"
@@ -304,7 +302,6 @@ function TaskCard({
 export interface TasksViewControls {
   viewMode: ViewMode
   setViewMode: (mode: ViewMode) => void
-  openSearch: () => void
   openCreate: () => void
 }
 
@@ -325,7 +322,6 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
   const [viewMode, setViewMode] = React.useState<ViewMode>("list")
   const [groupBy, setGroupBy] = React.useState<GroupBy>("status")
   const [sortBy, setSortBy] = React.useState<SortBy>("dueDate")
-  const [searchOpen, setSearchOpen] = React.useState(false)
   const [createStatus, setCreateStatus] = React.useState<TaskStatus | undefined>(undefined)
   const [showCompleted, setShowCompleted] = React.useState(true)
   const [showEmptyGroups, setShowEmptyGroups] = React.useState(false)
@@ -520,7 +516,6 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
   const controls: TasksViewControls = {
     viewMode,
     setViewMode,
-    openSearch: () => setSearchOpen(true),
     openCreate: () => handleOpenCreate(),
   }
 
@@ -605,45 +600,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
             />
           )}
 
-          {searchOpen ? (
-            <div className="relative">
-              <Search className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                autoFocus
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search tasks..."
-                className="h-8 w-48 rounded-lg border-border/80 pr-7 pl-7 text-[13px] shadow-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setSearch("")
-                    setSearchOpen(false)
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  setSearch("")
-                  setSearchOpen(false)
-                }}
-                className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                aria-label="Close search"
-              >
-                <X className="size-3.5" />
-              </button>
-            </div>
-          ) : (
-            <Button
-              variant="outline"
-              size="icon-sm"
-              className="size-8 rounded-lg border-border/80 shadow-none"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search tasks"
-            >
-              <Search className="size-3.5 text-muted-foreground" />
-            </Button>
-          )}
+          <ToolbarSearch value={search} onChange={setSearch} placeholder="Search tasks..." />
         </div>
       </div>
 

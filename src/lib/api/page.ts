@@ -24,6 +24,20 @@ export type PageDetail = {
   createdBy: { id: string; name: string; image: string | null }
 }
 
+/**
+ * Where a page opens. A page inside a project lives under that project, so its
+ * URL and breadcrumb both read project-first; a workspace-level page has no
+ * project to nest under and stays at the top level.
+ */
+export function pageHref(
+  slug: string,
+  page: { id: string; projectId: string | null }
+): string {
+  return page.projectId
+    ? `/${slug}/projects/${page.projectId}/pages/${page.id}`
+    : `/${slug}/pages/${page.id}`
+}
+
 type ApiResponse<T> = ({ success: true } & T) | { success: false; error: string }
 
 const BASE = "/api/pages"

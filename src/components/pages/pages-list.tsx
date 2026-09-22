@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { formatUpdatedDate } from "@/lib/date"
-import { createPage, deletePage, type PageSummary } from "@/lib/api/page"
+import { createPage, deletePage, type PageSummary, pageHref } from "@/lib/api/page"
 
 interface PagesListProps {
   pages: PageSummary[]
@@ -49,7 +49,7 @@ export function NewPageButton({
     try {
       const page = await createPage({ title: "Untitled", projectId })
       onCreated()
-      router.push(`/${slug}/pages/${page.id}`)
+      router.push(pageHref(slug, page))
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to create page")
       setCreating(false)
@@ -110,7 +110,7 @@ function PageRow({ page, onChanged }: { page: PageSummary; onChanged: () => void
 
   return (
     <div className="group flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent/40">
-      <Link href={`/${slug}/pages/${page.id}`} className="flex min-w-0 flex-1 items-center gap-3">
+      <Link href={pageHref(slug, page)} className="flex min-w-0 flex-1 items-center gap-3">
         <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-base">
           {page.icon || "📄"}
         </div>
