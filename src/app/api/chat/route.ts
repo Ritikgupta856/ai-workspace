@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth"
 import { headers, cookies } from "next/headers"
 import { prisma } from "@/lib/prisma"
 import { buildChatContext } from "@/lib/ai/context-builder"
+import { planFor, routeChat } from "@/lib/ai/router"
 import { resolveWorkspaceTools } from "@/lib/integrations"
 import { getWorkspaceReadTools, getWorkspaceWriteTools } from "@/lib/ai/tools/workspace-tools"
 
@@ -24,6 +25,9 @@ export async function POST(req: Request) {
     )
   }
 
+  // Started before the session lookup so the router's model call overlaps it.
+  const routePromise = routeChat(messages)
+
   const session = await auth.api.getSession({
     headers: await headers(),
   })
@@ -33,6 +37,10 @@ export async function POST(req: Request) {
   let cleanupWorkspaceTools: (() => Promise<void>) | undefined
   let workspaceId: string | undefined
   let workspaceName: string | undefined
+
+  const lastUserMessage = [...messages]
+    .reverse()
+    .find((m: { role: string }) => m.role === "user")
 
   if (session?.user) {
     // Mirrors the activeWorkspaceId-cookie pattern used by /api/settings and
@@ -57,15 +65,23 @@ export async function POST(req: Request) {
     if (membership) {
       workspaceId = membership.workspaceId
       workspaceName = membership.workspace?.name
+    }
+  }
 
-      const nativeTools = {
-        ...getWorkspaceReadTools(workspaceId, session.user.id),
-        ...getWorkspaceWriteTools(workspaceId, session.user.id),
-      }
+  const plan = planFor(await routePromise)
+
+  if (session?.user && workspaceId && plan.tools !== "none") {
+    tools = {
+      ...getWorkspaceReadTools(workspaceId, session.user.id),
+      ...(plan.tools === "read-write" ? getWorkspaceWriteTools(workspaceId, session.user.id) : {}),
+    }
+
+    if (plan.integrations === "all" || plan.integrations.length > 0) {
       const result = await resolveWorkspaceTools(workspaceId, {
         userId: session.user.id,
+        only: plan.integrations === "all" ? undefined : plan.integrations,
       })
-      tools = { ...nativeTools, ...result.tools }
+      tools = { ...tools, ...result.tools }
       workspaceSystemPrompt = result.systemPrompt
       cleanupWorkspaceTools = result.cleanup
     }
@@ -75,6 +91,7 @@ export async function POST(req: Request) {
     workspaceSystemPrompt,
     messages,
     workspaceId,
+    retrieve: plan.retrieve,
     viewer: session?.user
       ? { name: session.user.name ?? undefined, workspace: workspaceName }
       : undefined,
@@ -90,9 +107,6 @@ export async function POST(req: Request) {
   // Persistence runs server-side so a closed tab or a navigation mid-stream
   // still leaves a complete exchange in history.
   let activeChatId: string | undefined
-  const lastUserMessage = [...messages]
-    .reverse()
-    .find((m: { role: string }) => m.role === "user")
 
   if (session?.user && workspaceId) {
     if (chatId) {

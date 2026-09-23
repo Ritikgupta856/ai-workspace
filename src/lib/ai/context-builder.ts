@@ -39,6 +39,8 @@ export interface BuildChatContextParams {
   messages: IncomingMessage[]
   workspaceId?: string
   viewer?: { name?: string; workspace?: string }
+  /** Run auto-RAG over the latest user message. Off when the router says the turn doesn't need it. Defaults to true. */
+  retrieve?: boolean
 }
 
 /**
@@ -132,7 +134,7 @@ function buildLegacyDocumentPrompt(
 export async function buildChatContext(
   params: BuildChatContextParams
 ): Promise<BuildChatContextResult> {
-  const { workspaceSystemPrompt, messages, workspaceId, viewer } = params
+  const { workspaceSystemPrompt, messages, workspaceId, viewer, retrieve = true } = params
 
   let documentInstructions: string | undefined
   let knowledge: string | undefined
@@ -233,7 +235,7 @@ export async function buildChatContext(
     }
   }
 
-  if (workspaceId) {
+  if (workspaceId && retrieve) {
     const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")
     if (lastUserMsg?.content.trim()) {
       console.log(

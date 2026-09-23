@@ -8,6 +8,8 @@ type ConnectedClient = Awaited<ReturnType<typeof createMCPClient>>
 
 type WorkspaceToolContext = {
   userId?: string
+  /** Integration ids to connect; omit for every connected integration. */
+  only?: string[]
 }
 
 function toTransportType(transportType: "sse" | "streamable-http") {
@@ -16,42 +18,54 @@ function toTransportType(transportType: "sse" | "streamable-http") {
 
 export async function getMergedToolsForWorkspace(
   workspaceId: string,
-  _context?: WorkspaceToolContext
+  context?: WorkspaceToolContext
 ) {
-  void _context
-
   const merged: ToolSet = {}
   const clients: ConnectedClient[] = []
   const instructions: string[] = []
 
-  for (const integration of INTEGRATIONS) {
-    try {
-      const available = await hasValidConnection(workspaceId, integration.id)
-      if (!available) continue
+  const selected = context?.only
+    ? INTEGRATIONS.filter((integration) => context.only!.includes(integration.id))
+    : INTEGRATIONS
 
-      const token = await getAccessToken(workspaceId, integration.id)
+  // Connect in parallel — sequential handshakes made every chat turn wait for
+  // the sum of all servers' latency before the model could start.
+  const connected = await Promise.all(
+    selected.map(async (integration) => {
+      try {
+        const available = await hasValidConnection(workspaceId, integration.id)
+        if (!available) return null
 
-      const client = await createMCPClient({
-        transport: {
-          type: toTransportType(integration.transportType),
-          url: integration.mcpUrl,
-          headers: {
-            Authorization: `Bearer ${token}`,
+        const token = await getAccessToken(workspaceId, integration.id)
+
+        const client = await createMCPClient({
+          transport: {
+            type: toTransportType(integration.transportType),
+            url: integration.mcpUrl,
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            redirect: "error",
           },
-          redirect: "error",
-        },
-      })
+        })
 
-      clients.push(client)
+        clients.push(client)
 
-      const tools = await client.tools()
-      Object.assign(merged, tools)
-
-      if (client.instructions) {
-        instructions.push(client.instructions)
+        return { tools: await client.tools(), instructions: client.instructions }
+      } catch (error) {
+        console.error(`[integrations] ${integration.id} failed:`, error)
+        return null
       }
-    } catch (error) {
-      console.error(`[integrations] ${integration.id} failed:`, error)
+    })
+  )
+
+  // Merge in config order so tool-name collisions resolve the same way
+  // regardless of which server answered first.
+  for (const result of connected) {
+    if (!result) continue
+    Object.assign(merged, result.tools)
+    if (result.instructions) {
+      instructions.push(result.instructions)
     }
   }
 
