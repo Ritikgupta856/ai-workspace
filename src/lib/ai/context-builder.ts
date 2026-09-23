@@ -149,8 +149,13 @@ export async function buildChatContext(
       const nonImageAttachments = m.attachments.filter(
         (att) => !att.mediaType || !att.mediaType.startsWith("image/")
       )
+      // Older messages may carry a browser-only blob: preview URL, which the
+      // model provider can't download; sending one fails the whole turn.
       const imageAttachments = m.attachments.filter(
-        (att) => att.mediaType && att.mediaType.startsWith("image/")
+        (att) =>
+          att.mediaType &&
+          att.mediaType.startsWith("image/") &&
+          /^(https?:|data:)/.test(att.url ?? "")
       )
 
       if (nonImageAttachments.length > 0) {

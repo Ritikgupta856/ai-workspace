@@ -56,7 +56,6 @@ interface ChatContextValue {
   streamedContent: string
   sendMessage: (text: string, attachments?: Attachment[]) => void
   stopGeneration: () => void
-  retryLast: () => void
   clearMessages: () => void
   /** Persisted history for the header dropdown. */
   chats: ChatSummary[]
@@ -269,16 +268,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     setPhase({ type: "idle" })
   }, [])
 
-  const retryLast = useCallback(() => {
-    const lastAssistant = [...messages]
-      .reverse()
-      .find((m) => m.role === "assistant")
-    if (!lastAssistant) return
-
-    const withoutLast = messages.filter((m) => m.id !== lastAssistant.id)
-    setMessages(withoutLast)
-  }, [messages])
-
   const clearMessages = useCallback(() => {
     setMessages([])
     setPhase({ type: "idle" })
@@ -358,7 +347,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       streamedContent,
       sendMessage,
       stopGeneration,
-      retryLast,
       clearMessages,
       chats,
       chatId,
@@ -378,7 +366,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       streamedContent,
       sendMessage,
       stopGeneration,
-      retryLast,
       clearMessages,
       chats,
       chatId,

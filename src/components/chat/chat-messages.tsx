@@ -1,236 +1,208 @@
 "use client"
 
-import { useEffect, useRef, useCallback, useState, useMemo } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { ArrowDown, Copy, RotateCcw, Trash2 } from "lucide-react"
+import { useEffect, useRef, useCallback, useState } from "react"
+import { motion } from "framer-motion"
+import { ArrowDown, Check, Copy, FileText } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useChatContext, type ChatMessage } from "./chat-provider"
 import { MessageMarkdown } from "./message-markdown"
-import { ThinkingIndicator, TypingCursor } from "./thinking-indicator"
+import { ThinkingIndicator } from "./thinking-indicator"
 import { ToolActivityList } from "./tool-activity"
 
-function UserMessage({ message }: { message: ChatMessage }) {
-  const time = useMemo(() => new Date(message.createdAt).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  }), [message.createdAt])
+/** Hidden until the message is hovered or focused; always shown on touch screens, which can't hover. */
+const REVEAL_ON_HOVER =
+  "opacity-0 transition-opacity duration-150 group-hover/message:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
 
+function CopyAction({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false)
 
   const handleCopy = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(message.content)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), 1500)
     } catch {}
-  }, [message.content])
+  }, [text])
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="flex justify-end"
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+      aria-label={copied ? "Copied" : label}
+      title={copied ? "Copied" : label}
     >
-      <div className="group relative max-w-[80%] md:max-w-[70%]">
-        {message.attachments && message.attachments.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2 justify-end">
-            {message.attachments
-              .filter((a) => a.mediaType?.startsWith("image/"))
-              .slice(0, 4)
-              .map((att) => (
-                <div
-                  key={att.id}
-                  className="size-16 overflow-hidden rounded-lg border"
-                >
-                  <img
-                    src={att.url}
-                    alt={att.filename ?? "Image"}
-                    className="size-full object-cover"
-                  />
-                </div>
-              ))}
-            {message.attachments
-              .filter((a) => !a.mediaType?.startsWith("image/"))
-              .map((att) => (
-                <div
-                  key={att.id}
-                  className="flex items-center gap-2 rounded-lg border bg-muted/50 px-3 py-1.5 text-xs"
-                >
-                  <span className="text-muted-foreground">📄</span>
-                  <span className="truncate max-w-32">{att.filename ?? "File"}</span>
-                </div>
-              ))}
-          </div>
-        )}
-        <div className="rounded-2xl bg-primary px-4 py-2.5 text-primary-foreground">
-          <p className="text-sm leading-7 whitespace-pre-wrap">{message.content}</p>
-        </div>
-        <div className="absolute -bottom-5 right-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span className="text-[10px] text-muted-foreground">{time}</span>
-        </div>
+      {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+    </button>
+  )
+}
 
-        <div className="absolute -top-8 right-0 flex items-center gap-0.5 opacity-0 transition-all group-hover:opacity-100">
-          <button
-            onClick={handleCopy}
-            className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            aria-label="Copy message"
-          >
-            {copied ? <span className="text-[9px] font-medium">OK</span> : <Copy className="size-3" />}
-          </button>
+function UserMessage({ message }: { message: ChatMessage }) {
+  // Older history can hold a blob: preview URL that died with its tab — show those as a file chip.
+  const isViewableImage = (a: { mediaType?: string; url?: string }) =>
+    Boolean(a.mediaType?.startsWith("image/") && /^(https?:|data:)/.test(a.url ?? ""))
+  const images = message.attachments?.filter(isViewableImage) ?? []
+  const files = message.attachments?.filter((a) => !isViewableImage(a)) ?? []
+
+  return (
+    <div className="group/message flex flex-col items-end">
+      {(images.length > 0 || files.length > 0) && (
+        <div className="mb-2 flex max-w-[85%] flex-wrap justify-end gap-2 sm:max-w-[70%]">
+          {images.slice(0, 4).map((att) => (
+            <img
+              key={att.id}
+              src={att.url}
+              alt={att.filename ?? "Image"}
+              className="size-20 rounded-xl border object-cover"
+            />
+          ))}
+          {files.map((att) => (
+            <div
+              key={att.id}
+              className="flex h-9 items-center gap-2 rounded-lg border bg-background px-3 text-[13px]"
+            >
+              <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="max-w-40 truncate">{att.filename ?? "File"}</span>
+            </div>
+          ))}
         </div>
-      </div>
-    </motion.div>
+      )}
+
+      {message.content && (
+        <div className="max-w-[85%] rounded-2xl bg-foreground/[0.06] px-4 py-2.5 text-[15px] leading-7 break-words whitespace-pre-wrap dark:bg-foreground/[0.1] sm:max-w-[70%]">
+          {message.content}
+        </div>
+      )}
+
+      {message.content && (
+        <div className={cn("mt-1 flex items-center", REVEAL_ON_HOVER)}>
+          <CopyAction text={message.content} label="Copy message" />
+        </div>
+      )}
+    </div>
   )
 }
 
 function AssistantMessage({
   message,
   streamedContent,
+  isLatest,
 }: {
   message: ChatMessage
   streamedContent: string
+  isLatest: boolean
 }) {
-  const displayContent = message.isStreaming ? streamedContent : message.content
-  const [copied, setCopied] = useState(false)
+  const content = message.isStreaming ? streamedContent : message.content
 
-  const handleCopy = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(message.content || streamedContent)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch {}
-  }, [message.content, streamedContent])
+  if (!content) {
+    return message.isStreaming ? <ThinkingIndicator /> : null
+  }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
-      className="flex items-start gap-3 group"
-    >
-      <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/10 mt-1">
-        <svg
-          viewBox="0 0 32 32"
-          fill="none"
-          className="size-4 text-primary"
-          aria-hidden="true"
-        >
-          <path d="M16 2C8.268 2 2 8.268 2 16s6.268 14 14 14 14-6.268 14-14S23.732 2 16 2z" fill="currentColor" opacity="0.2" />
-          <path d="M16 6c-5.523 0-10 4.477-10 10s4.477 10 10 10 10-4.477 10-10S21.523 6 16 6z" fill="currentColor" opacity="0.4" />
-          <path d="M16 10c-3.314 0-6 2.686-6 6s2.686 6 6 6 6-2.686 6-6-2.686-6-6-6z" fill="currentColor" />
-        </svg>
-      </div>
-      <div className="min-w-0 flex-1 pt-0.5 relative">
-        {displayContent ? (
-          <div className="text-sm leading-7">
-            <MessageMarkdown content={displayContent} />
-            {message.isStreaming && <TypingCursor />}
-          </div>
-        ) : message.isStreaming ? (
-          <div className="text-sm text-muted-foreground italic">
-            Generating...
-          </div>
-        ) : null}
+    <div className="group/message">
+      <MessageMarkdown content={content} isStreaming={message.isStreaming} />
 
-        {!message.isStreaming && displayContent && (
-          <div className="flex items-center gap-0.5 mt-1 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={handleCopy}
-              className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-              aria-label="Copy response"
-            >
-              {copied ? <span className="text-[9px] font-medium">OK</span> : <Copy className="size-3" />}
-            </button>
-          </div>
-        )}
-      </div>
-    </motion.div>
+      {!message.isStreaming && (
+        // The latest answer keeps its actions visible; older ones reveal on hover.
+        <div className={cn("mt-2 -ml-2 flex items-center", !isLatest && REVEAL_ON_HOVER)}>
+          <CopyAction text={content} label="Copy response" />
+        </div>
+      )}
+    </div>
   )
 }
 
 export function ChatMessages() {
-  const {
-    messages,
-    phase,
-    toolActivities,
-    streamedContent,
-  } = useChatContext()
+  const { messages, phase, toolActivities, streamedContent } = useChatContext()
 
-  const bottomRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [isNearBottom, setIsNearBottom] = useState(true)
+  const nearBottomRef = useRef(true)
+  const [showJump, setShowJump] = useState(false)
 
-  const scrollToBottom = useCallback((smooth = true) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" })
+  const scrollToBottom = useCallback((behavior: ScrollBehavior) => {
+    const el = containerRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior })
   }, [])
 
+  // A new message (the user's own, or the answer starting) always brings the
+  // conversation to the bottom.
   useEffect(() => {
-    if (isNearBottom) {
-      scrollToBottom(phase.type === "streaming")
-    }
-  }, [messages, streamedContent, phase, isNearBottom, scrollToBottom])
+    nearBottomRef.current = true
+    scrollToBottom("smooth")
+  }, [messages.length, scrollToBottom])
+
+  // While text streams in, follow it — unless the reader has scrolled up.
+  // Instant, because smooth-scrolling on every chunk stutters.
+  useEffect(() => {
+    if (nearBottomRef.current) scrollToBottom("auto")
+  }, [streamedContent, scrollToBottom])
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current
     if (!el) return
-    const threshold = 100
-    const near = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
-    setIsNearBottom(near)
+    const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+    nearBottomRef.current = near
+    setShowJump(!near)
   }, [])
 
-  const showThinking =
-    (phase.type === "thinking" || phase.type === "streaming") &&
-    !messages.some((m) => m.isStreaming)
+  const lastAssistantId = [...messages].reverse().find((m) => m.role === "assistant")?.id
+  const waitingForAnswer = phase.type === "thinking" && !messages.some((m) => m.isStreaming)
 
   return (
-    <div
-      ref={containerRef}
-      onScroll={handleScroll}
-      className="relative flex-1 overflow-y-auto"
-      role="log"
-      aria-live="polite"
-    >
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <div key={msg.id}>
+    <div className="relative min-h-0 flex-1">
+      <div
+        ref={containerRef}
+        onScroll={handleScroll}
+        className="h-full overflow-y-auto"
+        role="log"
+        aria-live="polite"
+      >
+        <div className="mx-auto w-full max-w-3xl px-4 pt-8 pb-12 sm:px-6">
+          {messages.map((msg, i) => (
+            <motion.div
+              key={msg.id}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              // A new turn opens with more air than the gap between a question and its answer.
+              className={msg.role === "user" ? (i === 0 ? "" : "pt-8") : "pt-4"}
+            >
               {msg.role === "user" ? (
                 <UserMessage message={msg} />
               ) : (
                 <AssistantMessage
                   message={msg}
                   streamedContent={streamedContent}
+                  isLatest={msg.id === lastAssistantId}
                 />
               )}
-            </div>
+            </motion.div>
           ))}
-        </AnimatePresence>
 
-        {showThinking && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ThinkingIndicator phase={phase.type as "thinking" | "streaming"} />
-          </motion.div>
-        )}
+          {waitingForAnswer && (
+            <div className="pt-4">
+              <ThinkingIndicator />
+            </div>
+          )}
 
-        <ToolActivityList activities={toolActivities} />
+          {phase.type === "error" && (
+            <p className="pt-4 text-[14px] text-destructive" role="alert">
+              {phase.message || "Something went wrong."} Try sending your message again.
+            </p>
+          )}
 
-        <div ref={bottomRef} />
+          <ToolActivityList activities={toolActivities} />
+        </div>
       </div>
 
-      {!isNearBottom && (
+      {showJump && (
         <button
-          onClick={() => scrollToBottom(true)}
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 rounded-full border bg-background px-3 py-1.5 text-xs text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground"
-          aria-label="Scroll to latest"
+          type="button"
+          onClick={() => scrollToBottom("smooth")}
+          className="absolute bottom-3 left-1/2 flex size-8 -translate-x-1/2 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+          aria-label="Scroll to latest message"
         >
-          <ArrowDown className="size-3.5" />
-          Latest
+          <ArrowDown className="size-4" />
         </button>
       )}
     </div>

@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Plus,
   Square,
-  RotateCcw,
   Loader2,
   SendHorizontal,
   ChevronDown,
@@ -23,8 +22,8 @@ import { cn } from "@/lib/utils"
 import { useChatContext } from "./chat-provider"
 import { AGENT_MODELS } from "./models"
 
-// The agent page's accent — warm orange, distinct from the app's indigo primary.
-const ACCENT = "bg-orange-400 text-white hover:bg-orange-500"
+// Send and stop use the app's primary blue.
+const ACCENT = "bg-primary text-primary-foreground hover:bg-primary/90"
 
 /** Pill that switches which model the next turn runs on. */
 function ModelPicker() {
@@ -75,18 +74,14 @@ type AttachmentState = {
 function SendButton({
   isGenerating,
   canSend,
-  showRetry,
   onSend,
   onStop,
-  onRetry,
   rounded,
 }: {
   isGenerating: boolean
   canSend: boolean
-  showRetry: boolean
   onSend: () => void
   onStop: () => void
-  onRetry: () => void
   rounded: "lg" | "full"
 }) {
   const shape = rounded === "full" ? "rounded-full" : "rounded-lg"
@@ -104,19 +99,6 @@ function SendButton({
     )
   }
 
-  if (showRetry) {
-    return (
-      <button
-        onClick={onRetry}
-        className={cn("flex size-8 items-center justify-center transition-colors", ACCENT, shape)}
-        aria-label="Retry"
-        type="button"
-      >
-        <RotateCcw className="size-4" />
-      </button>
-    )
-  }
-
   return (
     <button
       onClick={onSend}
@@ -124,7 +106,7 @@ function SendButton({
       className={cn(
         "flex size-8 items-center justify-center transition-all",
         shape,
-        canSend ? ACCENT : "bg-orange-200/70 text-white dark:bg-orange-500/30"
+        canSend ? ACCENT : "bg-primary/30 text-primary-foreground dark:bg-primary/25"
       )}
       aria-label="Send message"
       type="button"
@@ -139,7 +121,7 @@ function SendButton({
  * same composer can sit in the middle of an empty conversation.
  */
 export function Composer({ variant = "docked" }: { variant?: "docked" | "centered" }) {
-  const { phase, sendMessage, stopGeneration, retryLast, messages } = useChatContext()
+  const { phase, sendMessage, stopGeneration } = useChatContext()
   const isCentered = variant === "centered"
   const [input, setInput] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -148,8 +130,6 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
   const [isDragging, setIsDragging] = useState(false)
 
   const isGenerating = phase.type === "thinking" || phase.type === "streaming"
-  const hasMessages = messages.length > 0
-  const hasError = phase.type === "error"
   const isUploading = attachments.some((a) => a.uploadStatus === "uploading")
   const canSend =
     Boolean(input.trim() || attachments.length > 0) &&
@@ -166,7 +146,9 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
       setAttachments((prev) =>
         prev.map((a) =>
           a.id === localId
-            ? { ...a, uploadStatus: "done" as const, documentId: data.id }
+            ? // Swap the local blob: preview for the hosted URL — the server
+              // (and anyone reopening this chat later) can't read a blob: URL.
+              { ...a, uploadStatus: "done" as const, documentId: data.id, url: data.url ?? a.url }
             : a
         )
       )
@@ -280,7 +262,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
   return (
     <div
       className={cn(
-        !isCentered && "bg-background/80 backdrop-blur-sm",
+        !isCentered && "dark:bg-background/80 backdrop-blur-sm",
         isDragging && "bg-primary/5"
       )}
       onDragOver={handleDragOver}
@@ -397,10 +379,8 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
               <SendButton
                 isGenerating={isGenerating}
                 canSend={canSend}
-                showRetry={hasError || (hasMessages && !canSend)}
                 onSend={handleSubmit}
                 onStop={stopGeneration}
-                onRetry={retryLast}
                 rounded="lg"
               />
             </div>
