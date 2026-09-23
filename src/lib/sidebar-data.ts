@@ -47,7 +47,7 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
     }),
     prisma.task.findMany({
       where: { workspaceId, id: { in: idsByType.get("TASK") ?? [] } },
-      select: { id: true, title: true },
+      select: { id: true, title: true, projectId: true },
     }),
     prisma.note.findMany({
       where: { workspaceId, id: { in: idsByType.get("NOTE") ?? [] } },
@@ -66,12 +66,19 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
   const base = `/${slug}`
   const map = new Map<string, { name: string; href: string; icon: string | null }>()
   for (const p of projects) map.set(`PROJECT:${p.id}`, { name: p.name, href: `${base}/projects/${p.id}`, icon: p.icon })
-  for (const t of tasks) map.set(`TASK:${t.id}`, { name: t.title, href: `${base}/tasks?task=${t.id}`, icon: null })
+  for (const t of tasks)
+    map.set(`TASK:${t.id}`, {
+      name: t.title,
+      // Project-less tasks only surface in My work.
+      href: t.projectId ? `${base}/projects/${t.projectId}/tasks?task=${t.id}` : `${base}/my-work?task=${t.id}`,
+      icon: null,
+    })
   for (const n of notes) map.set(`NOTE:${n.id}`, { name: n.title, href: `${base}/pages/${n.id}`, icon: null })
   for (const w of whiteboards)
     map.set(`WHITEBOARD:${w.id}`, {
       name: w.title,
-      href: w.projectId ? `${base}/projects/${w.projectId}/board/${w.id}` : `${base}/boards/${w.id}`,
+      // Boards only open inside a project; a project-less one has nowhere to open.
+      href: w.projectId ? `${base}/projects/${w.projectId}/board/${w.id}` : `${base}/projects`,
       icon: null,
     })
   for (const pg of pages)

@@ -26,7 +26,7 @@ function SignUpForm() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get("callbackUrl") || "/agent"
+  const callbackUrl = searchParams.get("callbackUrl") || "/"
 
   const handleEmailSignUp = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

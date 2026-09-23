@@ -131,7 +131,7 @@ export default function InviteClient({ token }: { token: string }) {
             </p>
           )}
           <Button
-            onClick={() => router.push(workspaceSlug ? `/${workspaceSlug}/agent` : "/agent")}
+            onClick={() => router.push(workspaceSlug ? `/${workspaceSlug}/agent` : "/")}
             className="w-full h-12 rounded-2xl bg-primary text-sm font-semibold hover:bg-primary/90"
           >
             Go to Dashboard
@@ -181,7 +181,7 @@ export default function InviteClient({ token }: { token: string }) {
             </Button>
           ) : (
             <Button
-              onClick={() => router.push("/agent")}
+              onClick={() => router.push("/")}
               variant="outline"
               className="w-full h-12 rounded-2xl text-sm font-semibold"
             >

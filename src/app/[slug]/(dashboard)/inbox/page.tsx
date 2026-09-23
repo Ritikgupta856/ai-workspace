@@ -169,7 +169,15 @@ function NotificationRow({
 
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
           {notification.taskId && (
-            <RowAction label="Open task" icon={ExternalLink} href={`/${slug}/tasks?task=${notification.taskId}`} />
+            <RowAction
+              label="Open task"
+              icon={ExternalLink}
+              href={
+                notification.task?.projectId
+                  ? `/${slug}/projects/${notification.task.projectId}/tasks?task=${notification.taskId}`
+                  : `/${slug}/my-work?task=${notification.taskId}`
+              }
+            />
           )}
           {canReply && (
             <RowAction label="Reply" icon={Reply} onClick={() => setReplying((v) => !v)} />

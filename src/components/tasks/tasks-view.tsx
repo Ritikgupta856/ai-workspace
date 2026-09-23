@@ -351,7 +351,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
     loadTasks()
   }, [loadTasks])
 
-  // Deep-link support: /tasks?task=<id> opens the detail sheet directly,
+  // Deep-link support: ?task=<id> opens the detail sheet directly,
   // so favorites/notifications links keep working without a full page.
   React.useEffect(() => {
     if (loading || typeof window === "undefined") return

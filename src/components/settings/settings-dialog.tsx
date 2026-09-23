@@ -232,7 +232,7 @@ export function SettingsDialog({
                 onSaved={load}
                 onDeleted={(nextWorkspaceSlug) => {
                   onOpenChange(false)
-                  router.push(nextWorkspaceSlug ? `/${nextWorkspaceSlug}/agent` : "/agent")
+                  router.push(nextWorkspaceSlug ? `/${nextWorkspaceSlug}/agent` : "/")
                   router.refresh()
                 }}
               />
