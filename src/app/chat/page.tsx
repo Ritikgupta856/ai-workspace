@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input"
 
 /** Standalone smoke-test page for the Gemini wiring at /api/chat. */
 export default function ChatPage() {
-  const { messages, sendMessage, status } = useChat()
+  // Fixed id: the default is Math.random()-based, which breaks prerendering
+  // under cacheComponents. /api/chat keys persistence off `chatId`, not this.
+  const { messages, sendMessage, status } = useChat({ id: "chat-smoke-test" })
   const [input, setInput] = useState("")
 
   function handleSubmit(e: React.FormEvent) {
