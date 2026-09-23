@@ -51,3 +51,39 @@ export function isSmallTalk(text: string): boolean {
   }
   return matchedPhrase
 }
+
+/**
+ * Direct edits to the workspace: an action verb up front and the thing it acts
+ * on right after — "create a task for me", "add a project called Mobile",
+ * "please mark the login task as done". These need the write tools, never
+ * retrieval, so they skip the router's model call entirely.
+ *
+ * Deliberately narrow: "open" and "new" are left out ("open tasks" is a status
+ * question), and the object must follow within a few words so "create a
+ * summary of the auth docs" still goes to the model.
+ */
+const ACTION_VERBS = new Set([
+  "create", "add", "make", "assign", "update", "edit", "rename",
+  "move", "mark", "complete", "delete", "remove",
+])
+
+const ACTION_OBJECTS = new Set([
+  "task", "tasks", "todo", "todos", "project", "projects", "page", "pages",
+  "note", "notes", "issue", "issues", "ticket", "tickets", "board", "boards",
+])
+
+const POLITE_PREFIX = new Set(["please", "pls", "plz", "can", "could", "would", "you", "hey", "synapse", "kindly"])
+
+export function isWorkspaceAction(text: string): boolean {
+  const words = text
+    .toLowerCase()
+    .replace(/[^\p{L}\s-]/gu, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+
+  let i = 0
+  while (i < words.length && POLITE_PREFIX.has(words[i])) i++
+
+  if (!ACTION_VERBS.has(words[i])) return false
+  return words.slice(i + 1, i + 5).some((w) => ACTION_OBJECTS.has(w))
+}

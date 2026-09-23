@@ -2,7 +2,7 @@ import { generateText, Output } from "ai"
 import { google } from "@ai-sdk/google"
 import { z } from "zod"
 
-import { isSmallTalk } from "@/lib/ai/intent"
+import { isSmallTalk, isWorkspaceAction } from "@/lib/ai/intent"
 import { INTEGRATIONS } from "@/lib/integrations/config"
 
 /**
@@ -16,7 +16,11 @@ import { INTEGRATIONS } from "@/lib/integrations/config"
  */
 
 const ROUTER_MODEL = "gemini-3.5-flash-lite"
-/** Measured 1.2–2.5s warm, ~2.6s on a cold connection, occasional 13s+ spikes; past this, run everything. */
+/**
+ * Measured 1.2–2.5s warm, ~2.6s on a cold connection, and 11–22s spikes when
+ * the free-tier limit (15 requests/min, shared with the chat model) throttles
+ * it; past this, run everything.
+ */
 const ROUTER_TIMEOUT_MS = 3000
 
 const SOURCES = ["knowledge_base", ...INTEGRATIONS.map((i) => i.id)] as [string, ...string[]]
@@ -74,6 +78,14 @@ export async function routeChat(messages: RouterMessage[]): Promise<ChatRoute | 
     return { intent: "conversation", sources: [] }
   }
 
+  if (isWorkspaceAction(text)) {
+    const sources = INTEGRATIONS.map((i) => i.id).filter((id) => new RegExp(`\\b${id}\\b`, "i").test(text))
+    console.log(
+      `[router] ✍️ action "${text.slice(0, 40)}" — write tools${sources.length ? ` + ${sources.join(", ")}` : ""}, no retrieval`
+    )
+    return { intent: "action", sources }
+  }
+
   const startedAt = Date.now()
   try {
     const { output } = await generateText({
@@ -83,6 +95,8 @@ export async function routeChat(messages: RouterMessage[]): Promise<ChatRoute | 
       output: Output.object({ schema: routeSchema }),
       abortSignal: AbortSignal.timeout(ROUTER_TIMEOUT_MS),
       maxRetries: 0,
+      // Classification needs no reasoning; measured median 2.3s → 1.7s.
+      providerOptions: { google: { thinkingConfig: { thinkingLevel: "minimal" } } },
     })
     console.log(
       `[router] 🧭 intent=${output.intent} sources=[${output.sources.join(", ")}] in ${Date.now() - startedAt}ms`
