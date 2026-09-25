@@ -95,7 +95,6 @@ const flatNavItems: {
 ]
 
 const FAVORITE_ICONS: Record<SidebarFavorite["entityType"], typeof FileText> = {
-  NOTE: FileText,
   PAGE: FileText,
   WHITEBOARD: Frame,
   TASK: CircleCheck,

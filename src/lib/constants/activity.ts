@@ -9,7 +9,6 @@ import {
   Mail,
   MailCheck,
   MailMinus,
-  NotebookPen,
   PenLine,
   PenTool,
   PlugZap,
@@ -105,17 +104,6 @@ export const ACTIVITY_CONFIG: Record<
     label: "Doc",
     className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
     icon: FileUp,
-  },
-  NOTE_CREATED: {
-    label: "Note",
-    className:
-      "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
-    icon: NotebookPen,
-  },
-  NOTE_DELETED: {
-    label: "Note",
-    className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-    icon: Trash2,
   },
   WHITEBOARD_CREATED: {
     label: "Board",

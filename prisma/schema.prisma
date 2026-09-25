@@ -68,7 +68,6 @@ enum SubscriptionStatus {
 
 enum KnowledgeSource {
   DOCUMENT
-  NOTE
   MEETING
   MEMORY
   WHITEBOARD
@@ -79,7 +78,6 @@ enum ContentType {
   ISSUE
   PR
   CODE
-  NOTE
   CHAT
 }
 
@@ -106,7 +104,6 @@ enum DocumentProcessingStatus {
 enum FavoriteEntityType {
   PROJECT
   TASK
-  NOTE
   WHITEBOARD
   PAGE
 }
@@ -133,7 +130,6 @@ model User {
   messages      Message[]
   createdTasks  Task[]            @relation("TaskCreator")
   assignedTasks Task[]            @relation("TaskAssignee")
-  notes         Note[]
   workflowRuns  WorkflowRun[]
   invitesSent   WorkspaceInvite[] @relation("WorkspaceInviter")
   activities    Activity[]
@@ -201,7 +197,6 @@ model Workspace {
   members         WorkspaceMember[]
   projects        Project[]
   tasks           Task[]
-  notes           Note[]
   chats           Chat[]
   integrations    Integration[]
   documents       Document[]
@@ -310,7 +305,6 @@ model Project {
   activities  Activity[]
   whiteboards Whiteboard[]
   members     ProjectMember[]
-  notes       Note[]
   pages       Page[]
 }
 
@@ -342,28 +336,9 @@ model Task {
   notifications Notification[]
 }
 
-model Note {
-  id          String   @id @default(uuid())
-  workspaceId String
-  projectId   String?
-  title       String
-  content     String   @default("")
-  tags        String[]
-  pinned      Boolean  @default(false)
-  authorId    String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  author    User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-
-  @@index([projectId])
-}
-
-// Native Synapse docs (Plane-style Pages). Distinct from Note (lightweight
-// workspace notes) and Document (imported/integrated knowledge) — this is
-// for rich, user-authored documentation, optionally scoped to a project.
+// Native Synapse docs (Plane-style Pages). Distinct from Document
+// (imported/integrated knowledge) — this is for rich, user-authored
+// documentation, optionally scoped to a project.
 model Page {
   id          String   @id @default(uuid())
   workspaceId String
@@ -549,7 +524,7 @@ model ProjectMember {
 }
 
 // Generic bookmark system. entityId points at whatever row the entityType
-// says it does (Project/Task/Note/Whiteboard) — no FK, since a single
+// says it does (Project/Task/Whiteboard/Page) — no FK, since a single
 // polymorphic relation can't target multiple tables in Prisma.
 model Favorite {
   id         String             @id @default(uuid())

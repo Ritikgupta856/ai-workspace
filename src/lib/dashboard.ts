@@ -47,9 +47,9 @@ export async function getDashboardData(userId: string, workspaceId: string) {
     documentCount,
     docsThisWeek,
     docsPrevWeek,
-    noteCount,
-    notesThisWeek,
-    notesPrevWeek,
+    pageCount,
+    pagesThisWeek,
+    pagesPrevWeek,
     completedThisWeek,
     statusGroups,
     myOverdue,
@@ -58,7 +58,6 @@ export async function getDashboardData(userId: string, workspaceId: string) {
     unassignedCount,
     failedDocs,
     activeProjectCount,
-    pinnedNoteCount,
     activeProjects,
     integrations,
     memberCount,
@@ -82,9 +81,9 @@ export async function getDashboardData(userId: string, workspaceId: string) {
       where: { ...scope, createdAt: { gte: twoWeeksAgo, lt: weekAgo } },
     }),
 
-    prisma.note.count({ where: scope }),
-    prisma.note.count({ where: { ...scope, createdAt: { gte: weekAgo } } }),
-    prisma.note.count({
+    prisma.page.count({ where: scope }),
+    prisma.page.count({ where: { ...scope, createdAt: { gte: weekAgo } } }),
+    prisma.page.count({
       where: { ...scope, createdAt: { gte: twoWeeksAgo, lt: weekAgo } },
     }),
 
@@ -145,7 +144,6 @@ export async function getDashboardData(userId: string, workspaceId: string) {
     prisma.project.count({
       where: { ...scope, status: { not: "ARCHIVED" } },
     }),
-    prisma.note.count({ where: { ...scope, pinned: true } }),
 
     prisma.project.findMany({
       where: { ...scope, status: { not: "ARCHIVED" } },
@@ -274,11 +272,9 @@ export async function getDashboardData(userId: string, workspaceId: string) {
         ratio: ratio(documentCount - failedDocs, documentCount),
         ratioLabel: "processed",
       },
-      notes: {
-        value: noteCount,
-        delta: delta(notesThisWeek, notesPrevWeek),
-        ratio: ratio(pinnedNoteCount, noteCount),
-        ratioLabel: "pinned",
+      pages: {
+        value: pageCount,
+        delta: delta(pagesThisWeek, pagesPrevWeek),
       },
     },
 

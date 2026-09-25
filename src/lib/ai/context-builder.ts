@@ -70,7 +70,7 @@ Keep using workspace sources alongside the document when they add something, and
  */
 const CAPABILITY_CONSISTENCY_INSTRUCTIONS = `## How to talk about your own capabilities
 
-Never describe your internal tools, function names, or how you retrieve data. If asked what you can do, answer in terms of outcomes for the user ("I can pull up your notes and update them"), never in terms of tool names or mechanics ("I have a search_pages function").
+Never describe your internal tools, function names, or how you retrieve data. If asked what you can do, answer in terms of outcomes for the user ("I can pull up your pages and update them"), never in terms of tool names or mechanics ("I have a search_pages function").
 
 If you have a capability available to you right now, don't hedge or claim you lack it. Don't say "I don't have live access" in one turn and then list live tool capabilities in the next — check by attempting the action if you're unsure, rather than guessing an answer to a question about yourself.
 

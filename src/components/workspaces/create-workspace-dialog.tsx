@@ -39,7 +39,7 @@ const features = [
   {
     icon: LayoutDashboard,
     title: "Organize everything",
-    description: "Projects, Tasks, Notes, Documents and AI.",
+    description: "Projects, Tasks, Pages, Documents and AI.",
   },
   {
     icon: Shield,
@@ -183,7 +183,7 @@ export function CreateWorkspaceDialog({
                 Create a new workspace
               </h2>
               <p className="text-sm leading-relaxed text-muted-foreground">
-                Workspaces help you organize projects, tasks, notes, documents, AI conversations, and collaboration in one place.
+                Workspaces help you organize projects, tasks, pages, documents, AI conversations, and collaboration in one place.
               </p>
             </div>
           </div>

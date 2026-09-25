@@ -2,20 +2,87 @@
 
 import * as React from "react"
 
-import type { ProjectDetailsData } from "@/components/projects/project-details-header"
-import type { OverviewData } from "@/components/projects/project-overview"
+import type { ProjectTeamMember } from "@/components/projects/project-card"
+import type { ActivityDTO } from "@/lib/activity"
+import type { ProjectStatus } from "@/lib/projects"
+
+/* ── Shape of GET /api/projects/[id]/dashboard ── */
+
+export interface ProjectDetailsData {
+  id: string
+  name: string
+  description: string
+  icon: string
+  status: ProjectStatus
+  progress: number
+  taskCount: number
+  documentCount: number
+  chatCount: number
+  integrationCount: number
+  members: (ProjectTeamMember & { role?: string; online?: boolean })[]
+  createdAt?: string
+  updatedAt: string
+}
+
+export interface StatsData {
+  tasks: { total: number; weeklyChange: number; trend: number[] }
+  documents: { total: number; newThisWeek: number }
+  chats: { total: number; weeklyIncrease: number }
+  integrations: { total: number; connected: number; disconnected: number }
+}
+
+export interface HealthData {
+  activeTasks: number
+  completedThisWeek: number
+  overdueTasks: number
+  unassignedTasks: number
+  documentsUpdated: number
+  score: "excellent" | "good" | "needsAttention" | "atRisk"
+}
+
+export interface DocumentItem {
+  id: string
+  name: string
+  contentType: string
+  updatedAt: string
+}
+
+export interface DeadlineData {
+  id: string
+  taskName: string
+  dueDate: string
+  dueDateLabel: string
+  priority: string
+}
+
+export interface TeamMemberData {
+  id: string
+  name: string
+  email: string
+  image?: string | null
+  role: string
+  online: boolean
+}
+
+export interface IntegrationItemData {
+  id: string
+  name: string
+  type: string
+  status: string
+  connected: boolean
+}
 
 export interface ProjectDashboardResponse {
   success: boolean
   error?: string
   project: ProjectDetailsData
-  stats: OverviewData["stats"]
-  health: OverviewData["health"]
-  recentActivity: OverviewData["recentActivity"]
-  latestDocuments: OverviewData["latestDocuments"]
-  upcomingDeadlines: OverviewData["upcomingDeadlines"]
-  teamMembers: OverviewData["teamMembers"]
-  integrations: OverviewData["integrations"]
+  stats: StatsData
+  health: HealthData
+  recentActivity: ActivityDTO[]
+  latestDocuments: DocumentItem[]
+  upcomingDeadlines: DeadlineData[]
+  teamMembers: TeamMemberData[]
+  integrations: IntegrationItemData[]
 }
 
 interface ProjectDashboardContextValue {

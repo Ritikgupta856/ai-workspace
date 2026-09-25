@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input"
 import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
 import { cn } from "@/lib/utils"
 import { getInitials } from "@/components/projects/project-card"
-import type { TeamMemberData } from "@/components/projects/project-members-sidebar"
+import type { TeamMemberData } from "@/components/projects/project-dashboard-context"
 
 type WorkspaceMemberOption = { userId: string; name: string; avatar: string | null }
 

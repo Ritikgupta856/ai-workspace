@@ -5,7 +5,7 @@ import { requireWorkspace } from "@/lib/api/guards"
 import { listFavorites } from "@/lib/sidebar-data"
 import type { FavoriteEntityType } from "@/generated/prisma/client"
 
-const ENTITY_TYPES: FavoriteEntityType[] = ["PROJECT", "TASK", "NOTE", "WHITEBOARD", "PAGE"]
+const ENTITY_TYPES: FavoriteEntityType[] = ["PROJECT", "TASK", "WHITEBOARD", "PAGE"]
 
 function isEntityType(value: unknown): value is FavoriteEntityType {
   return typeof value === "string" && ENTITY_TYPES.includes(value as FavoriteEntityType)

@@ -490,7 +490,7 @@ function WorkspacePanel({
           <div className="p-4">
             <h3 className="text-sm font-semibold text-destructive">Delete workspace</h3>
             <p className="text-muted-foreground mt-1 text-sm">
-              Permanently removes this workspace and every project, task, note, document and chat
+              Permanently removes this workspace and every project, task, page, document and chat
               inside it. This cannot be undone.
             </p>
           </div>
@@ -522,7 +522,7 @@ function WorkspacePanel({
             <DialogDescription>
               This deletes {workspace.projectCount}{" "}
               {workspace.projectCount === 1 ? "project" : "projects"} and all related tasks,
-              notes, documents and chats. This cannot be undone.
+              pages, documents and chats. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
 

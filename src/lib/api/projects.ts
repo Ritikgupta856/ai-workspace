@@ -65,24 +65,7 @@ export async function deleteProject(id: string): Promise<void> {
   if (!json.success) throw new Error(json.error)
 }
 
-/* ── Pages (notes) & Board (whiteboards), scoped to a project ─── */
-
-export type ProjectNote = {
-  id: string
-  title: string
-  preview: string
-  tags: string[]
-  pinned: boolean
-  author: string
-  updatedAt: string
-}
-
-export async function fetchProjectNotes(projectId: string): Promise<ProjectNote[]> {
-  const json = await get<{ notes: ProjectNote[] }>(
-    `/api/notes?projectId=${projectId}`
-  )
-  return json.notes ?? []
-}
+/* ── Board (whiteboards), scoped to a project ─── */
 
 export type ProjectBoard = {
   id: string

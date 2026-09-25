@@ -20,9 +20,7 @@ import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
 import { formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
 import type { ActivityDTO } from "@/lib/activity"
-import type { HealthData } from "@/components/projects/project-health"
-import type { DocumentItem } from "@/components/projects/latest-documents"
-import type { TeamMemberData } from "@/components/projects/project-members-sidebar"
+import type { DocumentItem, HealthData, TeamMemberData } from "@/components/projects/project-dashboard-context"
 import { getInitials } from "@/components/projects/project-card"
 import { Section, SectionEmpty, sectionRowClass } from "@/components/dashboard/section"
 
@@ -76,7 +74,6 @@ const DOC_ICON: Record<string, { icon: LucideIcon; className: string }> = {
   DOC: { icon: FileText, className: "text-blue-600" },
   ISSUE: { icon: FileCode, className: "text-red-600" },
   PR: { icon: FileCode, className: "text-emerald-600" },
-  NOTE: { icon: FileText, className: "text-violet-600" },
   CHAT: { icon: FileText, className: "text-amber-600" },
   CODE: { icon: FileCode, className: "text-cyan-600" },
 }

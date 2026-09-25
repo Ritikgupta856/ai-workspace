@@ -3,7 +3,6 @@ import { z } from "zod"
 
 import { prisma } from "@/lib/prisma"
 import { formatProject, projectInclude, PROJECT_STATUSES } from "@/lib/projects"
-import { formatNote, noteInclude } from "@/lib/notes"
 import { buildProjectDashboard } from "@/lib/project-dashboard"
 import { getDashboardData } from "@/lib/dashboard"
 import { pageContentToText } from "@/lib/pages"
@@ -200,7 +199,7 @@ export function getWorkspaceReadTools(
 
     get_workspace_overview: tool({
       description:
-        "Get a broad snapshot of the whole workspace: task/project/document/note counts, the current user's overdue and upcoming work, unassigned tasks, and recent activity. Use this for open-ended 'what's going on' questions before doing several separate lookups.",
+        "Get a broad snapshot of the whole workspace: task/project/document/page counts, the current user's overdue and upcoming work, unassigned tasks, and recent activity. Use this for open-ended 'what's going on' questions before doing several separate lookups.",
       inputSchema: z.object({}),
       execute: async () => {
         const data = await getDashboardData(userId, workspaceId)
@@ -217,62 +216,6 @@ export function getWorkspaceReadTools(
           memberCount: data.memberCount,
           recentActivity: data.activity.slice(0, 8).map((a) => ({ description: a.description, user: a.user.name, createdAt: a.createdAt })),
         }
-      },
-    }),
-
-    search_notes: tool({
-      description: "Search this workspace's notes by title/content text, project, or tag.",
-      inputSchema: z.object({
-        query: z.string().optional(),
-        projectId: z.string().optional(),
-        tag: z.string().optional(),
-        limit: z.number().int().min(1).max(30).optional(),
-      }),
-      execute: async ({ query, projectId, tag, limit }) => {
-        const notes = await prisma.note.findMany({
-          where: {
-            workspaceId,
-            ...(projectId && { projectId }),
-            ...(tag && { tags: { has: tag } }),
-            ...(query && {
-              OR: [
-                { title: { contains: query, mode: "insensitive" } },
-                { content: { contains: query, mode: "insensitive" } },
-              ],
-            }),
-          },
-          include: noteInclude,
-          orderBy: { updatedAt: "desc" },
-          take: limit ?? 10,
-        })
-
-        return notes.map((note) => {
-          const formatted = formatNote(note)
-          return {
-            id: formatted.id,
-            title: formatted.title,
-            preview: formatted.preview,
-            tags: formatted.tags,
-            author: formatted.author,
-            pinned: formatted.pinned,
-            projectId: formatted.projectId,
-            updatedAt: formatted.updatedAt,
-          }
-        })
-      },
-    }),
-
-    get_note: tool({
-      description: "Get the full content of one note by id.",
-      inputSchema: z.object({ noteId: z.string() }),
-      execute: async ({ noteId }) => {
-        const note = await prisma.note.findFirst({
-          where: { id: noteId, workspaceId },
-          include: noteInclude,
-        })
-
-        if (!note) return { error: "No note with that id in this workspace." }
-        return formatNote(note)
       },
     }),
 

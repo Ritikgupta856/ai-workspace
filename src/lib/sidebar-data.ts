@@ -40,7 +40,7 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
     idsByType.set(f.entityType, [...(idsByType.get(f.entityType) ?? []), f.entityId])
   }
 
-  const [projects, tasks, notes, whiteboards, pages] = await Promise.all([
+  const [projects, tasks, whiteboards, pages] = await Promise.all([
     prisma.project.findMany({
       where: { workspaceId, id: { in: idsByType.get("PROJECT") ?? [] } },
       select: { id: true, name: true, icon: true },
@@ -48,10 +48,6 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
     prisma.task.findMany({
       where: { workspaceId, id: { in: idsByType.get("TASK") ?? [] } },
       select: { id: true, title: true, projectId: true },
-    }),
-    prisma.note.findMany({
-      where: { workspaceId, id: { in: idsByType.get("NOTE") ?? [] } },
-      select: { id: true, title: true },
     }),
     prisma.whiteboard.findMany({
       where: { workspaceId, id: { in: idsByType.get("WHITEBOARD") ?? [] } },
@@ -73,7 +69,6 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
       href: t.projectId ? `${base}/projects/${t.projectId}/tasks?task=${t.id}` : `${base}/my-work?task=${t.id}`,
       icon: null,
     })
-  for (const n of notes) map.set(`NOTE:${n.id}`, { name: n.title, href: `${base}/pages/${n.id}`, icon: null })
   for (const w of whiteboards)
     map.set(`WHITEBOARD:${w.id}`, {
       name: w.title,

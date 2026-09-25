@@ -8,7 +8,7 @@ import { requestSidebarRefresh } from "@/lib/sidebar-events"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-type FavoriteEntityType = "PROJECT" | "TASK" | "NOTE" | "WHITEBOARD" | "PAGE"
+type FavoriteEntityType = "PROJECT" | "TASK" | "WHITEBOARD" | "PAGE"
 
 export function FavoriteButton({
   entityType,

@@ -324,8 +324,8 @@ export function IntegrationsSkeleton({ count = 6 }: { count?: number }) {
   )
 }
 
-/** A left rail of note titles beside a blank editor pane. */
-export function NotesSkeleton() {
+/** A left rail of page titles beside a blank editor pane. */
+export function PagesSkeleton() {
   return (
     <SkeletonRegion
       label="Loading pages"

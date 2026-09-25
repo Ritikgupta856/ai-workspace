@@ -23,8 +23,6 @@ export type ActivityType =
   | "TASK_DELETED"
   // Content
   | "DOCUMENT_UPLOADED"
-  | "NOTE_CREATED"
-  | "NOTE_DELETED"
   | "WHITEBOARD_CREATED"
   | "PAGE_CREATED"
   | "PAGE_DELETED"
@@ -163,10 +161,6 @@ export function describeActivity(
 
     case "DOCUMENT_UPLOADED":
       return `uploaded ${quoted || "a document"}`
-    case "NOTE_CREATED":
-      return `created note ${quoted}`.trim()
-    case "NOTE_DELETED":
-      return `deleted note ${quoted}`.trim()
     case "WHITEBOARD_CREATED":
       return `created board ${quoted}`.trim()
     case "PAGE_CREATED":

@@ -2,10 +2,10 @@
 
 import {
   CalendarCheck,
+  FileText,
   GitPullRequest,
   ListChecks,
   ShieldAlert,
-  StickyNote,
   type LucideIcon,
 } from "lucide-react"
 
@@ -16,7 +16,7 @@ const STARTER_PROMPTS: { label: string; prompt: string; icon: LucideIcon }[] = [
   { label: "Summarise this week", prompt: "Summarize what shipped this week", icon: CalendarCheck },
   { label: "Review my latest PR", prompt: "Review the code in my latest pull request", icon: GitPullRequest },
   { label: "What's blocking the sprint?", prompt: "What's blocking the current sprint?", icon: ShieldAlert },
-  { label: "Note → tasks", prompt: "Turn my latest note into tasks", icon: StickyNote },
+  { label: "Page → tasks", prompt: "Turn my latest page into tasks", icon: FileText },
   { label: "Plan my day", prompt: "Plan my day from my open tasks and deadlines", icon: ListChecks },
 ]
 

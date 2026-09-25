@@ -35,7 +35,7 @@ type ProjectRow = {
   icon: string | null
   createdAt: Date
   updatedAt: Date
-  _count: { tasks: number; documents: number; chats: number; notes: number; whiteboards: number; pages: number }
+  _count: { tasks: number; documents: number; chats: number; whiteboards: number; pages: number }
 }
 
 type MemberSummary = {
@@ -65,7 +65,6 @@ export function formatProject(
     doneTaskCount: extras.doneTasks,
     documentCount: project._count.documents,
     chatCount: project._count.chats,
-    noteCount: project._count.notes,
     pageCount: project._count.pages,
     whiteboardCount: project._count.whiteboards,
     integrationCount: extras.integrationCount,
@@ -77,5 +76,5 @@ export function formatProject(
 
 /** The `include` every project query needs to satisfy `formatProject`. */
 export const projectInclude = {
-  _count: { select: { tasks: true, documents: true, chats: true, notes: true, whiteboards: true, pages: true } },
+  _count: { select: { tasks: true, documents: true, chats: true, whiteboards: true, pages: true } },
 } as const

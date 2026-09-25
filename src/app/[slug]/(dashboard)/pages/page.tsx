@@ -3,7 +3,7 @@
 import * as React from "react"
 
 import { PageHeader } from "@/components/dashboard/page-header"
-import { NotesSkeleton } from "@/components/dashboard/loading-states"
+import { PagesSkeleton } from "@/components/dashboard/loading-states"
 import { PagesList, NewPageButton } from "@/components/pages/pages-list"
 import { fetchPages, type PageSummary } from "@/lib/api/page"
 
@@ -31,7 +31,7 @@ export default function PagesListPage() {
 
       <div className="flex flex-1 flex-col gap-4 p-6">
         {loading ? (
-          <NotesSkeleton />
+          <PagesSkeleton />
         ) : error ? (
           <div className="flex items-center justify-center py-20 text-sm text-destructive">{error}</div>
         ) : (
