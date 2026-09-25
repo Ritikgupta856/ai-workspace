@@ -55,6 +55,8 @@ interface ChatContextValue {
   toolActivities: ToolActivity[]
   streamedContent: string
   sendMessage: (text: string, attachments?: Attachment[]) => void
+  /** Resends the last question, e.g. after the model was too busy to answer it. */
+  retryLastMessage: () => void
   stopGeneration: () => void
   clearMessages: () => void
   /** Persisted history for the header dropdown. */
@@ -72,6 +74,9 @@ interface ChatContextValue {
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
+
+/** A failure /api/chat already put into words fit to show in the chat. */
+class ChatRequestError extends Error {}
 
 export const useChatContext = () => {
   const ctx = useContext(ChatContext)
@@ -149,19 +154,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  const sendMessage = useCallback(
-    async (text: string, attachments?: Attachment[]) => {
-      if (!text.trim() && !attachments?.length) return
-
-      const userMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: text.trim(),
-        createdAt: new Date(),
-        attachments,
-      }
-
-      setMessages((prev) => [...prev, userMessage])
+  // One question/answer round trip. `previous` is the conversation before the
+  // question, so a retry can resend a failed question without repeating it.
+  const runTurn = useCallback(
+    async (userMessage: ChatMessage, previous: ChatMessage[]) => {
+      setMessages([...previous, userMessage])
       setPhase({ type: "thinking" })
       setStreamedContent("")
       setToolActivities([])
@@ -170,7 +167,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       abortRef.current = controller
 
       try {
-        const history = [...messages, userMessage]
+        const history = [...previous, userMessage]
 
         const response = await fetch("/api/chat", {
           method: "POST",
@@ -185,7 +182,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         })
 
         if (!response.ok) {
-          throw new Error(`Request failed with status ${response.status}`)
+          const body = (await response.json().catch(() => null)) as { error?: string } | null
+          throw new ChatRequestError(
+            body?.error ?? "Something went wrong while generating a response. Please try again."
+          )
         }
 
         // The server creates the chat on the first turn and reports its id here.
@@ -252,13 +252,46 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         refreshChats()
       } catch (err) {
         if ((err as Error).name === "AbortError") return
-        setPhase({ type: "error", message: (err as Error).message })
+        setPhase({
+          type: "error",
+          message:
+            err instanceof ChatRequestError
+              ? err.message
+              : "Couldn't reach Synapse. Check your connection and try again.",
+        })
       } finally {
         abortRef.current = null
       }
     },
-    [messages, refreshChats, model]
+    [refreshChats, model]
   )
+
+  const sendMessage = useCallback(
+    (text: string, attachments?: Attachment[]) => {
+      if (!text.trim() && !attachments?.length) return
+
+      void runTurn(
+        {
+          id: crypto.randomUUID(),
+          role: "user",
+          content: text.trim(),
+          createdAt: new Date(),
+          attachments,
+        },
+        messages
+      )
+    },
+    [messages, runTurn]
+  )
+
+  const retryLastMessage = useCallback(() => {
+    const index = messages.findLastIndex((m) => m.role === "user")
+    if (index === -1) return
+    void runTurn(
+      { ...messages[index], id: crypto.randomUUID(), createdAt: new Date() },
+      messages.slice(0, index)
+    )
+  }, [messages, runTurn])
 
   const stopGeneration = useCallback(() => {
     abortRef.current?.abort()
@@ -346,6 +379,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       toolActivities,
       streamedContent,
       sendMessage,
+      retryLastMessage,
       stopGeneration,
       clearMessages,
       chats,
@@ -365,6 +399,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       toolActivities,
       streamedContent,
       sendMessage,
+      retryLastMessage,
       stopGeneration,
       clearMessages,
       chats,

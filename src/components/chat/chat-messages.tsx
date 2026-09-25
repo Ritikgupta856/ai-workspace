@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useCallback, useState } from "react"
 import { motion } from "framer-motion"
-import { ArrowDown, Check, Copy, FileText } from "lucide-react"
+import { ArrowDown, Check, CircleAlert, Copy, FileText, RotateCw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useChatContext, type ChatMessage } from "./chat-provider"
 import { MessageMarkdown } from "./message-markdown"
@@ -113,7 +114,7 @@ function AssistantMessage({
 }
 
 export function ChatMessages() {
-  const { messages, phase, toolActivities, streamedContent } = useChatContext()
+  const { messages, phase, toolActivities, streamedContent, retryLastMessage } = useChatContext()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const nearBottomRef = useRef(true)
@@ -186,9 +187,27 @@ export function ChatMessages() {
           )}
 
           {phase.type === "error" && (
-            <p className="pt-4 text-[14px] text-destructive" role="alert">
-              {phase.message || "Something went wrong."} Try sending your message again.
-            </p>
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3"
+            >
+              <CircleAlert className="mt-0.5 size-4 shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] font-medium text-foreground">Couldn&apos;t get a response</p>
+                <p className="mt-0.5 text-[13px] text-muted-foreground">
+                  {phase.message || "Something went wrong. Please try again."}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={retryLastMessage}
+                className="h-7 shrink-0 gap-1.5 px-2.5 text-[13px]"
+              >
+                <RotateCw className="size-3.5" />
+                Retry
+              </Button>
+            </div>
           )}
 
           <ToolActivityList activities={toolActivities} />

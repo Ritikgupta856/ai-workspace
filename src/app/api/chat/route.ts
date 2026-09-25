@@ -7,6 +7,7 @@ import { buildChatContext } from "@/lib/ai/context-builder"
 import { planFor, routeChat } from "@/lib/ai/router"
 import { resolveWorkspaceTools } from "@/lib/integrations"
 import { getWorkspaceReadTools, getWorkspaceWriteTools } from "@/lib/ai/tools/workspace-tools"
+import { describeModelError, INTERRUPTED_NOTE, NO_OUTPUT_ERROR } from "@/lib/ai/model-errors"
 
 /** First line of the opening question, used as the chat's title until renamed. */
 function deriveTitle(text: string) {
@@ -37,6 +38,13 @@ export async function POST(req: Request) {
   let cleanupWorkspaceTools: (() => Promise<void>) | undefined
   let workspaceId: string | undefined
   let workspaceName: string | undefined
+
+  // Integration (MCP) connections must close whether the turn succeeds or fails.
+  async function releaseTools() {
+    const cleanup = cleanupWorkspaceTools
+    cleanupWorkspaceTools = undefined
+    if (cleanup) await cleanup()
+  }
 
   const lastUserMessage = [...messages]
     .reverse()
@@ -98,15 +106,29 @@ export async function POST(req: Request) {
   })
 
   if (context.type === "skip") {
-    if (cleanupWorkspaceTools) {
-      await cleanupWorkspaceTools()
-    }
+    await releaseTools()
     return Response.json({ message: context.message })
   }
 
   // Persistence runs server-side so a closed tab or a navigation mid-stream
   // still leaves a complete exchange in history.
   let activeChatId: string | undefined
+  let createdChatId: string | undefined
+  let savedUserMessageId: string | undefined
+
+  // A turn the model never answered is not kept: the client shows the error
+  // and offers a retry, which would otherwise store the question twice.
+  async function discardTurn() {
+    try {
+      if (createdChatId) {
+        await prisma.chat.delete({ where: { id: createdChatId } })
+      } else if (savedUserMessageId) {
+        await prisma.message.delete({ where: { id: savedUserMessageId } })
+      }
+    } catch (err) {
+      console.error("[chat] failed to discard unanswered turn:", err)
+    }
+  }
 
   if (session?.user && workspaceId) {
     if (chatId) {
@@ -127,10 +149,11 @@ export async function POST(req: Request) {
         select: { id: true },
       })
       activeChatId = created.id
+      createdChatId = created.id
     }
 
     if (lastUserMessage?.content?.trim()) {
-      await prisma.message.create({
+      const saved = await prisma.message.create({
         data: {
           chatId: activeChatId,
           userId: session.user.id,
@@ -138,7 +161,9 @@ export async function POST(req: Request) {
           content: lastUserMessage.content,
           attachments: lastUserMessage.attachments ?? undefined,
         },
+        select: { id: true },
       })
+      savedUserMessageId = saved.id
     }
   }
 
@@ -164,15 +189,67 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error("[chat] failed to persist assistant message:", err)
       } finally {
-        if (cleanupWorkspaceTools) {
-          await cleanupWorkspaceTools()
-          cleanupWorkspaceTools = undefined
-        }
+        await releaseTools()
       }
     },
   })
 
-  return result.toTextStreamResponse({
-    headers: activeChatId ? { "X-Chat-Id": activeChatId } : undefined,
+  // Hold the response until the model either starts writing or fails. A plain
+  // text stream is already a 200 by the time the provider answers, so a
+  // failure there (overloaded model, rate limit) used to reach the client as
+  // an empty reply; caught here it becomes a real error the chat can explain.
+  const parts = result.fullStream[Symbol.asyncIterator]()
+  let firstText = ""
+
+  try {
+    while (!firstText) {
+      const { value: part, done } = await parts.next()
+      if (done) break
+      if (part.type === "error") throw part.error
+      if (part.type === "text-delta") firstText = part.text
+    }
+  } catch (err) {
+    console.error("[chat] model call failed:", err)
+    await Promise.all([releaseTools(), discardTurn()])
+    const { status, body } = describeModelError(err)
+    return Response.json(body, { status })
+  }
+
+  if (!firstText) {
+    await Promise.all([releaseTools(), discardTurn()])
+    return Response.json(NO_OUTPUT_ERROR, { status: 502 })
+  }
+
+  const encoder = new TextEncoder()
+  const body = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(encoder.encode(firstText))
+    },
+    async pull(controller) {
+      try {
+        for (;;) {
+          const { value: part, done } = await parts.next()
+          if (done) return controller.close()
+          if (part.type === "text-delta") return controller.enqueue(encoder.encode(part.text))
+          if (part.type === "error") throw part.error
+        }
+      } catch (err) {
+        // Text has already been sent, so the status can't change; say so in the answer itself.
+        console.error("[chat] model stream failed mid-answer:", err)
+        await releaseTools()
+        controller.enqueue(encoder.encode(`\n\n${INTERRUPTED_NOTE}`))
+        controller.close()
+      }
+    },
+    async cancel() {
+      await parts.return?.()
+    },
+  })
+
+  return new Response(body, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      ...(activeChatId ? { "X-Chat-Id": activeChatId } : {}),
+    },
   })
 }
