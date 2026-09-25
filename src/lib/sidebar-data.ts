@@ -79,7 +79,7 @@ export async function listFavorites(userId: string, workspaceId: string, slug: s
   for (const pg of pages)
     map.set(`PAGE:${pg.id}`, {
       name: pg.title,
-      href: pg.projectId ? `${base}/projects/${pg.projectId}/pages/${pg.id}` : `${base}/pages/${pg.id}`,
+      href: `${base}/projects/${pg.projectId}/pages/${pg.id}`,
       icon: pg.icon,
     })
 

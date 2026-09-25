@@ -4,6 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
+  Bot,
   Inbox,
   CircleCheck,
   ChevronsUpDown,
@@ -82,14 +83,14 @@ export interface AppSidebarProps {
   slug: string
 }
 
-/** Places you return to — never individual records. Agent leads, drawn as the brand square. */
+/** Places you return to — never individual records. */
 const flatNavItems: {
   title: string
   url: string
-  icon: LucideIcon | null
+  icon: LucideIcon
   badgeKey: "inbox" | null
 }[] = [
-  { title: "Agent", url: "/agent", icon: null, badgeKey: null },
+  { title: "Agent", url: "/agent", icon: Bot, badgeKey: null },
   { title: "Inbox", url: "/inbox", icon: Inbox, badgeKey: "inbox" },
   { title: "My work", url: "/my-work", icon: CircleCheck, badgeKey: null },
 ]
@@ -289,14 +290,13 @@ export function AppSidebar({
       className="[&_[data-sidebar=sidebar]]:bg-sidebar border-r border-border"
       {...props}
     >
-      {/* ── Header: workspace switcher + collapse toggle (48px) ── */}
-      <SidebarHeader className="h-12 flex-row items-center gap-1 p-2 group-data-[collapsible=icon]:h-auto group-data-[collapsible=icon]:flex-col">
+      {/* ── Header: workspace switcher + collapse toggle (48px); collapsed, the toggle takes the switcher's place ── */}
+      <SidebarHeader className="h-12 flex-row items-center gap-1 p-2">
         {activeTeam && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton
-                tooltip={activeTeam.name}
-                className="h-8 min-w-0 flex-1 gap-2 rounded-md p-2 data-[state=open]:bg-accent"
+                className="h-8 min-w-0 flex-1 gap-2 rounded-md p-2 data-[state=open]:bg-accent group-data-[collapsible=icon]:hidden"
               >
                 <span
                   className={cn("size-4 shrink-0 rounded bg-gradient-to-tr", workspaceGradient(activeTeam.id))}
@@ -407,11 +407,7 @@ export function AppSidebar({
                       onMouseEnter={() => prefetchRoute(href)}
                       onFocus={() => prefetchRoute(href)}
                     >
-                      {item.icon ? (
-                        <item.icon />
-                      ) : (
-                        <span className="size-4 shrink-0 rounded-sm bg-gradient-to-tr from-blue-500 to-purple-500" />
-                      )}
+                      <item.icon />
                       <span className="min-w-0 flex-1 truncate">{item.title}</span>
                     </Link>
                   </SidebarMenuButton>

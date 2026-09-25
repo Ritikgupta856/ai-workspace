@@ -35,7 +35,6 @@ const navigationItems = [
   { title: "My Work", subtitle: "Tasks assigned to you", url: "/my-work", icon: ListChecks },
   { title: "Agent", subtitle: "Ask the agent about your workspace", url: "/agent", icon: Bot },
   { title: "Projects", subtitle: "Every project in this workspace", url: "/projects", icon: FolderOpen },
-  { title: "Pages", subtitle: "Docs and notes", url: "/pages", icon: NotesIcon },
   { title: "Integrations", subtitle: "Connect GitHub, Linear, Notion…", url: "?settings=integrations", icon: Puzzle },
   { title: "Members", subtitle: "Workspace members and roles", url: "?settings=members", icon: Users },
 ]

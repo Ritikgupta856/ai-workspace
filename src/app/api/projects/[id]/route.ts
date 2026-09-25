@@ -240,7 +240,26 @@ export async function DELETE(
       )
     }
 
-    await prisma.project.delete({ where: { id } })
+    // The database cascade removes the project's tasks, pages, boards, chats and
+    // documents. Knowledge chunks and favorites have no foreign key to what they
+    // point at, so they are cleared here in the same transaction.
+    const [documents, tasks, pages, boards] = await Promise.all([
+      prisma.document.findMany({ where: { projectId: id }, select: { id: true } }),
+      prisma.task.findMany({ where: { projectId: id }, select: { id: true } }),
+      prisma.page.findMany({ where: { projectId: id }, select: { id: true } }),
+      prisma.whiteboard.findMany({ where: { projectId: id }, select: { id: true } }),
+    ])
+    const ids = (rows: { id: string }[]) => rows.map((row) => row.id)
+
+    await prisma.$transaction([
+      prisma.knowledgeChunk.deleteMany({
+        where: { sourceType: "DOCUMENT", sourceId: { in: ids(documents) } },
+      }),
+      prisma.favorite.deleteMany({
+        where: { entityId: { in: [id, ...ids(tasks), ...ids(pages), ...ids(boards)] } },
+      }),
+      prisma.project.delete({ where: { id } }),
+    ])
 
     // Deliberately not scoped to projectId — the project row is gone, and the
     // cascade would take the activity row with it.

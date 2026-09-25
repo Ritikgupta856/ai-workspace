@@ -53,7 +53,7 @@
   --sidebar-ring: oklch(0.6 0.18 260);
 
   --font-sans: "Inter", sans-serif;
-  --font-serif: var(--font-instrument-serif), "Merriweather", Georgia, serif;
+  --font-serif: "Merriweather", Georgia, serif;
   --font-mono: "Fira Code", monospace;
 
   --radius: 0.5rem;

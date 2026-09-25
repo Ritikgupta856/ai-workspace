@@ -8,7 +8,7 @@ import {
   Loader,
   CircleCheck,
   Calendar,
-  List,
+  FolderKanban,
   Layers,
   MessageSquare,
   MoreHorizontal,
@@ -104,7 +104,7 @@ function initials(name: string) {
 
 /* ── Cells ──────────────────────────────────────────────────── */
 
-function AssigneeAvatar({ task }: { task: Task }) {
+export function AssigneeAvatar({ task }: { task: Task }) {
   const unassigned = !task.assigneeId || task.assignee === "Unassigned"
   if (unassigned) {
     return (
@@ -131,15 +131,36 @@ function AssigneeAvatar({ task }: { task: Task }) {
   )
 }
 
-// Shared column template so the header and every row line up. List and Due
-// date collapse below md; Priority and Assignee always stay.
-const ROW_GRID = cn(
-  "grid items-center px-4",
-  "grid-cols-[minmax(0,1fr)_88px_36px]",
-  "md:grid-cols-[minmax(0,1fr)_104px_136px_150px_64px]",
-  "xl:grid-cols-[minmax(0,1fr)_140px_160px_190px_76px]",
-  "2xl:grid-cols-[minmax(0,1fr)_170px_190px_220px_84px]"
-)
+/**
+ * Where the list is shown. `project`: a project's own tasks, so the Project
+ * column is dropped. `personal`: My work, where every task is the viewer's
+ * own, so Assignee is dropped.
+ */
+export type TaskListVariant = "default" | "project" | "personal"
+
+// Shared column templates so the header and every row line up. Project and Due
+// date collapse below md; Priority always stays.
+const ROW_GRIDS: Record<TaskListVariant, string> = {
+  default: cn(
+    "grid items-center gap-x-4 px-4 xl:gap-x-6",
+    "grid-cols-[minmax(0,1fr)_88px_36px]",
+    "md:grid-cols-[minmax(0,1fr)_96px_160px_140px_64px]",
+    "xl:grid-cols-[minmax(0,1fr)_112px_200px_160px_76px]"
+  ),
+  project: cn(
+    "grid items-center gap-x-4 px-4 xl:gap-x-6",
+    "grid-cols-[minmax(0,1fr)_88px_36px]",
+    "md:grid-cols-[minmax(0,1fr)_96px_140px_64px]",
+    "xl:grid-cols-[minmax(0,1fr)_112px_160px_76px]"
+  ),
+  personal: cn(
+    "grid items-center gap-x-4 px-4 xl:gap-x-6",
+    "grid-cols-[minmax(0,1fr)_88px]",
+    "md:grid-cols-[minmax(0,1fr)_96px_180px_140px]",
+    "xl:grid-cols-[minmax(0,1fr)_112px_240px_170px]",
+    "2xl:grid-cols-[minmax(0,1fr)_120px_280px_180px]"
+  ),
+}
 
 function Col({
   children,
@@ -162,16 +183,16 @@ function Col({
   )
 }
 
-function ColumnHeader({ sortedByDue }: { sortedByDue: boolean }) {
+function ColumnHeader({ sortedByDue, variant }: { sortedByDue: boolean; variant: TaskListVariant }) {
   return (
-    <div className={cn(ROW_GRID, "h-8")}>
+    <div className={cn(ROW_GRIDS[variant], "mt-1 h-8")}>
       <Col>Name</Col>
       <Col>Priority</Col>
-      <Col className="hidden md:inline-flex">List</Col>
+      {variant !== "project" && <Col className="hidden md:inline-flex">Project</Col>}
       <Col sortIcon={sortedByDue} className="hidden md:inline-flex">
         Due date
       </Col>
-      <Col className="justify-end">Assignee</Col>
+      {variant !== "personal" && <Col className="justify-end">Assignee</Col>}
     </div>
   )
 }
@@ -179,13 +200,14 @@ function ColumnHeader({ sortedByDue }: { sortedByDue: boolean }) {
 interface TaskRowProps {
   task: Task
   selected: boolean
+  variant: TaskListVariant
   onOpen: (task: Task) => void
   onEdit: (task: Task) => void
   onDuplicate: (id: string) => void
   onDelete: (id: string) => void
 }
 
-function TaskRow({ task, selected, onOpen, onEdit, onDuplicate, onDelete }: TaskRowProps) {
+function TaskRow({ task, selected, variant, onOpen, onEdit, onDuplicate, onDelete }: TaskRowProps) {
   const priority = PRIORITY_PILL[task.priority]
   return (
     <div
@@ -200,14 +222,14 @@ function TaskRow({ task, selected, onOpen, onEdit, onDuplicate, onDelete }: Task
         }
       }}
       className={cn(
-        ROW_GRID,
+        ROW_GRIDS[variant],
         "group h-11 cursor-pointer rounded-lg border border-transparent transition-colors",
         "hover:border-border hover:bg-muted/40",
         selected && "border-border bg-muted/40"
       )}
     >
       {/* Name: key · title · subtask/comment counts · row menu (hover) */}
-      <div className="flex min-w-0 items-center gap-2 pr-3">
+      <div className="flex min-w-0 items-center gap-2">
         <span className="w-18 shrink-0 font-mono text-xs tracking-wide text-muted-foreground">
           {taskKey(task)}
         </span>
@@ -245,16 +267,13 @@ function TaskRow({ task, selected, onOpen, onEdit, onDuplicate, onDelete }: Task
             onView={() => onOpen(task)}
             onEdit={() => onEdit(task)}
             onDuplicate={onDuplicate}
-            onMove={() => {}}
-            onAddToBacklog={() => {}}
-            onArchive={() => {}}
             onDelete={onDelete}
           />
         </span>
       </div>
 
       {/* Priority pill */}
-      <div>
+      <div className="flex items-center">
         <span
           className={cn(
             "inline-flex h-4.5 items-center rounded px-1.5 text-[11px] font-medium leading-none",
@@ -265,13 +284,14 @@ function TaskRow({ task, selected, onOpen, onEdit, onDuplicate, onDelete }: Task
         </span>
       </div>
 
-      {/* List (project) */}
-      <div className="hidden min-w-0 items-center gap-1.5 text-[13px] text-foreground md:flex">
-        <List className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className={cn("truncate", !task.project && "text-muted-foreground")}>
-          {task.project ?? "No list"}
-        </span>
-      </div>
+      {variant !== "project" && (
+        <div className="hidden min-w-0 items-center gap-1.5 text-[13px] text-foreground md:flex">
+          <FolderKanban className="size-3.5 shrink-0 text-muted-foreground" />
+          <span className={cn("truncate", !task.project && "text-muted-foreground")}>
+            {task.project ?? "No project"}
+          </span>
+        </div>
+      )}
 
       {/* Due date */}
       <div className="hidden items-center gap-1.5 text-[13px] md:flex">
@@ -285,10 +305,11 @@ function TaskRow({ task, selected, onOpen, onEdit, onDuplicate, onDelete }: Task
         )}
       </div>
 
-      {/* Assignee */}
-      <div className="flex items-center justify-end">
-        <AssigneeAvatar task={task} />
-      </div>
+      {variant !== "personal" && (
+        <div className="flex items-center justify-end">
+          <AssigneeAvatar task={task} />
+        </div>
+      )}
     </div>
   )
 }
@@ -349,6 +370,7 @@ export interface TaskGroupedListProps {
   /** Highlights the row whose task is open in the detail sheet. */
   selectedId?: string | null
   sortedByDue?: boolean
+  variant?: TaskListVariant
   onOpen: (task: Task) => void
   onEdit: (task: Task) => void
   onDuplicate: (id: string) => void
@@ -360,6 +382,7 @@ export function TaskGroupedList({
   groups,
   selectedId,
   sortedByDue = true,
+  variant = "default",
   onOpen,
   onEdit,
   onDuplicate,
@@ -377,7 +400,7 @@ export function TaskGroupedList({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-6">
       {groups.map((group) => {
         const Icon = group.icon
         return (
@@ -399,18 +422,20 @@ export function TaskGroupedList({
                 >
                   <MoreHorizontal className="size-3.5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={() => onAddToGroup?.(group.status)}
-                  className="flex size-6 items-center justify-center rounded-md transition-colors hover:bg-background/80 hover:text-foreground"
-                  aria-label={`Add task to ${group.label}`}
-                >
-                  <CirclePlus className="size-3.5" />
-                </button>
+                {onAddToGroup && (
+                  <button
+                    type="button"
+                    onClick={() => onAddToGroup(group.status)}
+                    className="flex size-6 items-center justify-center rounded-md transition-colors hover:bg-background/80 hover:text-foreground"
+                    aria-label={`Add task to ${group.label}`}
+                  >
+                    <CirclePlus className="size-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
-            <ColumnHeader sortedByDue={sortedByDue} />
+            <ColumnHeader sortedByDue={sortedByDue} variant={variant} />
 
             <div className="flex flex-col">
               {group.tasks.map((task) => (
@@ -418,16 +443,17 @@ export function TaskGroupedList({
                   key={task.id}
                   task={task}
                   selected={task.id === selectedId}
+                  variant={variant}
                   onOpen={onOpen}
                   onEdit={onEdit}
                   onDuplicate={onDuplicate}
                   onDelete={onDelete}
                 />
               ))}
-              {group.tasks.length === 0 && (
+              {group.tasks.length === 0 && onAddToGroup && (
                 <button
                   type="button"
-                  onClick={() => onAddToGroup?.(group.status)}
+                  onClick={() => onAddToGroup(group.status)}
                   className="flex h-9 items-center gap-2 rounded-lg px-4 text-[13px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
                 >
                   <Plus className="size-3.5" />

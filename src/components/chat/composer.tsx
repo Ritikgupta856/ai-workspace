@@ -1,15 +1,15 @@
 "use client"
 
-import { useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
+import { useEffect, useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Plus,
   Square,
-  Loader2,
   SendHorizontal,
   ChevronDown,
   Check,
 } from "lucide-react"
+import type { FileUIPart } from "ai"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  AttachmentRemove,
+  Attachments,
+} from "@/components/ai-elements/attachments"
 import { SpeechInput } from "@/components/ai-elements/speech-input"
 import { cn } from "@/lib/utils"
 import { useChatContext } from "./chat-provider"
@@ -24,6 +31,41 @@ import { AGENT_MODELS } from "./models"
 
 // Send and stop use the app's primary blue.
 const ACCENT = "bg-primary text-primary-foreground hover:bg-primary/90"
+
+const EXAMPLE_PROMPTS = [
+  "Summarise what shipped this week and flag anything at risk…",
+  "What's blocking the current sprint?",
+  "Plan my day from my open tasks and deadlines…",
+  "Turn my latest page into tasks…",
+  "Review the code in my latest pull request…",
+]
+
+/** Stands in for the textarea placeholder on an empty conversation, cycling through examples. */
+function RotatingPlaceholder() {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => setIndex((i) => (i + 1) % EXAMPLE_PROMPTS.length), 3500)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 text-[15px] leading-6 text-muted-foreground/60">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.span
+          key={index}
+          className="block truncate"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.25, ease: "easeOut" }}
+        >
+          {EXAMPLE_PROMPTS[index]}
+        </motion.span>
+      </AnimatePresence>
+    </div>
+  )
+}
 
 /** Pill that switches which model the next turn runs on. */
 function ModelPicker() {
@@ -68,7 +110,6 @@ type AttachmentState = {
   mediaType: string
   url: string
   uploadStatus: "uploading" | "done" | "error"
-  documentId?: string
 }
 
 function SendButton({
@@ -121,7 +162,7 @@ function SendButton({
  * same composer can sit in the middle of an empty conversation.
  */
 export function Composer({ variant = "docked" }: { variant?: "docked" | "centered" }) {
-  const { phase, sendMessage, stopGeneration } = useChatContext()
+  const { status, sendMessage, stop } = useChatContext()
   const isCentered = variant === "centered"
   const [input, setInput] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -129,7 +170,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
   const [attachments, setAttachments] = useState<AttachmentState[]>([])
   const [isDragging, setIsDragging] = useState(false)
 
-  const isGenerating = phase.type === "thinking" || phase.type === "streaming"
+  const isGenerating = status === "submitted" || status === "streaming"
   const isUploading = attachments.some((a) => a.uploadStatus === "uploading")
   const canSend =
     Boolean(input.trim() || attachments.length > 0) &&
@@ -148,7 +189,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
           a.id === localId
             ? // Swap the local blob: preview for the hosted URL — the server
               // (and anyone reopening this chat later) can't read a blob: URL.
-              { ...a, uploadStatus: "done" as const, documentId: data.id, url: data.url ?? a.url }
+              { ...a, uploadStatus: "done" as const, url: data.url ?? a.url }
             : a
         )
       )
@@ -163,10 +204,10 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
 
   const handleSubmit = useCallback(() => {
     if (!canSend) return
-    const uploaded = attachments
-      .filter((a) => a.uploadStatus === "done" && a.documentId)
-      .map((a) => ({ id: a.documentId!, type: "file" as const, filename: a.filename, mediaType: a.mediaType, url: a.url }))
-    sendMessage(input.trim(), uploaded.length > 0 ? uploaded : undefined)
+    const files: FileUIPart[] = attachments
+      .filter((a) => a.uploadStatus === "done")
+      .map((a) => ({ type: "file", filename: a.filename, mediaType: a.mediaType, url: a.url }))
+    sendMessage(input, files.length > 0 ? files : undefined)
     setInput("")
     setAttachments([])
     if (textareaRef.current) {
@@ -276,37 +317,26 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="mb-2 flex flex-wrap gap-2"
+              className="mb-2"
             >
-              {attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className={cn(
-                    "group flex items-center gap-2 rounded-lg border px-2.5 py-1.5",
-                    att.uploadStatus === "error"
-                      ? "bg-destructive/10 border-destructive/30"
-                      : "bg-muted/30"
-                  )}
-                >
-                  {att.uploadStatus === "uploading" ? (
-                    <Loader2 className="size-3 animate-spin text-muted-foreground" />
-                  ) : att.uploadStatus === "error" ? (
-                    <span className="text-xs text-destructive">⚠</span>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">📄</span>
-                  )}
-                  <span className="max-w-28 truncate text-xs">{att.filename}</span>
-                  <button
-                    onClick={() => removeAttachment(att.id)}
-                    className="ml-1 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label={`Remove ${att.filename}`}
+              <Attachments variant="inline">
+                {attachments.map((att) => (
+                  <Attachment
+                    key={att.id}
+                    data={{ id: att.id, type: "file", filename: att.filename, mediaType: att.mediaType, url: att.url }}
+                    onRemove={() => removeAttachment(att.id)}
+                    className={cn(
+                      "text-[13px] font-normal",
+                      att.uploadStatus === "error" && "border-destructive/40 bg-destructive/10 text-destructive"
+                    )}
+                    title={att.uploadStatus === "error" ? "Upload failed" : att.filename}
                   >
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                      <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-              ))}
+                    <AttachmentPreview loading={att.uploadStatus === "uploading"} />
+                    <AttachmentInfo className="max-w-32" />
+                    <AttachmentRemove label={`Remove ${att.filename}`} />
+                  </Attachment>
+                ))}
+              </Attachments>
             </motion.div>
           )}
         </AnimatePresence>
@@ -335,22 +365,21 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
             "dark:border-primary/30 dark:focus-within:border-primary/50"
           )}
         >
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleChange}
-            onKeyDown={handleKeyDown}
-            onPaste={handlePaste}
-            placeholder={
-              isCentered
-                ? "Example: Summarise what shipped this week and flag anything at risk…"
-                : "Ask anything..."
-            }
-            rows={3}
-            className="placeholder:text-muted-foreground/60 max-h-64 min-h-16 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
-            disabled={isGenerating}
-            aria-label="Message input"
-          />
+          <div className="relative">
+            {isCentered && !input && <RotatingPlaceholder />}
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={handleChange}
+              onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
+              placeholder={isCentered ? undefined : "Ask anything..."}
+              rows={3}
+              className="placeholder:text-muted-foreground/60 relative max-h-64 min-h-16 w-full resize-none bg-transparent text-[15px] leading-6 outline-none"
+              disabled={isGenerating}
+              aria-label="Message input"
+            />
+          </div>
 
           <div className="mt-2 flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-0.5">
@@ -380,7 +409,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
                 isGenerating={isGenerating}
                 canSend={canSend}
                 onSend={handleSubmit}
-                onStop={stopGeneration}
+                onStop={stop}
                 rounded="lg"
               />
             </div>

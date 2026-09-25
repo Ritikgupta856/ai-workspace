@@ -20,7 +20,7 @@ const pageSelect = {
 function formatPage(page: {
   id: string
   workspaceId: string
-  projectId: string | null
+  projectId: string
   title: string
   icon: string | null
   coverImage: string | null
@@ -46,21 +46,21 @@ function formatPage(page: {
   }
 }
 
-/**
- * `?projectId=` returns that project's pages; omitted returns workspace-level
- * pages (projectId IS NULL).
- */
+/** `?projectId=` is required: every page belongs to a project. */
 export async function GET(req: Request) {
   try {
     const ctx = await requireWorkspace()
     if (ctx.error) return ctx.error
 
     const projectId = new URL(req.url).searchParams.get("projectId")
+    if (!projectId) {
+      return NextResponse.json({ success: false, error: "projectId is required" }, { status: 400 })
+    }
 
     const pages = await prisma.page.findMany({
       where: {
         workspaceId: ctx.workspaceId,
-        projectId: projectId ?? null,
+        projectId,
       },
       select: pageSelect,
       orderBy: { createdAt: "desc" },
@@ -86,17 +86,19 @@ export async function POST(req: Request) {
     const projectId = body.projectId ? String(body.projectId) : null
     const icon = body.icon ? String(body.icon) : null
 
-    if (projectId) {
-      const project = await prisma.project.findFirst({
-        where: { id: projectId, workspaceId: ctx.workspaceId },
-        select: { id: true },
-      })
-      if (!project) {
-        return NextResponse.json(
-          { success: false, error: "Project not found" },
-          { status: 404 }
-        )
-      }
+    if (!projectId) {
+      return NextResponse.json({ success: false, error: "projectId is required" }, { status: 400 })
+    }
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, workspaceId: ctx.workspaceId },
+      select: { id: true },
+    })
+    if (!project) {
+      return NextResponse.json(
+        { success: false, error: "Project not found" },
+        { status: 404 }
+      )
     }
 
     const page = await prisma.page.create({
@@ -114,7 +116,7 @@ export async function POST(req: Request) {
       type: "PAGE_CREATED",
       workspaceId: ctx.workspaceId,
       userId: ctx.session.user.id,
-      projectId: projectId ?? undefined,
+      projectId,
       description: `created page ${page.title}`,
       metadata: { target: page.title },
     })

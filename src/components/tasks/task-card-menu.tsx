@@ -52,40 +52,59 @@ export function TaskCardMenu({
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
+      {/* Only actions the caller wires up are shown, so the menu never offers a dead item. */}
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onClick={() => onView?.(taskId)}>
-          <Eye className="size-4" />
-          View Details
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onEdit?.(taskId)}>
-          <PenLine className="size-4" />
-          Edit Task
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onDuplicate?.(taskId)}>
-          <Copy className="size-4" />
-          Duplicate
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onMove?.(taskId)}>
-          <ArrowRight className="size-4" />
-          Move To...
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onAddToBacklog?.(taskId)}>
-          <Inbox className="size-4" />
-          Add to Backlog
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => onArchive?.(taskId)}>
-          <Archive className="size-4" />
-          Archive
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onClick={() => onDelete?.(taskId)}
-          className="text-destructive focus:text-destructive"
-        >
-          <Trash2 className="size-4" />
-          Delete Task
-        </DropdownMenuItem>
+        {onView && (
+          <DropdownMenuItem onClick={() => onView(taskId)}>
+            <Eye className="size-4" />
+            View Details
+          </DropdownMenuItem>
+        )}
+        {onEdit && (
+          <DropdownMenuItem onClick={() => onEdit(taskId)}>
+            <PenLine className="size-4" />
+            Edit Task
+          </DropdownMenuItem>
+        )}
+        {onDuplicate && (
+          <DropdownMenuItem onClick={() => onDuplicate(taskId)}>
+            <Copy className="size-4" />
+            Duplicate
+          </DropdownMenuItem>
+        )}
+        {onMove && (
+          <DropdownMenuItem onClick={() => onMove(taskId)}>
+            <ArrowRight className="size-4" />
+            Move To...
+          </DropdownMenuItem>
+        )}
+        {onAddToBacklog && (
+          <DropdownMenuItem onClick={() => onAddToBacklog(taskId)}>
+            <Inbox className="size-4" />
+            Add to Backlog
+          </DropdownMenuItem>
+        )}
+        {onArchive && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onArchive(taskId)}>
+              <Archive className="size-4" />
+              Archive
+            </DropdownMenuItem>
+          </>
+        )}
+        {onDelete && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => onDelete(taskId)}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="size-4" />
+              Delete Task
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

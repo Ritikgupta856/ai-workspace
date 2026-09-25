@@ -1,14 +1,18 @@
 "use client"
 
 import * as React from "react"
+import { format, isBefore, startOfToday } from "date-fns"
 import {
   List,
   LayoutGrid,
   Calendar,
+  CalendarDays,
   LayoutDashboard,
   ArrowUpDown,
   SlidersHorizontal,
   Filter,
+  Layers,
+  MessageSquare,
 } from "lucide-react"
 import { PageHeader } from "@/components/dashboard/page-header"
 import { Badge } from "@/components/ui/badge"
@@ -24,7 +28,7 @@ import { ToolbarSearch } from "@/components/common/toolbar-search"
 import { ToolbarSelect, toolbarPillClass } from "@/components/common/toolbar-select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { StatusBadge } from "@/components/common/status-badge"
-import { TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from "@/lib/constants"
+import { TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG, TASK_PRIORITY_PILL } from "@/lib/constants"
 import type { ColumnDef } from "@tanstack/react-table"
 import { Kanban, type KanbanColumn } from "@/components/ui/kanban"
 import { cn } from "@/lib/utils"
@@ -34,10 +38,12 @@ import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet"
 import { TasksCalendar } from "@/components/tasks/tasks-calendar"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
 import {
+  AssigneeAvatar,
   TaskGroupedList,
   groupByStatus,
   groupByPriority,
   groupAll,
+  taskKey,
   type TaskGroup,
 } from "@/components/tasks/task-grouped-list"
 import { fetchTasks, fetchMyTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
@@ -66,12 +72,12 @@ export type Task = {
   parentTaskId: string | null
 }
 
-const boardColumns: KanbanColumn[] = [
-  { id: "TODO", title: "Todo" },
-  { id: "IN_PROGRESS", title: "In Progress" },
-  { id: "IN_REVIEW", title: "In Review" },
-  { id: "DONE", title: "Done" },
-]
+// Same names, icons and colors as the list view's status bands.
+const boardColumns: KanbanColumn[] = groupByStatus([], true).map(({ key, label, icon: Icon, iconClass }) => ({
+  id: key,
+  title: label,
+  icon: <Icon className={cn("size-3.5", iconClass)} />,
+}))
 
 type TaskFilter = "all" | "my"
 type GroupBy = "status" | "priority" | "none"
@@ -242,57 +248,110 @@ export const columns: ColumnDef<Task>[] = [
   },
 ]
 
+const VISIBLE_CARD_LABELS = 2
+
 function TaskCard({
   task,
-  onEdit,
+  showAssignee,
   onOpen,
+  onEdit,
+  onDuplicate,
+  onDelete,
 }: {
   task: Task
-  onEdit?: (task: Task) => void
-  onOpen?: (task: Task) => void
+  showAssignee: boolean
+  onOpen: (task: Task) => void
+  onEdit: (task: Task) => void
+  onDuplicate: (id: string) => void
+  onDelete: (id: string) => void
 }) {
-  const statusConfig = TASK_STATUS_CONFIG[task.status]
-  const priorityConfig = TASK_PRIORITY_CONFIG[task.priority]
-  const PriorityIcon = priorityConfig.icon
+  const priority = TASK_PRIORITY_PILL[task.priority]
+  const due = task.dueDate ? new Date(task.dueDate) : null
+  const overdue = due !== null && task.status !== "DONE" && isBefore(due, startOfToday())
+  const hiddenLabels = task.labels.length - VISIBLE_CARD_LABELS
 
   return (
-    <div className="rounded-lg border bg-card p-3 shadow-sm transition-shadow hover:shadow">
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <button
-          type="button"
-          onClick={() => onOpen?.(task)}
-          className="text-left text-sm font-medium leading-snug text-foreground hover:text-primary"
+    <div
+      onClick={() => onOpen(task)}
+      className="group cursor-grab rounded-lg border bg-card p-3 shadow-xs transition-[border-color,box-shadow] hover:border-foreground/15 hover:shadow-sm active:cursor-grabbing dark:border-white/15 dark:hover:border-white/25"
+    >
+      <div className="flex items-center gap-2">
+        <span className="font-mono text-[11px] tracking-wide text-muted-foreground">{taskKey(task)}</span>
+        <span
+          className="ml-auto opacity-0 transition-opacity group-hover:opacity-100 has-[[data-state=open]]:opacity-100 [&_button]:size-5.5 [&_button]:rounded-md [&_svg]:size-3.5"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         >
-          {task.title}
-        </button>
-        <PriorityIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-      </div>
-      <div className="mb-2 flex flex-wrap gap-1">
-        {task.labels.map((label) => (
-          <Badge key={label} variant="secondary" className="text-[10px] leading-none">
-            {label}
-          </Badge>
-        ))}
-      </div>
-      <div className="flex items-center justify-between">
-        <StatusBadge
-          label={statusConfig.label}
-          className={cn(statusConfig.className, "text-[10px] leading-none")}
-          icon={statusConfig.icon}
-        />
-        <div className="flex items-center gap-1">
-          <span className="text-[11px] text-muted-foreground">{task.assignee}</span>
           <TaskCardMenu
             taskId={task.id}
-            onView={() => onOpen?.(task)}
-            onEdit={(id) => onEdit?.(task)}
-            onDuplicate={(id) => console.log("Duplicate", id)}
-            onMove={(id) => console.log("Move", id)}
-            onAddToBacklog={(id) => console.log("Add to backlog", id)}
-            onArchive={(id) => console.log("Archive", id)}
-            onDelete={(id) => console.log("Delete", id)}
+            onView={() => onOpen(task)}
+            onEdit={() => onEdit(task)}
+            onDuplicate={onDuplicate}
+            onDelete={onDelete}
           />
+        </span>
+        <span
+          className={cn(
+            "inline-flex h-4.5 items-center rounded px-1.5 text-[11px] font-medium leading-none",
+            priority.className
+          )}
+        >
+          {priority.label}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpen(task)
+        }}
+        className={cn(
+          "mt-1.5 line-clamp-2 text-left text-[13px] font-medium leading-5 text-foreground",
+          task.status === "DONE" && "text-muted-foreground line-through decoration-muted-foreground/40"
+        )}
+      >
+        {task.title}
+      </button>
+
+      {task.labels.length > 0 && (
+        <div className="mt-2 flex flex-wrap items-center gap-1">
+          {task.labels.slice(0, VISIBLE_CARD_LABELS).map((label) => (
+            <span key={label} className="rounded-md bg-muted px-1.5 py-0.5 text-[11px] leading-none text-muted-foreground">
+              {label}
+            </span>
+          ))}
+          {hiddenLabels > 0 && <span className="text-[11px] text-muted-foreground">+{hiddenLabels}</span>}
         </div>
+      )}
+
+      <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+        {due && (
+          <span
+            className={cn("inline-flex items-center gap-1", overdue && "font-medium text-red-600 dark:text-red-400")}
+            title={overdue ? "Overdue" : "Due date"}
+          >
+            <CalendarDays className="size-3" />
+            {format(due, "d MMM")}
+          </span>
+        )}
+        {task.subtaskCount > 0 && (
+          <span className="inline-flex items-center gap-1" title={`${task.subtaskCount} subtasks`}>
+            <Layers className="size-3" />
+            {task.subtaskCount}
+          </span>
+        )}
+        {task.commentCount > 0 && (
+          <span className="inline-flex items-center gap-1" title={`${task.commentCount} comments`}>
+            <MessageSquare className="size-3" />
+            {task.commentCount}
+          </span>
+        )}
+        {showAssignee && (
+          <span className="ml-auto">
+            <AssigneeAvatar task={task} />
+          </span>
+        )}
       </div>
     </div>
   )
@@ -616,11 +675,12 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
             groups={groups}
             selectedId={openTask?.id}
             sortedByDue={sortBy === "dueDate"}
+            variant={assignedToMe ? "personal" : projectId ? "project" : "default"}
             onOpen={handleOpenTask}
             onEdit={handleOpenEdit}
             onDuplicate={handleDuplicate}
             onDelete={handleDelete}
-            onAddToGroup={(status) => handleOpenCreate(status)}
+            onAddToGroup={assignedToMe ? undefined : (status) => handleOpenCreate(status)}
           />
         ) : viewMode === "calendar" ? (
           <TasksCalendar tasks={visibleTasks} onSelectTask={handleOpenTask} />
@@ -631,7 +691,17 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
             getItemId={(item) => item.id}
             getColumn={(item) => item.status}
             onMove={handleMove}
-            renderCard={(item) => <TaskCard task={item} onEdit={handleOpenEdit} onOpen={handleOpenTask} />}
+            onAdd={assignedToMe ? undefined : (status) => handleOpenCreate(status as TaskStatus)}
+            renderCard={(item) => (
+              <TaskCard
+                task={item}
+                showAssignee={!assignedToMe}
+                onOpen={handleOpenTask}
+                onEdit={handleOpenEdit}
+                onDuplicate={handleDuplicate}
+                onDelete={handleDelete}
+              />
+            )}
           />
         )}
       </div>
@@ -641,7 +711,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
         onOpenChange={setDialogOpen}
         mode={dialogMode}
         task={editingTask}
-        defaultProjectId={projectId}
+        projectId={projectId}
         defaultStatus={createStatus}
         onSuccess={() => {
           loadTasks()

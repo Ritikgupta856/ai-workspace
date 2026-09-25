@@ -409,26 +409,24 @@ export function getWorkspaceWriteTools(
 
     create_page: tool({
       description:
-        "Create a new page (rich document) in this workspace. Creates immediately — there is no confirmation step and no undo. Content is left empty; the page is created as a container the user opens and fills in themselves, so a title is enough to call this.",
+        "Create a new page (rich document) inside a project. Every page belongs to a project: if the user didn't name one, use list_projects and pick the one the page is about, or ask which project when it's unclear. Creates immediately — there is no confirmation step and no undo. Content is left empty; the page is created as a container the user opens and fills in themselves, so a title and project are enough to call this.",
       inputSchema: z.object({
         title: z.string().optional().describe('Defaults to "Untitled" if omitted.'),
-        projectId: z.string().optional().describe("Must be a project in this workspace."),
+        projectId: z.string().describe("The project the page belongs to. Must be a project in this workspace."),
         icon: z.string().optional().describe("A single emoji to represent the page."),
       }),
       execute: async ({ title, projectId, icon }) => {
-        if (projectId) {
-          const project = await prisma.project.findFirst({
-            where: { id: projectId, workspaceId },
-            select: { id: true },
-          })
-          if (!project) return { error: "No project with that id in this workspace." }
-        }
+        const project = await prisma.project.findFirst({
+          where: { id: projectId, workspaceId },
+          select: { id: true },
+        })
+        if (!project) return { error: "No project with that id in this workspace." }
 
         const page = await prisma.page.create({
           data: {
             title: title?.trim() || "Untitled",
             workspaceId,
-            projectId: projectId ?? null,
+            projectId,
             icon: icon || null,
             createdById: userId,
           },
@@ -439,7 +437,7 @@ export function getWorkspaceWriteTools(
           type: "PAGE_CREATED",
           workspaceId,
           userId,
-          projectId: page.projectId ?? undefined,
+          projectId: page.projectId,
           description: `created page ${page.title}`,
           metadata: { target: page.title, generatedByAI: true },
         })

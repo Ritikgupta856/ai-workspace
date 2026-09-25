@@ -76,10 +76,10 @@ export function groupAllProjects(projects: ProjectCardData[]): ProjectGroup[] {
 // Name · Status · Progress · Tasks · Team · Updated · menu. Tasks/Updated drop
 // below xl, Progress/Team below md.
 const ROW_GRID = cn(
-  "grid items-center px-4",
-  "grid-cols-[minmax(0,1fr)_96px_32px]",
-  "md:grid-cols-[minmax(0,1fr)_96px_140px_96px_32px]",
-  "xl:grid-cols-[minmax(0,1fr)_104px_150px_72px_110px_110px_32px]"
+  "grid items-center gap-x-4 px-4",
+  "grid-cols-[minmax(0,1fr)_92px_28px]",
+  "md:grid-cols-[minmax(0,1fr)_92px_128px_88px_28px]",
+  "xl:grid-cols-[minmax(0,1fr)_92px_128px_52px_88px_92px_28px]"
 )
 
 function Col({ children, className }: { children: React.ReactNode; className?: string }) {
@@ -115,30 +115,23 @@ function ProjectRow({ project, actions }: { project: ProjectCardData; actions: P
         "group h-11 cursor-pointer rounded-lg border border-transparent transition-colors hover:border-border hover:bg-muted/40"
       )}
     >
-      {/* Name + description */}
-      <div className="flex min-w-0 items-center gap-3 pr-3">
+      {/* Name */}
+      <div className="flex min-w-0 items-center gap-3">
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-sm leading-none">
           {project.icon}
         </span>
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-sm font-medium leading-5 text-foreground">{project.name}</span>
-          {project.description && (
-            <span className="hidden truncate text-[13px] text-muted-foreground lg:inline">
-              {project.description}
-            </span>
-          )}
-        </span>
+        <span className="truncate text-sm font-medium leading-5 text-foreground">{project.name}</span>
       </div>
 
       {/* Status */}
-      <div>
+      <div className="flex items-center">
         <span className={cn("inline-flex h-4.5 items-center rounded px-1.5 text-[11px] font-medium leading-none", pill.className)}>
           {pill.label}
         </span>
       </div>
 
       {/* Progress */}
-      <div className="hidden items-center gap-2 pr-4 md:flex">
+      <div className="hidden items-center gap-2 md:flex">
         <Progress value={project.progress} className="h-1.5 flex-1" />
         <span className="w-8 text-right text-[13px] tabular-nums text-muted-foreground">{project.progress}%</span>
       </div>
@@ -206,7 +199,7 @@ export function ProjectGroupedList({
   actions: ProjectRowActions
 }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-6">
       {groups.map((group) => {
         const Icon = group.icon
         return (
@@ -221,7 +214,7 @@ export function ProjectGroupedList({
               </div>
             </div>
 
-            <div className={cn(ROW_GRID, "h-8")}>
+            <div className={cn(ROW_GRID, "mt-1 h-8")}>
               <Col>Name</Col>
               <Col>Status</Col>
               <Col className="hidden md:inline">Progress</Col>

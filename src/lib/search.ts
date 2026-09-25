@@ -93,8 +93,8 @@ export async function searchWorkspace(
       type: "page" as const,
       id: pg.id,
       title: pg.title,
-      subtitle: pg.project?.name ?? "Workspace page",
-      href: pg.projectId ? `/projects/${pg.projectId}/pages/${pg.id}` : `/pages/${pg.id}`,
+      subtitle: pg.project.name,
+      href: `/projects/${pg.projectId}/pages/${pg.id}`,
       emoji: pg.icon,
     })),
     ...boards.map((w) => ({

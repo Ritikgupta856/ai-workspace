@@ -10,7 +10,6 @@ import {
   CalendarIcon,
   Check,
   ChevronsUpDown,
-  FolderKanban,
   Clock,
   X,
 } from "lucide-react"
@@ -47,12 +46,10 @@ import {
 } from "@/lib/constants"
 import type { TaskStatus, TaskPriority, Task } from "@/components/tasks/tasks-view"
 import { createTask, updateTask } from "@/lib/api/tasks"
-import { fetchProjects } from "@/lib/api/projects"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().optional(),
-  projectId: z.string().optional(),
   assigneeId: z.string().optional(),
   status: z.string().optional(),
   priority: z.string().optional(),
@@ -227,8 +224,8 @@ export interface TaskDialogProps {
   mode: "create" | "edit"
   task?: Task
   onSuccess?: () => void
-  /** Pre-fills the project field when creating from inside a project page. Still editable. */
-  defaultProjectId?: string
+  /** The project new tasks are created in; tasks are only created from inside a project. */
+  projectId?: string
   /** Pre-selects the status when creating from a status group's "+" button. Still editable. */
   defaultStatus?: TaskStatus
 }
@@ -239,19 +236,16 @@ export function TaskDialog({
   mode,
   task,
   onSuccess,
-  defaultProjectId,
+  projectId,
   defaultStatus,
 }: TaskDialogProps) {
-  const [projectsList, setProjectsList] = React.useState<{ id: string; name: string }[]>([])
   const [membersList, setMembersList] = React.useState<MemberOption[]>([])
-  const [loadingOptions, setLoadingOptions] = React.useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: "",
       description: "",
-      projectId: "",
       assigneeId: "",
       status: "TODO",
       priority: "MEDIUM",
@@ -263,30 +257,20 @@ export function TaskDialog({
   })
 
   const watchedLabels = form.watch("labels") ?? []
-  const watchedProjectId = form.watch("projectId")
   const [submitting, setSubmitting] = React.useState(false)
   const isEdit = mode === "edit"
+  const taskProjectId = isEdit ? task?.projectId : projectId
 
+  // Assignable people are scoped to the task's project members; an older
+  // project-less task falls back to the full workspace roster.
   React.useEffect(() => {
     if (!open) return
-    setLoadingOptions(true)
-    fetchProjects()
-      .catch(() => [])
-      .then((projects) => setProjectsList(projects.map((p) => ({ id: p.id, name: p.name }))))
-      .finally(() => setLoadingOptions(false))
-  }, [open])
-
-  // Assignable people are scoped to the selected project's own members;
-  // with no project selected there's nothing to scope to, so fall back to
-  // the full workspace roster (e.g. project-less tasks in My Work).
-  React.useEffect(() => {
-    if (!open) return
-    const url = watchedProjectId ? `/api/projects/${watchedProjectId}/members` : "/api/workspaces/members"
+    const url = taskProjectId ? `/api/projects/${taskProjectId}/members` : "/api/workspaces/members"
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
         if (!j.success) return setMembersList([])
-        const members: MemberOption[] = watchedProjectId
+        const members: MemberOption[] = taskProjectId
           ? j.members.map((m: { id: string; name: string; image: string | null }) => ({
               userId: m.id,
               name: m.name,
@@ -300,7 +284,7 @@ export function TaskDialog({
         setMembersList(members)
       })
       .catch(() => setMembersList([]))
-  }, [open, watchedProjectId])
+  }, [open, taskProjectId])
 
   React.useEffect(() => {
     if (!open) return
@@ -308,7 +292,6 @@ export function TaskDialog({
       form.reset({
         title: task.title,
         description: task.description ?? "",
-        projectId: task.projectId ?? "",
         assigneeId: task.assigneeId ?? "",
         status: task.status,
         priority: task.priority,
@@ -321,7 +304,6 @@ export function TaskDialog({
       form.reset({
         title: "",
         description: "",
-        projectId: defaultProjectId ?? "",
         assigneeId: "",
         status: defaultStatus ?? "TODO",
         priority: "MEDIUM",
@@ -331,7 +313,7 @@ export function TaskDialog({
         addToBacklog: false,
       })
     }
-  }, [open, task, isEdit, form, defaultProjectId, defaultStatus])
+  }, [open, task, isEdit, form, defaultStatus])
 
   async function onSubmit(data: FormValues) {
     if (submitting) return
@@ -341,7 +323,6 @@ export function TaskDialog({
         await updateTask(task.id, {
           title: data.title,
           description: data.description ?? "",
-          projectId: data.projectId || undefined,
           assigneeId: data.assigneeId || undefined,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
@@ -352,7 +333,7 @@ export function TaskDialog({
         await createTask({
           title: data.title,
           description: data.description ?? "",
-          projectId: data.projectId || undefined,
+          projectId,
           assigneeId: data.assigneeId || undefined,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
@@ -448,39 +429,15 @@ export function TaskDialog({
               {/* 2-col grid */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
-                {/* Project */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Project</label>
-                  <Select
-                    value={form.watch("projectId")}
-                    onValueChange={(v) => form.setValue("projectId", v)}
-                    disabled={loadingOptions}
-                  >
-                    <SelectTrigger className="w-full">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FolderKanban className="size-4 shrink-0 text-muted-foreground" />
-                        <SelectValue placeholder={loadingOptions ? "Loading..." : "Select project..."} />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">No project</SelectItem>
-                      {projectsList.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
                 {/* Assignee */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Assignee</label>
                   <Select
                     value={form.watch("assigneeId")}
                     onValueChange={(v) => form.setValue("assigneeId", v)}
-                    disabled={loadingOptions}
                   >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder={loadingOptions ? "Loading..." : "Assign to..."} />
+                      <SelectValue placeholder="Assign to..." />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">Unassigned</SelectItem>

@@ -324,34 +324,6 @@ export function IntegrationsSkeleton({ count = 6 }: { count?: number }) {
   )
 }
 
-/** A left rail of page titles beside a blank editor pane. */
-export function PagesSkeleton() {
-  return (
-    <SkeletonRegion
-      label="Loading pages"
-      className="grid min-h-0 flex-1 xl:grid-cols-[322px_minmax(0,1fr)]"
-    >
-      <div className="flex min-h-0 max-h-90 flex-col gap-1 border-b p-2 xl:max-h-none xl:border-r xl:border-b-0">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="space-y-2 rounded-lg px-3 py-2.5">
-            <div className="flex items-center justify-between gap-2">
-              <Skeleton className="h-3.5 w-2/5" />
-              <Skeleton className="h-2.5 w-10" />
-            </div>
-            <Skeleton className="h-2.5 w-full" />
-          </div>
-        ))}
-      </div>
-      <div className="hidden flex-col gap-3 p-6 xl:flex">
-        <Skeleton className="h-5 w-1/3" />
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-3 w-5/6" />
-        <Skeleton className="h-3 w-2/3" />
-      </div>
-    </SkeletonRegion>
-  )
-}
-
 /**
  * Notification rows: type badge, a line of text, a timestamp. Matches the
  * 44px-min row of the real list so the page doesn't jump as they resolve.

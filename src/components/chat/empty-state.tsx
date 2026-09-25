@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 
+import { Suggestion } from "@/components/ai-elements/suggestion"
 import { Composer } from "./composer"
 import { useChatContext } from "./chat-provider"
 
@@ -30,11 +31,10 @@ export function EmptyState({ greeting, firstName }: EmptyStateProps) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-5 pb-16">
-      {/* Instrument Serif is condensed, so a little positive tracking opens it up. */}
-      <h1 className="font-serif text-3xl tracking-[0.04em] text-foreground sm:text-[38px] sm:leading-tight">
+      <h1 className="text-[28px] leading-9 font-medium tracking-[-0.02em] text-foreground sm:text-[32px] sm:leading-10">
         {greeting}, <span className="text-primary">{firstName}</span>
       </h1>
-      <p className="mt-2.5 text-[13px] text-muted-foreground">
+      <p className="mt-2 text-[14px] text-muted-foreground">
         I&apos;m Synapse, where should we start today?
       </p>
 
@@ -44,15 +44,15 @@ export function EmptyState({ greeting, firstName }: EmptyStateProps) {
 
       <div className="mt-4 flex w-full max-w-4xl flex-wrap justify-center gap-2.5">
         {STARTER_PROMPTS.map(({ label, prompt, icon: Icon }) => (
-          <button
+          <Suggestion
             key={prompt}
-            type="button"
-            onClick={() => sendMessage(prompt)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-border/80 bg-card px-3 text-[13px] text-foreground/90 transition-colors hover:border-border hover:bg-accent/40"
+            suggestion={prompt}
+            onClick={sendMessage}
+            className="h-9 gap-2 rounded-lg border-border/80 bg-card px-3 text-[13px] font-normal text-foreground/90 shadow-none hover:border-border hover:bg-accent/40"
           >
             <Icon className="size-3.5 text-muted-foreground" />
             {label}
-          </button>
+          </Suggestion>
         ))}
       </div>
     </div>

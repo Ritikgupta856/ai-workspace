@@ -3,23 +3,20 @@ import type { ModelMessage, UserModelMessage } from "ai"
 import { prisma } from "@/lib/prisma"
 import { searchKnowledge } from "@/lib/knowledge/rag"
 import { buildSystemPrompt } from "@/lib/ai/prompts"
+import type { ChatSource } from "@/lib/ai/chat-message"
 
 type CoreMessage = ModelMessage
 type CoreUserMessage = UserModelMessage
 
 type Attachment = {
-  id: string
-  type: "file"
   filename?: string
   mediaType: string
   url: string
 }
 
-type IncomingMessage = {
-  id: string
+export type IncomingMessage = {
   role: "user" | "assistant"
   content: string
-  createdAt: string
   attachments?: Attachment[]
 }
 
@@ -28,6 +25,7 @@ export type BuildChatContextResult =
       type: "success"
       systemPrompt: string | undefined
       messages: CoreMessage[]
+      sources: ChatSource[]
     }
   | {
       type: "skip"
@@ -138,6 +136,7 @@ export async function buildChatContext(
 
   let documentInstructions: string | undefined
   let knowledge: string | undefined
+  let sources: ChatSource[] = []
   const modelMessages: CoreMessage[] = []
 
   for (let i = 0; i < messages.length; i++) {
@@ -159,13 +158,11 @@ export async function buildChatContext(
       )
 
       if (nonImageAttachments.length > 0) {
-        const fileIds = nonImageAttachments
-          .map((att) => att.id)
-          .filter((id): id is string => typeof id === "string" && id !== "")
+        const fileUrls = nonImageAttachments.map((att) => att.url).filter(Boolean)
 
-        if (fileIds.length > 0) {
+        if (fileUrls.length > 0 && workspaceId) {
           const dbDocs = await prisma.document.findMany({
-            where: { id: { in: fileIds } },
+            where: { workspaceId, sourceUrl: { in: fileUrls } },
           })
 
           const incompleteDocs = dbDocs.filter(
@@ -274,6 +271,17 @@ export async function buildChatContext(
             knowledgeContext,
           ].join("\n")
 
+          const documents = await prisma.document.findMany({
+            where: { id: { in: chunks.map((c) => c.sourceId) } },
+            select: { id: true, sourceUrl: true },
+          })
+          const urls = new Map(documents.map((d) => [d.id, d.sourceUrl ?? undefined]))
+          sources = [...new Map(chunks.map((c) => [c.sourceId, c])).values()].map((c) => ({
+            id: c.sourceId,
+            title: c.title ?? "Untitled",
+            url: urls.get(c.sourceId),
+          }))
+
           console.log(`[RAG] ✅ Auto-RAG: injected ${chunks.length} chunks into system prompt`)
         } else {
           console.log(`[RAG] ℹ️ Auto-RAG: no relevant chunks found for query`)
@@ -298,5 +306,6 @@ export async function buildChatContext(
       hasWorkspaceTools: Boolean(workspaceId),
     }),
     messages: modelMessages,
+    sources,
   }
 }

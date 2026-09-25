@@ -327,7 +327,7 @@ model Task {
   updatedAt     DateTime     @updatedAt
 
   workspace     Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project       Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: Cascade)
   assignee      User?          @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
   createdBy     User           @relation("TaskCreator", fields: [createdById], references: [id], onDelete: Cascade)
   parentTask    Task?          @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
@@ -338,11 +338,11 @@ model Task {
 
 // Native Synapse docs (Plane-style Pages). Distinct from Document
 // (imported/integrated knowledge) — this is for rich, user-authored
-// documentation, optionally scoped to a project.
+// documentation. Every page belongs to a project and goes when it does.
 model Page {
   id          String   @id @default(uuid())
   workspaceId String
-  projectId   String?
+  projectId   String
   title       String   @default("Untitled")
   content     Json?
   icon        String?
@@ -352,7 +352,7 @@ model Page {
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
@@ -371,7 +371,7 @@ model Whiteboard {
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
 
   @@index([workspaceId])
@@ -388,7 +388,7 @@ model Chat {
   updatedAt   DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
   messages  Message[]
 }
@@ -401,6 +401,7 @@ model Message {
   content     String
   attachments Json?
   citations   Json?
+  parts       Json?
   createdAt   DateTime @default(now())
 
   chat Chat  @relation(fields: [chatId], references: [id], onDelete: Cascade)
@@ -443,7 +444,7 @@ model Document {
   updatedAt        DateTime                 @updatedAt
 
   workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  project     Project?     @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  project     Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   integration Integration? @relation(fields: [integrationId], references: [id], onDelete: SetNull)
 }
 

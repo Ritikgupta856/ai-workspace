@@ -33,14 +33,7 @@ import { cn } from "@/lib/utils"
 const AUTOSAVE_DELAY = 1000
 const ICONS = ["📄", "📝", "📋", "📊", "🚀", "🎯", "⚙️", "🔐", "🧪", "📚"]
 
-/**
- * The page editor, rendered by both page routes.
- *
- * A page that belongs to a project is opened at
- * `/<slug>/projects/<projectId>/pages/<pageId>`; one that doesn't keeps the
- * workspace-level `/<slug>/pages/<pageId>`. Both render this, so the editor
- * exists once regardless of how it was reached.
- */
+/** The page editor, opened at `/<slug>/projects/<projectId>/pages/<pageId>`. */
 export function PageDetailView({ pageId }: { pageId: string }) {
   const router = useRouter()
   const slug = useParams().slug as string
@@ -164,7 +157,7 @@ export function PageDetailView({ pageId }: { pageId: string }) {
     try {
       await deletePage(page.id)
       toast.success("Page deleted")
-      router.push(page.projectId ? `/${slug}/projects/${page.projectId}/pages` : `/${slug}/pages`)
+      router.push(`/${slug}/projects/${page.projectId}/pages`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete page")
       setConfirmDelete(false)
@@ -183,40 +176,28 @@ export function PageDetailView({ pageId }: { pageId: string }) {
     )
   }
 
-  const projectRoot = page.project ? `/${slug}/projects/${page.project.id}/overview` : null
-  const pagesRoot = page.project ? `/${slug}/projects/${page.project.id}/pages` : `/${slug}/pages`
+  const projectRoot = `/${slug}/projects/${page.project.id}/overview`
+  const pagesRoot = `/${slug}/projects/${page.project.id}/pages`
 
   return (
     <div className="flex flex-1 flex-col">
       {/* Breadcrumb: project first, matching every other project surface. */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b px-4">
         <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto text-sm text-muted-foreground">
-          {projectRoot && page.project ? (
-            <>
-              <Link
-                href={projectRoot}
-                className="flex min-w-0 shrink-0 items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent hover:text-foreground"
-              >
-                <span className="max-w-40 truncate">{page.project.name}</span>
-              </Link>
-              <span className="shrink-0">/</span>
-              <Link
-                href={pagesRoot}
-                className="flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent hover:text-foreground"
-              >
-                <FileText className="size-3.5 shrink-0" />
-                Pages
-              </Link>
-            </>
-          ) : (
-            <Link
-              href={pagesRoot}
-              className="flex min-w-0 shrink-0 items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent hover:text-foreground"
-            >
-              <FileText className="size-3.5 shrink-0" />
-              <span className="max-w-40 truncate">Pages</span>
-            </Link>
-          )}
+          <Link
+            href={projectRoot}
+            className="flex min-w-0 shrink-0 items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent hover:text-foreground"
+          >
+            <span className="max-w-40 truncate">{page.project.name}</span>
+          </Link>
+          <span className="shrink-0">/</span>
+          <Link
+            href={pagesRoot}
+            className="flex shrink-0 items-center gap-1.5 rounded px-1.5 py-1 hover:bg-accent hover:text-foreground"
+          >
+            <FileText className="size-3.5 shrink-0" />
+            Pages
+          </Link>
           <span className="shrink-0">/</span>
           <span className="min-w-0 truncate rounded px-1.5 py-1 font-medium text-foreground">
             {title.trim() || "Untitled"}

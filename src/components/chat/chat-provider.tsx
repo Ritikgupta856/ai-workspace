@@ -9,39 +9,12 @@ import {
   useRef,
   useState,
 } from "react"
+import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport, type ChatStatus, type FileUIPart } from "ai"
+import { toast } from "sonner"
 
+import type { ChatUIMessage } from "@/lib/ai/chat-message"
 import { DEFAULT_AGENT_MODEL, type AgentModelId } from "./models"
-
-type Attachment = {
-  id: string
-  type: "file"
-  filename?: string
-  mediaType: string
-  url: string
-}
-
-export type ChatMessage = {
-  id: string
-  role: "user" | "assistant"
-  content: string
-  createdAt: Date
-  attachments?: Attachment[]
-  isStreaming?: boolean
-}
-
-type ChatPhase =
-  | { type: "idle" }
-  | { type: "thinking" }
-  | { type: "streaming" }
-  | { type: "error"; message: string }
-
-type ToolActivity = {
-  id: string
-  tool: string
-  label: string
-  status: "running" | "completed" | "error"
-  result?: string
-}
 
 export type ChatSummary = {
   id: string
@@ -50,15 +23,12 @@ export type ChatSummary = {
 }
 
 interface ChatContextValue {
-  messages: ChatMessage[]
-  phase: ChatPhase
-  toolActivities: ToolActivity[]
-  streamedContent: string
-  sendMessage: (text: string, attachments?: Attachment[]) => void
-  /** Resends the last question, e.g. after the model was too busy to answer it. */
-  retryLastMessage: () => void
-  stopGeneration: () => void
-  clearMessages: () => void
+  messages: ChatUIMessage[]
+  status: ChatStatus
+  error: Error | undefined
+  sendMessage: (text: string, files?: FileUIPart[]) => void
+  regenerate: () => void
+  stop: () => void
   /** Persisted history for the header dropdown. */
   chats: ChatSummary[]
   chatId: string | null
@@ -67,7 +37,6 @@ interface ChatContextValue {
   newChat: () => void
   openChat: (id: string) => void
   deleteChat: (id: string) => void
-  refreshChats: () => Promise<void>
   /** Model the next turn is sent to; switchable mid-conversation. */
   model: AgentModelId
   setModel: (model: AgentModelId) => void
@@ -75,50 +44,19 @@ interface ChatContextValue {
 
 const ChatContext = createContext<ChatContextValue | null>(null)
 
-/** A failure /api/chat already put into words fit to show in the chat. */
-class ChatRequestError extends Error {}
-
 export const useChatContext = () => {
   const ctx = useContext(ChatContext)
   if (!ctx) throw new Error("useChatContext must be used within ChatProvider")
   return ctx
 }
 
-async function readTextStream(
-  response: Response,
-  onText: (text: string) => void,
-  signal: AbortSignal
-) {
-  if (!response.body) return
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    if (signal.aborted) break
-
-    const text = decoder.decode(value, { stream: true })
-    if (text) onText(text)
-  }
-}
-
 export function ChatProvider({ children }: { children: React.ReactNode }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [phase, setPhase] = useState<ChatPhase>({ type: "idle" })
-  const [toolActivities, setToolActivities] = useState<ToolActivity[]>([])
-  const [streamedContent, setStreamedContent] = useState("")
   const [chats, setChats] = useState<ChatSummary[]>([])
   const [chatId, setChatId] = useState<string | null>(null)
   const [loadingChats, setLoadingChats] = useState(true)
   const [model, setModel] = useState<AgentModelId>(DEFAULT_AGENT_MODEL)
-  const abortRef = useRef<AbortController | null>(null)
-
-  // `chatId` is read inside sendMessage but must not re-create it on every new
-  // conversation, which would tear down the composer's callbacks mid-typing.
-  // Written alongside every setChatId call, never during render.
-  const chatIdRef = useRef<string | null>(null)
+  // The chat whose history is loading, so a slower earlier load can't overwrite a later one.
+  const openingRef = useRef<string | null>(null)
 
   const refreshChats = useCallback(async () => {
     try {
@@ -154,217 +92,89 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // One question/answer round trip. `previous` is the conversation before the
-  // question, so a retry can resend a failed question without repeating it.
-  const runTurn = useCallback(
-    async (userMessage: ChatMessage, previous: ChatMessage[]) => {
-      setMessages([...previous, userMessage])
-      setPhase({ type: "thinking" })
-      setStreamedContent("")
-      setToolActivities([])
-
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      try {
-        const history = [...previous, userMessage]
-
-        const response = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            provider: "google",
-            model,
-            messages: history,
-            chatId: chatIdRef.current,
-          }),
-          signal: controller.signal,
-        })
-
-        if (!response.ok) {
-          const body = (await response.json().catch(() => null)) as { error?: string } | null
-          throw new ChatRequestError(
-            body?.error ?? "Something went wrong while generating a response. Please try again."
-          )
-        }
-
+  const [transport] = useState(
+    () =>
+      new DefaultChatTransport<ChatUIMessage>({
+        api: "/api/chat",
         // The server creates the chat on the first turn and reports its id here.
-        const serverChatId = response.headers.get("X-Chat-Id")
-        if (serverChatId && serverChatId !== chatIdRef.current) {
-          chatIdRef.current = serverChatId
-          setChatId(serverChatId)
-        }
-
-        const contentType = response.headers.get("Content-Type") ?? ""
-        const isJson = contentType.includes("application/json")
-
-        if (isJson) {
-          const data = await response.json()
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              role: "assistant",
-              content: data.message,
-              createdAt: new Date(),
-            },
-          ])
-          setPhase({ type: "idle" })
-        } else {
-          setPhase({ type: "streaming" })
-
-          const assistantId = crypto.randomUUID()
-
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: assistantId,
-              role: "assistant",
-              content: "",
-              createdAt: new Date(),
-              isStreaming: true,
-            },
-          ])
-
-          let accumulated = ""
-
-          await readTextStream(
-            response,
-            (text) => {
-              accumulated += text
-              setStreamedContent(accumulated)
-            },
-            controller.signal
-          )
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId
-                ? { ...m, content: accumulated, isStreaming: false }
-                : m
-            )
-          )
-
-          setStreamedContent("")
-          setPhase({ type: "idle" })
-        }
-
-        refreshChats()
-      } catch (err) {
-        if ((err as Error).name === "AbortError") return
-        setPhase({
-          type: "error",
-          message:
-            err instanceof ChatRequestError
-              ? err.message
-              : "Couldn't reach Synapse. Check your connection and try again.",
-        })
-      } finally {
-        abortRef.current = null
-      }
-    },
-    [refreshChats, model]
+        fetch: async (input, init) => {
+          const response = await fetch(input, init)
+          const serverChatId = response.headers.get("X-Chat-Id")
+          if (serverChatId) setChatId(serverChatId)
+          return response
+        },
+      })
   )
+
+  const {
+    messages,
+    setMessages,
+    sendMessage: send,
+    regenerate: resend,
+    stop: halt,
+    status,
+    error,
+    clearError,
+  } = useChat<ChatUIMessage>({
+    id: "agent",
+    transport,
+    onFinish: () => void refreshChats(),
+  })
+
+  const requestOptions = useMemo(() => ({ body: { chatId, model, provider: "google" } }), [chatId, model])
 
   const sendMessage = useCallback(
-    (text: string, attachments?: Attachment[]) => {
-      if (!text.trim() && !attachments?.length) return
-
-      void runTurn(
-        {
-          id: crypto.randomUUID(),
-          role: "user",
-          content: text.trim(),
-          createdAt: new Date(),
-          attachments,
-        },
-        messages
-      )
+    (text: string, files?: FileUIPart[]) => {
+      const trimmed = text.trim()
+      if (trimmed) void send({ text: trimmed, files }, requestOptions)
+      else if (files?.length) void send({ files }, requestOptions)
     },
-    [messages, runTurn]
+    [send, requestOptions]
   )
 
-  const retryLastMessage = useCallback(() => {
-    const index = messages.findLastIndex((m) => m.role === "user")
-    if (index === -1) return
-    void runTurn(
-      { ...messages[index], id: crypto.randomUUID(), createdAt: new Date() },
-      messages.slice(0, index)
-    )
-  }, [messages, runTurn])
-
-  const stopGeneration = useCallback(() => {
-    abortRef.current?.abort()
-    setMessages((prev) =>
-      prev.map((m) => (m.isStreaming ? { ...m, isStreaming: false } : m))
-    )
-    setPhase({ type: "idle" })
-  }, [])
-
-  const clearMessages = useCallback(() => {
-    setMessages([])
-    setPhase({ type: "idle" })
-    setToolActivities([])
-    setStreamedContent("")
-  }, [])
+  const regenerate = useCallback(() => void resend(requestOptions), [resend, requestOptions])
+  const stop = useCallback(() => void halt(), [halt])
 
   const newChat = useCallback(() => {
-    abortRef.current?.abort()
-    chatIdRef.current = null
+    stop()
+    clearError()
+    openingRef.current = null
     setChatId(null)
-    clearMessages()
-  }, [clearMessages])
+    setMessages([])
+  }, [stop, clearError, setMessages])
 
   const openChat = useCallback(
     async (id: string) => {
-      abortRef.current?.abort()
-      chatIdRef.current = id
+      stop()
+      clearError()
+      openingRef.current = id
       setChatId(id)
-      setPhase({ type: "idle" })
-      setToolActivities([])
-      setStreamedContent("")
 
       try {
         const res = await fetch(`/api/chats/${id}`)
-        if (!res.ok) throw new Error("Could not open that conversation")
-        const data = (await res.json()) as {
-          messages: {
-            id: string
-            role: string
-            content: string
-            attachments: Attachment[] | null
-            createdAt: string
-          }[]
-        }
-
-        setMessages(
-          data.messages.map((m) => ({
-            id: m.id,
-            role: m.role === "assistant" ? "assistant" : "user",
-            content: m.content,
-            createdAt: new Date(m.createdAt),
-            attachments: m.attachments ?? undefined,
-          }))
-        )
-      } catch (err) {
+        if (!res.ok) throw new Error(`Failed to load chat ${id}`)
+        const data = (await res.json()) as { messages: ChatUIMessage[] }
+        if (openingRef.current === id) setMessages(data.messages)
+      } catch {
+        if (openingRef.current !== id) return
         setMessages([])
-        setPhase({ type: "error", message: (err as Error).message })
+        toast.error("Couldn't open that conversation.")
       }
     },
-    []
+    [stop, clearError, setMessages]
   )
 
   const deleteChat = useCallback(
     async (id: string) => {
       setChats((prev) => prev.filter((c) => c.id !== id))
-      if (chatIdRef.current === id) newChat()
+      if (chatId === id) newChat()
       try {
         await fetch(`/api/chats/${id}`, { method: "DELETE" })
       } finally {
         refreshChats()
       }
     },
-    [newChat, refreshChats]
+    [chatId, newChat, refreshChats]
   )
 
   const activeTitle = useMemo(() => {
@@ -375,13 +185,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<ChatContextValue>(
     () => ({
       messages,
-      phase,
-      toolActivities,
-      streamedContent,
+      status,
+      error,
       sendMessage,
-      retryLastMessage,
-      stopGeneration,
-      clearMessages,
+      regenerate,
+      stop,
       chats,
       chatId,
       activeTitle,
@@ -389,19 +197,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
-      refreshChats,
       model,
       setModel,
     }),
     [
       messages,
-      phase,
-      toolActivities,
-      streamedContent,
+      status,
+      error,
       sendMessage,
-      retryLastMessage,
-      stopGeneration,
-      clearMessages,
+      regenerate,
+      stop,
       chats,
       chatId,
       activeTitle,
@@ -409,8 +214,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
-      refreshChats,
       model,
+      setModel,
     ]
   )
 

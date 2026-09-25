@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,13 +8,7 @@ import { ThemeProvider } from "@/components/common/theme-provider";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
-});
-
-// Display serif for the agent greeting; Instrument Serif ships a single weight.
-const instrumentSerif = Instrument_Serif({
-  subsets: ["latin"],
-  weight: "400",
-  variable: "--font-instrument-serif",
+  axes: ["opsz"],
 });
 
 export const metadata: Metadata = {
@@ -35,7 +29,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full", "antialiased", inter.variable, instrumentSerif.variable)}
+      className={cn("h-full", "antialiased", inter.variable)}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider>

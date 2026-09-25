@@ -23,7 +23,7 @@ const pageSelect = {
 type PageRow = {
   id: string
   workspaceId: string
-  projectId: string | null
+  projectId: string
   title: string
   content: unknown
   icon: string | null
@@ -32,7 +32,7 @@ type PageRow = {
   createdAt: Date
   updatedAt: Date
   createdBy: { id: string; name: string | null; email: string; image: string | null }
-  project: { id: string; name: string } | null
+  project: { id: string; name: string }
 }
 
 function formatPage(page: PageRow) {
@@ -117,16 +117,17 @@ export async function PATCH(
 
     if (body.projectId !== undefined) {
       const projectId = body.projectId ? String(body.projectId) : null
-      if (projectId) {
-        const project = await prisma.project.findFirst({
-          where: { id: projectId, workspaceId: ctx.workspaceId },
-          select: { id: true },
-        })
-        if (!project) {
-          return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 })
-        }
+      if (!projectId) {
+        return NextResponse.json({ success: false, error: "A page must belong to a project" }, { status: 400 })
       }
-      data.project = projectId ? { connect: { id: projectId } } : { disconnect: true }
+      const project = await prisma.project.findFirst({
+        where: { id: projectId, workspaceId: ctx.workspaceId },
+        select: { id: true },
+      })
+      if (!project) {
+        return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 })
+      }
+      data.project = { connect: { id: projectId } }
     }
 
     const page = await prisma.page.update({
@@ -165,7 +166,7 @@ export async function DELETE(
       type: "PAGE_DELETED",
       workspaceId: ctx.workspaceId,
       userId: ctx.session.user.id,
-      projectId: existing.projectId ?? undefined,
+      projectId: existing.projectId,
       description: `deleted page ${existing.title}`,
       metadata: { target: existing.title },
     })

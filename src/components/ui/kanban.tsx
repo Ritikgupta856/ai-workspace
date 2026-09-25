@@ -22,8 +22,8 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Badge } from "@/components/ui/badge"
 
 const COL_PREFIX = "col-"
 const CARD_PREFIX = "card-"
@@ -43,7 +43,7 @@ function stripPrefix(id: string, prefix: string) {
 export interface KanbanColumn {
   id: string
   title: string
-  color?: string
+  icon?: React.ReactNode
 }
 
 export interface KanbanProps<T> {
@@ -53,6 +53,8 @@ export interface KanbanProps<T> {
   getColumn: (item: T) => string
   renderCard: (item: T) => React.ReactNode
   onMove?: (itemId: string, from: string, to: string, index: number) => void
+  /** Shows an add button in each column header when set. */
+  onAdd?: (columnId: string) => void
   className?: string
 }
 
@@ -115,7 +117,7 @@ function KanbanCard<T>({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn("rounded-md", isDragging && "opacity-50")}
+      className={cn("rounded-lg outline-none", isDragging && "opacity-40")}
       {...attributes}
       {...listeners}
     >
@@ -129,11 +131,13 @@ function KanbanColumn<T>({
   items,
   getItemId,
   renderCard,
+  onAdd,
 }: {
   column: KanbanColumn
   items: T[]
   getItemId: (item: T) => string
   renderCard: (item: T) => React.ReactNode
+  onAdd?: (columnId: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: colId(column.id),
@@ -148,30 +152,26 @@ function KanbanColumn<T>({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-[280px] shrink-0 flex-col rounded-lg border bg-muted/50",
-        isOver && "ring-2 ring-primary/20"
+        "flex min-h-0 min-w-68 flex-1 flex-col rounded-xl border border-border/70 bg-muted/70 transition-colors dark:border-white/8 dark:bg-white/3",
+        isOver && "border-primary/40 bg-primary/6 dark:border-primary/40 dark:bg-primary/10"
       )}
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-muted/50 px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          {column.color && (
-            <div
-              className="h-2.5 w-2.5 rounded-full"
-              style={{ backgroundColor: column.color }}
-            />
-          )}
-          <span className="text-sm font-medium text-foreground">
-            {column.title}
-          </span>
-        </div>
-        <Badge
-          variant="secondary"
-          className="pointer-events-none text-xs tabular-nums"
-        >
-          {items.length}
-        </Badge>
+      <div className="flex h-11 shrink-0 items-center gap-2 px-3">
+        {column.icon}
+        <span className="text-[13px] font-medium text-foreground">{column.title}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">{items.length}</span>
+        {onAdd && (
+          <button
+            type="button"
+            onClick={() => onAdd(column.id)}
+            className="ml-auto flex size-6 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground"
+            aria-label={`Add to ${column.title}`}
+          >
+            <Plus className="size-3.5" />
+          </button>
+        )}
       </div>
-      <div className="flex-1 overflow-y-auto p-2">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-2">
         <SortableContext
           items={itemIds}
           strategy={verticalListSortingStrategy}
@@ -188,8 +188,8 @@ function KanbanColumn<T>({
           </div>
         </SortableContext>
         {items.length === 0 && (
-          <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
-            Drop items here
+          <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border/80 py-10 text-xs text-muted-foreground">
+            No tasks
           </div>
         )}
       </div>
@@ -204,6 +204,7 @@ function Kanban<T>({
   getColumn,
   renderCard,
   onMove,
+  onAdd,
   className,
 }: KanbanProps<T>) {
   const getItemIdRef = React.useRef(getItemId)
@@ -378,9 +379,7 @@ function Kanban<T>({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div
-        className={cn("flex gap-4 overflow-x-auto pb-4", className)}
-      >
+      <div className={cn("flex min-h-0 flex-1 gap-4 overflow-x-auto pb-1", className)}>
         {columns.map((column) => {
           const colItems = displayMap.get(column.id) ?? []
           return (
@@ -390,13 +389,14 @@ function Kanban<T>({
               items={colItems}
               getItemId={getItemIdRef.current}
               renderCard={renderCard}
+              onAdd={onAdd}
             />
           )
         })}
       </div>
       <DragOverlay>
         {activeItem ? (
-          <div className="rounded-md bg-card shadow-xl ring-1 ring-border">
+          <div className="rotate-2 cursor-grabbing rounded-lg shadow-2xl ring-1 ring-primary/20">
             {renderCard(activeItem)}
           </div>
         ) : null}

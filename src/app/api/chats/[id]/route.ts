@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { toChatUIMessage } from "@/lib/ai/chat-store"
 
 async function ownedChat(id: string) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -30,12 +31,13 @@ export async function GET(
       id: true,
       role: true,
       content: true,
+      parts: true,
       attachments: true,
-      createdAt: true,
+      citations: true,
     },
   })
 
-  return NextResponse.json({ chat, messages })
+  return NextResponse.json({ chat, messages: messages.map(toChatUIMessage) })
 }
 
 export async function PATCH(

@@ -1,7 +1,7 @@
 export type PageSummary = {
   id: string
   workspaceId: string
-  projectId: string | null
+  projectId: string
   title: string
   icon: string | null
   coverImage: string | null
@@ -13,8 +13,8 @@ export type PageSummary = {
 export type PageDetail = {
   id: string
   workspaceId: string
-  projectId: string | null
-  project: { id: string; name: string } | null
+  projectId: string
+  project: { id: string; name: string }
   title: string
   content: unknown
   icon: string | null
@@ -22,20 +22,6 @@ export type PageDetail = {
   createdAt: string
   updatedAt: string
   createdBy: { id: string; name: string; image: string | null }
-}
-
-/**
- * Where a page opens. A page inside a project lives under that project, so its
- * URL and breadcrumb both read project-first; a workspace-level page has no
- * project to nest under and stays at the top level.
- */
-export function pageHref(
-  slug: string,
-  page: { id: string; projectId: string | null }
-): string {
-  return page.projectId
-    ? `/${slug}/projects/${page.projectId}/pages/${page.id}`
-    : `/${slug}/pages/${page.id}`
 }
 
 type ApiResponse<T> = ({ success: true } & T) | { success: false; error: string }
@@ -49,11 +35,8 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return json
 }
 
-/** Omitted `projectId` returns workspace-level pages (projectId IS NULL). */
-export async function fetchPages(projectId?: string): Promise<PageSummary[]> {
-  const json = await request<{ pages: PageSummary[] }>(
-    projectId ? `${BASE}?projectId=${projectId}` : BASE
-  )
+export async function fetchPages(projectId: string): Promise<PageSummary[]> {
+  const json = await request<{ pages: PageSummary[] }>(`${BASE}?projectId=${projectId}`)
   return json.pages
 }
 
@@ -64,7 +47,7 @@ export async function fetchPage(id: string): Promise<PageDetail> {
 
 export async function createPage(data: {
   title?: string
-  projectId?: string | null
+  projectId: string
   icon?: string | null
 }): Promise<PageSummary> {
   const json = await request<{ page: PageSummary }>(BASE, {
