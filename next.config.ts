@@ -15,7 +15,10 @@ const nextConfig: NextConfig = {
       { hostname: "avatars.githubusercontent.com" },
     ],
   },
-  serverExternalPackages: ["pdfjs-dist"],
+  // Loaded from node_modules at runtime instead of bundled. @napi-rs/canvas is
+  // a native module that polyfills DOMMatrix for pdf.js; without it listed,
+  // the Vercel function ships without it and PDF parsing crashes.
+  serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas"],
 };
 
 export default nextConfig;

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto"
 
 import { embed, embedMany } from "ai"
 import mammoth from "mammoth"
-import { PDFParse } from "pdf-parse"
 
 import type { KnowledgeSource } from "@/generated/prisma/client"
 import { downloadFile, publicIdFromUrl } from "@/lib/files"
@@ -180,6 +179,19 @@ function stripHtml(html: string): string {
     .replace(/&#39;/gi, "’")
 }
 
+/**
+ * pdf.js needs browser globals (DOMMatrix, …) that serverless Node lacks.
+ * `pdf-parse/worker` polyfills them from @napi-rs/canvas and must load first;
+ * importing it statically is also what gets that native package traced into
+ * the Vercel function. Loaded on demand so this module — which /api/chat pulls
+ * in for retrieval — never touches pdf.js unless a PDF is actually parsed.
+ */
+async function loadPdfParse() {
+  await import("pdf-parse/worker")
+  const { PDFParse } = await import("pdf-parse")
+  return PDFParse
+}
+
 export async function extractTextFromFile(
   buffer: Buffer,
   mediaType: string,
@@ -189,6 +201,7 @@ export async function extractTextFromFile(
 
   switch (format) {
     case "pdf": {
+      const PDFParse = await loadPdfParse()
       const parser = new PDFParse({ data: buffer })
       try {
         const result = await parser.getText()
