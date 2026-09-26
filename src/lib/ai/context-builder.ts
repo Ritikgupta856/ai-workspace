@@ -1,5 +1,6 @@
 import type { ModelMessage, UserModelMessage } from "ai"
 
+import { downloadFile, publicIdFromUrl, workspaceOfFile } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
 import { searchKnowledge } from "@/lib/knowledge/rag"
 import { buildSystemPrompt } from "@/lib/ai/prompts"
@@ -150,12 +151,14 @@ export async function buildChatContext(
       )
       // Older messages may carry a browser-only blob: preview URL, which the
       // model provider can't download; sending one fails the whole turn.
-      const imageAttachments = m.attachments.filter(
-        (att) =>
-          att.mediaType &&
-          att.mediaType.startsWith("image/") &&
-          /^(https?:|data:)/.test(att.url ?? "")
-      )
+      // Private files (/api/files/…) count only when they belong to this
+      // workspace — a crafted message must not pull in another team's file.
+      const imageAttachments = m.attachments.filter((att) => {
+        if (!att.mediaType?.startsWith("image/")) return false
+        const publicId = publicIdFromUrl(att.url ?? "")
+        if (publicId) return workspaceOfFile(publicId) === workspaceId
+        return /^(https?:|data:)/.test(att.url ?? "")
+      })
 
       if (nonImageAttachments.length > 0) {
         const fileUrls = nonImageAttachments.map((att) => att.url).filter(Boolean)
@@ -224,7 +227,18 @@ export async function buildChatContext(
       }
 
       for (const att of imageAttachments) {
-        parts.push({ type: "image", image: att.url })
+        // The provider can't pass our membership check, so private images go
+        // to the model as bytes rather than as a URL it would have to fetch.
+        const publicId = publicIdFromUrl(att.url)
+        try {
+          parts.push(
+            publicId
+              ? { type: "image", image: await downloadFile(publicId), mediaType: att.mediaType }
+              : { type: "image", image: att.url }
+          )
+        } catch (err) {
+          console.error("[chat] couldn't load image attachment:", err)
+        }
       }
 
       if (parts.length > 0) {

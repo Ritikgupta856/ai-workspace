@@ -1,4 +1,4 @@
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { NextResponse } from "next/server"
 
 import { auth } from "@/lib/auth"
@@ -57,6 +57,20 @@ export async function requireProject(projectId: string) {
   } as const
 }
 
+/**
+ * The membership for the workspace the user is looking at (the
+ * `activeWorkspaceId` cookie), falling back to their first one. Without the
+ * cookie, a user in two workspaces gets whichever row Postgres returns first.
+ */
+export async function findActiveMembership(userId: string) {
+  const activeWorkspaceId = (await cookies()).get("activeWorkspaceId")?.value
+  return (
+    (activeWorkspaceId
+      ? await prisma.workspaceMember.findFirst({ where: { userId, workspaceId: activeWorkspaceId } })
+      : null) ?? (await prisma.workspaceMember.findFirst({ where: { userId } }))
+  )
+}
+
 /** Session + workspace membership only, for routes that aren't scoped to one project. */
 export async function requireWorkspace() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -70,9 +84,7 @@ export async function requireWorkspace() {
     } as const
   }
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  })
+  const membership = await findActiveMembership(session.user.id)
 
   if (!membership) {
     return {

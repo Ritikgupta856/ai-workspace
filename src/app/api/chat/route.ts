@@ -9,7 +9,7 @@ import {
   type ToolSet,
 } from "ai"
 
-import { getModel } from "@/lib/ai"
+import { CHAT_MODEL, reasoningOptions } from "@/lib/ai/models"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { buildChatContext, type IncomingMessage } from "@/lib/ai/context-builder"
@@ -43,9 +43,17 @@ function reply(text: string) {
 }
 
 export async function POST(req: Request) {
-  const { provider = "google", model, messages, chatId } = (await req.json()) as {
-    provider?: string
-    model: string
+  // Checked before any model call: without it this route is an open,
+  // anonymous proxy to our AI Gateway credit.
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+  if (!session?.user) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  // The model is never read from the body — see lib/ai/models.
+  const { messages, chatId } = (await req.json()) as {
     messages?: ChatUIMessage[]
     chatId?: string | null
   }
@@ -59,12 +67,8 @@ export async function POST(req: Request) {
 
   const history = messages.filter((m) => m.role !== "system").map(toIncomingMessage)
 
-  // Started before the session lookup so the router's model call overlaps it.
+  // Started before the workspace lookup so the router's model call overlaps it.
   const routePromise = routeChat(history)
-
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  })
 
   let tools: ToolSet | undefined
   let workspaceSystemPrompt: string | undefined
@@ -153,14 +157,17 @@ export async function POST(req: Request) {
   }
 
   const result = streamText({
-    model: getModel(provider, model),
+    model: CHAT_MODEL,
     system: context.systemPrompt,
     messages: context.messages,
     tools,
     // Cross-source questions routinely need list → fetch → follow-up chains on
     // two or three sources; 10 steps cut those off mid-investigation.
     stopWhen: stepCountIs(16),
-    providerOptions: { google: { thinkingConfig: { includeThoughts: true } } },
+    providerOptions: {
+      google: { thinkingConfig: { includeThoughts: true } },
+      ...reasoningOptions(CHAT_MODEL, plan.reasoningEffort),
+    },
   })
 
   // Keeps generating when the tab closes mid-answer, so the turn is still saved.

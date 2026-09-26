@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
+import { deleteWorkspaceFiles } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
 import { updateWorkspaceSchema } from "@/lib/validation/settings"
 
@@ -116,8 +117,14 @@ export async function DELETE(
     }
 
     // Everything hanging off a workspace cascades on delete in the schema, so
-    // removing the row is enough.
+    // removing the row is enough for the database. Its files live in
+    // Cloudinary under the workspace's folder and go after the response.
     await prisma.workspace.delete({ where: { id } })
+    after(() =>
+      deleteWorkspaceFiles(id).catch((error) =>
+        console.error(`Failed to delete files for workspace ${id}:`, error)
+      )
+    )
 
     // Point the user at whatever workspace they still belong to. The dashboard
     // layout creates a fresh one if this comes back empty.

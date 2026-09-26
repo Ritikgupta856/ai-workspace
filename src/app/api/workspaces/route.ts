@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
+import { uploadWorkspaceLogo } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
 import { createWorkspaceSchema } from "@/lib/validation/workspace"
 
@@ -136,7 +137,6 @@ export async function POST(req: Request) {
         name,
         slug,
         description: description || null,
-        logo: logo || null,
         members: {
           create: {
             userId: session.user.id,
@@ -145,6 +145,17 @@ export async function POST(req: Request) {
         },
       },
     })
+
+    // The logo's Cloudinary path needs the workspace id, so it's uploaded after
+    // creation. A failed upload costs the logo, never the workspace.
+    if (logo) {
+      try {
+        const logoUrl = await uploadWorkspaceLogo(workspace.id, logo)
+        await prisma.workspace.update({ where: { id: workspace.id }, data: { logo: logoUrl } })
+      } catch (error) {
+        console.error("Workspace logo upload failed:", error)
+      }
+    }
 
     const response = NextResponse.json({
       success: true,

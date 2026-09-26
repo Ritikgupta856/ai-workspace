@@ -1,8 +1,8 @@
 import { generateText, Output } from "ai"
-import { google } from "@ai-sdk/google"
 import { z } from "zod"
 
 import { isSmallTalk, isWorkspaceAction } from "@/lib/ai/intent"
+import { reasoningOptions, ROUTER_MODEL } from "@/lib/ai/models"
 import { INTEGRATIONS } from "@/lib/integrations/config"
 
 /**
@@ -15,11 +15,9 @@ import { INTEGRATIONS } from "@/lib/integrations/config"
  * full pipeline, so a slow router can't make a turn worse than no router.
  */
 
-const ROUTER_MODEL = "gemini-3.5-flash-lite"
 /**
- * Measured 1.2–2.5s warm, ~2.6s on a cold connection, and 11–22s spikes when
- * the free-tier limit (15 requests/min, shared with the chat model) throttles
- * it; past this, run everything.
+ * Measured 1.2–2.5s warm on Gemini Flash-Lite, with long spikes when a
+ * provider throttles; past this, run everything.
  */
 const ROUTER_TIMEOUT_MS = 3000
 
@@ -89,14 +87,14 @@ export async function routeChat(messages: RouterMessage[]): Promise<ChatRoute | 
   const startedAt = Date.now()
   try {
     const { output } = await generateText({
-      model: google(ROUTER_MODEL),
+      model: ROUTER_MODEL,
       system: ROUTER_PROMPT,
       prompt: `Conversation, latest message last:\n\n${transcript(messages)}`,
       output: Output.object({ schema: routeSchema }),
       abortSignal: AbortSignal.timeout(ROUTER_TIMEOUT_MS),
       maxRetries: 0,
-      // Classification needs no reasoning; measured median 2.3s → 1.7s.
-      providerOptions: { google: { thinkingConfig: { thinkingLevel: "minimal" } } },
+      // Classification needs no reasoning.
+      providerOptions: reasoningOptions(ROUTER_MODEL, "minimal"),
     })
     console.log(
       `[router] 🧭 intent=${output.intent} sources=[${output.sources.join(", ")}] in ${Date.now() - startedAt}ms`
@@ -116,13 +114,18 @@ export type ChatPlan = {
   tools: "none" | "read" | "read-write"
   /** Integration ids to connect, or every connected one. */
   integrations: string[] | "all"
+  /**
+   * How long the model thinks before answering. Reasoning tokens are most of a
+   * reply's latency, so only multi-step tool work gets the full budget.
+   */
+  reasoningEffort: "minimal" | "low" | "medium"
 }
 
 export function planFor(route: ChatRoute | null): ChatPlan {
-  if (!route) return { retrieve: true, tools: "read-write", integrations: "all" }
+  if (!route) return { retrieve: true, tools: "read-write", integrations: "all", reasoningEffort: "medium" }
 
   if (route.intent === "conversation" || route.intent === "general_knowledge") {
-    return { retrieve: false, tools: "none", integrations: [] }
+    return { retrieve: false, tools: "none", integrations: [], reasoningEffort: "minimal" }
   }
 
   // Native read tools stay on for any workspace turn: they cost no I/O until
@@ -131,5 +134,6 @@ export function planFor(route: ChatRoute | null): ChatPlan {
     retrieve: route.sources.includes("knowledge_base"),
     tools: route.intent === "action" ? "read-write" : "read",
     integrations: route.sources.filter((s) => s !== "knowledge_base"),
+    reasoningEffort: route.intent === "action" ? "medium" : "low",
   }
 }

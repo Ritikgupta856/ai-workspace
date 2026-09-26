@@ -14,7 +14,6 @@ import { DefaultChatTransport, type ChatStatus, type FileUIPart } from "ai"
 import { toast } from "sonner"
 
 import type { ChatUIMessage } from "@/lib/ai/chat-message"
-import { DEFAULT_AGENT_MODEL, type AgentModelId } from "./models"
 
 export type ChatSummary = {
   id: string
@@ -37,9 +36,6 @@ interface ChatContextValue {
   newChat: () => void
   openChat: (id: string) => void
   deleteChat: (id: string) => void
-  /** Model the next turn is sent to; switchable mid-conversation. */
-  model: AgentModelId
-  setModel: (model: AgentModelId) => void
 }
 
 const ChatContext = createContext<ChatContextValue | null>(null)
@@ -54,7 +50,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [chats, setChats] = useState<ChatSummary[]>([])
   const [chatId, setChatId] = useState<string | null>(null)
   const [loadingChats, setLoadingChats] = useState(true)
-  const [model, setModel] = useState<AgentModelId>(DEFAULT_AGENT_MODEL)
   // The chat whose history is loading, so a slower earlier load can't overwrite a later one.
   const openingRef = useRef<string | null>(null)
 
@@ -121,7 +116,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     onFinish: () => void refreshChats(),
   })
 
-  const requestOptions = useMemo(() => ({ body: { chatId, model, provider: "google" } }), [chatId, model])
+  const requestOptions = useMemo(() => ({ body: { chatId } }), [chatId])
 
   const sendMessage = useCallback(
     (text: string, files?: FileUIPart[]) => {
@@ -197,8 +192,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
-      model,
-      setModel,
     }),
     [
       messages,
@@ -214,8 +207,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       newChat,
       openChat,
       deleteChat,
-      model,
-      setModel,
     ]
   )
 

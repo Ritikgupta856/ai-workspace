@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, type FormEvent, Suspense } from "react"
+import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 
 import { signIn } from "@/lib/auth-client"
@@ -113,6 +114,14 @@ function SignInForm() {
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Enter your password"
             autoComplete="current-password"
+            action={
+              <Link
+                href="/forgot-password"
+                className="text-brand-ink text-[12.5px] font-medium underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            }
             required
             disabled={busy}
           />

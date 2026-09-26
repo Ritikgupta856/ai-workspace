@@ -2,21 +2,9 @@
 
 import { useEffect, useRef, useState, useCallback, type KeyboardEvent, type ChangeEvent } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import {
-  Plus,
-  Square,
-  SendHorizontal,
-  ChevronDown,
-  Check,
-} from "lucide-react"
+import { Plus, Square, SendHorizontal } from "lucide-react"
 import type { FileUIPart } from "ai"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
 import {
   Attachment,
   AttachmentInfo,
@@ -26,8 +14,8 @@ import {
 } from "@/components/ai-elements/attachments"
 import { SpeechInput } from "@/components/ai-elements/speech-input"
 import { cn } from "@/lib/utils"
+import { ALLOWED_EXTENSIONS, uploadFile as uploadToStorage } from "@/lib/uploads"
 import { useChatContext } from "./chat-provider"
-import { AGENT_MODELS } from "./models"
 
 // Send and stop use the app's primary blue.
 const ACCENT = "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -67,49 +55,14 @@ function RotatingPlaceholder() {
   )
 }
 
-/** Pill that switches which model the next turn runs on. */
-function ModelPicker() {
-  const { model, setModel } = useChatContext()
-  const current = AGENT_MODELS.find((m) => m.id === model) ?? AGENT_MODELS[0]
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="flex h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-foreground/90 transition-colors hover:bg-accent"
-          aria-label="Choose model"
-        >
-          <span className="flex -space-x-1">
-            <span className="size-3 rounded-full bg-violet-400 ring-1 ring-card" />
-            <span className="size-3 rounded-full bg-pink-400 ring-1 ring-card" />
-            <span className="size-3 rounded-full bg-orange-400 ring-1 ring-card" />
-          </span>
-          <span className="hidden sm:inline">{current.label}</span>
-          <ChevronDown className="size-3 text-muted-foreground" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuLabel className="text-[11px] font-normal text-muted-foreground">Model</DropdownMenuLabel>
-        {AGENT_MODELS.map((m) => (
-          <DropdownMenuItem key={m.id} onSelect={() => setModel(m.id)} className="gap-2">
-            <span className="min-w-0 flex-1">
-              <span className="block text-[13px]">{m.label}</span>
-              <span className="block text-[11px] text-muted-foreground">{m.hint}</span>
-            </span>
-            {m.id === model && <Check className="size-3.5 text-muted-foreground" />}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 type AttachmentState = {
   id: string
   filename: string
   mediaType: string
   url: string
   uploadStatus: "uploading" | "done" | "error"
+  progress?: number
+  error?: string
 }
 
 function SendButton({
@@ -178,27 +131,18 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
     !isUploading
 
   const uploadFile = useCallback(async (file: File, localId: string) => {
+    const update = (patch: Partial<AttachmentState>) =>
+      setAttachments((prev) => prev.map((a) => (a.id === localId ? { ...a, ...patch } : a)))
+
     try {
-      const formData = new FormData()
-      formData.append("file", file)
-      const res = await fetch("/api/upload", { method: "POST", body: formData })
-      if (!res.ok) throw new Error(`Upload failed (${res.status})`)
-      const data = await res.json()
-      setAttachments((prev) =>
-        prev.map((a) =>
-          a.id === localId
-            ? // Swap the local blob: preview for the hosted URL — the server
-              // (and anyone reopening this chat later) can't read a blob: URL.
-              { ...a, uploadStatus: "done" as const, url: data.url ?? a.url }
-            : a
-        )
-      )
-    } catch {
-      setAttachments((prev) =>
-        prev.map((a) =>
-          a.id === localId ? { ...a, uploadStatus: "error" as const } : a
-        )
-      )
+      const uploaded = await uploadToStorage(file, "document", (progress) => update({ progress }))
+      // Swap the local blob: preview for the permanent file URL — the server
+      // (and anyone reopening this chat later) can't read a blob: URL.
+      update({ uploadStatus: "done", url: uploaded.url })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed"
+      update({ uploadStatus: "error", error: message })
+      toast.error(`${file.name}: ${message}`)
     }
   }, [])
 
@@ -329,10 +273,13 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
                       "text-[13px] font-normal",
                       att.uploadStatus === "error" && "border-destructive/40 bg-destructive/10 text-destructive"
                     )}
-                    title={att.uploadStatus === "error" ? "Upload failed" : att.filename}
+                    title={att.uploadStatus === "error" ? (att.error ?? "Upload failed") : att.filename}
                   >
                     <AttachmentPreview loading={att.uploadStatus === "uploading"} />
                     <AttachmentInfo className="max-w-32" />
+                    {att.uploadStatus === "uploading" && (
+                      <span className="text-muted-foreground text-[12px] tabular-nums">{att.progress ?? 0}%</span>
+                    )}
                     <AttachmentRemove label={`Remove ${att.filename}`} />
                   </Attachment>
                 ))}
@@ -345,6 +292,7 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
           ref={fileInputRef}
           type="file"
           multiple
+          accept={ALLOWED_EXTENSIONS.document.map((ext) => `.${ext}`).join(",")}
           className="hidden"
           onChange={(e) => handleFileSelect(e.target.files)}
           aria-label="Upload files"
@@ -391,8 +339,6 @@ export function Composer({ variant = "docked" }: { variant?: "docked" | "centere
               >
                 <Plus className="size-4" />
               </button>
-              <span className="mx-1.5 h-4 w-px bg-border" />
-              <ModelPicker />
             </div>
 
             <div className="flex shrink-0 items-center gap-1.5">

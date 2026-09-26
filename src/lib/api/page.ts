@@ -1,3 +1,5 @@
+import { uploadFile } from "@/lib/uploads"
+
 export type PageSummary = {
   id: string
   workspaceId: string
@@ -80,14 +82,10 @@ export async function deletePage(id: string): Promise<void> {
   await request(`${BASE}/${id}`, { method: "DELETE" })
 }
 
+/** Uploads straight to private storage; the returned url is the permanent /api/files/… address. */
 export async function uploadPageAttachment(
   file: File
 ): Promise<{ url: string; name: string; size: number; mediaType: string }> {
-  const formData = new FormData()
-  formData.set("file", file)
-  const res = await fetch(`${BASE}/attachments`, { method: "POST", body: formData })
-  const json: ApiResponse<{ url: string; name: string; size: number; mediaType: string }> =
-    await res.json()
-  if (!json.success) throw new Error(json.error)
-  return json
+  const uploaded = await uploadFile(file, "attachment")
+  return { url: uploaded.url, name: uploaded.filename, size: uploaded.bytes, mediaType: uploaded.mediaType }
 }

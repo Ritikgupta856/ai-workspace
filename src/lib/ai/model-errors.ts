@@ -10,6 +10,10 @@ export function describeModelError(err: unknown): string {
   const cause = RetryError.isInstance(err) ? err.lastError : err
   const statusCode = APICallError.isInstance(cause) ? cause.statusCode : undefined
 
+  // AI Gateway: credit or budget for the period is used up.
+  if (statusCode === 402) {
+    return "The AI usage budget has been used up for now. Please try again later."
+  }
   if (statusCode === 429) {
     return "You've reached the AI usage limit for now. Please wait a minute and try again."
   }

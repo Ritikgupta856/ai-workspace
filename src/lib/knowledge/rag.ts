@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto"
 
-import { google } from "@ai-sdk/google"
 import { embed, embedMany } from "ai"
 import mammoth from "mammoth"
 import { PDFParse } from "pdf-parse"
 
 import type { KnowledgeSource } from "@/generated/prisma/client"
+import { downloadFile, publicIdFromUrl } from "@/lib/files"
 import { prisma } from "@/lib/prisma"
 
 /**
@@ -35,7 +35,12 @@ import { prisma } from "@/lib/prisma"
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
-const EMBEDDING_MODEL = "gemini-embedding-001"
+/**
+ * Same Google model as before, routed through Vercel AI Gateway so embedding
+ * usage shows up next to chat. Existing vectors stay valid only while the
+ * model, dimensions and taskType below are unchanged.
+ */
+const EMBEDDING_MODEL = "google/gemini-embedding-001"
 
 /** Must match the live `vector(1536)` on KnowledgeChunk.embedding. See invariant 1. */
 const EMBEDDING_DIMENSIONS = 1536
@@ -410,7 +415,8 @@ export function chunkText(
 
 // ── Step 3: Embed ──────────────────────────────────────────────────────────
 
-const embeddingModel = google.embedding(EMBEDDING_MODEL)
+// A plain "provider/model" string resolves through AI Gateway (AI_GATEWAY_API_KEY).
+const embeddingModel = EMBEDDING_MODEL
 
 export type EmbeddingTask = "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY"
 
@@ -968,4 +974,39 @@ export async function processDocumentBackground(
     warn(`❌ processing failed for "${filename}" (${documentId})`, error)
     await markFailed(documentId, error instanceof Error ? error.message : String(error))
   }
+}
+
+/**
+ * Indexes a document whose file is already in storage — after a direct upload
+ * (the server never sees the bytes) and when retrying a failed one. Older
+ * documents still point at public Cloudinary URLs, so those are fetched as-is.
+ */
+export async function processStoredDocument(documentId: string): Promise<void> {
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    select: { title: true, sourceUrl: true, metadata: true },
+  })
+  if (!document?.sourceUrl) {
+    await markFailed(documentId, "This document has no stored file to process.")
+    return
+  }
+
+  let buffer: Buffer
+  try {
+    const publicId = publicIdFromUrl(document.sourceUrl)
+    if (publicId) {
+      buffer = await downloadFile(publicId)
+    } else {
+      const res = await fetch(document.sourceUrl)
+      if (!res.ok) throw new Error(`download returned ${res.status}`)
+      buffer = Buffer.from(await res.arrayBuffer())
+    }
+  } catch (error) {
+    warn(`❌ couldn't download "${document.title}" (${documentId})`, error)
+    await markFailed(documentId, "Couldn't download the file from storage. Please try again.")
+    return
+  }
+
+  const mediaType = (document.metadata as { mediaType?: string } | null)?.mediaType ?? ""
+  await processDocumentBackground(documentId, mediaType, document.title, buffer)
 }
