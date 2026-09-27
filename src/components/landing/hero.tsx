@@ -1,9 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { HeroBackdrop } from "@/components/landing/illustrations"
 import { EASE } from "@/components/landing/section"
 
 const rise = (delay: number) => ({
@@ -131,22 +131,22 @@ export function Hero() {
 
           <motion.div
             {...rise(0.18)}
-            className="mt-9 flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row"
+            className="mt-9 flex items-center justify-center gap-2.5 sm:gap-3"
           >
             <Button
               size="lg"
-              className="h-11 w-full gap-2 rounded-lg px-6 text-[15px] font-medium shadow-rest sm:w-auto"
+              className="h-11 gap-2 rounded-lg px-4 text-[14px] font-medium shadow-rest sm:px-6 sm:text-[15px]"
               asChild
             >
-              <a href="/sign-up">
+              <Link href="/sign-up">
                 Start for free
                 <ArrowRight className="size-4" />
-              </a>
+              </Link>
             </Button>
             <Button
               variant="outline"
               size="lg"
-              className="border-line text-ink hover:bg-surface-1 h-11 w-full rounded-lg bg-white px-6 text-[15px] font-medium shadow-rest sm:w-auto"
+              className="border-line text-ink hover:bg-surface-1 h-11 rounded-lg bg-white px-4 text-[14px] font-medium shadow-rest sm:px-6 sm:text-[15px]"
               asChild
             >
               <a href="#product">See it in action</a>

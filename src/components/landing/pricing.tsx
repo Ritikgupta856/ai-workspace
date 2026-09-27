@@ -1,140 +1,198 @@
 "use client"
 
+import Link from "next/link"
 import { motion } from "framer-motion"
-import { Check, ArrowRight } from "lucide-react"
+import { ArrowRight } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { Section, SectionHeading, EASE } from "@/components/landing/section"
+import { BRANDS, type BrandKey } from "@/components/landing/brand-logos"
+
+/**
+ * Two plans, priced per workspace. Pro is the one dark surface on the page so
+ * the decision reads at a glance; the cards only carry what differs between
+ * plans, as spec rows that line up side by side. Every line here is something
+ * the app actually does — keep it that way.
+ */
+
+const INTEGRATIONS: BrandKey[] = ["github", "notion", "linear", "figma"]
+
+function IntegrationMarks() {
+  return (
+    <span className="flex items-center gap-1">
+      {INTEGRATIONS.map((key) => {
+        const { name, Color } = BRANDS[key]
+        return (
+          <span
+            key={key}
+            title={name}
+            className="flex size-5 items-center justify-center rounded-md bg-white"
+          >
+            <Color className="size-3" />
+          </span>
+        )
+      })}
+    </span>
+  )
+}
+
+const rows: { label: string; free: React.ReactNode; pro: React.ReactNode }[] = [
+  { label: "Members", free: "3", pro: "Unlimited" },
+  { label: "Projects", free: "3", pro: "Unlimited" },
+  { label: "AI answers / month", free: "100", pro: "2,000" },
+  {
+    label: "Integrations",
+    free: "1 of 4",
+    pro: (
+      <span className="flex items-center gap-2">
+        <IntegrationMarks />
+        All 4
+      </span>
+    ),
+  },
+  { label: "Support", free: "Community & email", pro: "Priority email" },
+]
 
 const plans = [
   {
+    key: "free" as const,
     name: "Free",
     price: "$0",
-    period: "/month",
-    description: "Perfect for getting started",
-    features: [
-      "Up to 3 projects",
-      "50 AI queries/month",
-      "Basic integrations",
-      "Community support",
-      "1 GB storage",
-    ],
-    cta: "Get Started",
-    popular: false,
+    period: "forever",
+    blurb: "For trying Synapse with a small team.",
+    cta: "Start for free",
   },
   {
+    key: "pro" as const,
     name: "Pro",
     price: "$19",
-    period: "/month",
-    description: "For professionals and small teams",
-    features: [
-      "Unlimited projects",
-      "1,000 AI queries/month",
-      "All integrations",
-      "Priority support",
-      "10 GB storage",
-      "Custom automations",
-      "Team collaboration",
-    ],
-    cta: "Start Free Trial",
-    popular: true,
-  },
-  {
-    name: "Team",
-    price: "$49",
-    period: "/month",
-    description: "For growing teams",
-    features: [
-      "Everything in Pro",
-      "5,000 AI queries/month",
-      "Advanced permissions",
-      "Dedicated support",
-      "50 GB storage",
-      "Analytics & insights",
-      "SSO & SAML",
-      "Audit logs",
-    ],
-    cta: "Contact Sales",
-    popular: false,
+    period: "per workspace / month",
+    blurb: "For teams that run their week in Synapse.",
+    cta: "Start with Pro",
   },
 ]
 
 export function Pricing() {
   return (
-    <section id="pricing" className="relative py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mb-16 text-center"
-        >
-          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-            Simple, transparent pricing.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Start free and upgrade when you need more power.
-          </p>
-        </motion.div>
+    <Section id="pricing" divider>
+      <SectionHeading
+        eyebrow="Pricing"
+        title="One price for the whole workspace."
+        lede="Free for small teams. When you outgrow it, Pro is $19 a month per workspace — not per seat, so adding people never raises the bill."
+      />
 
-        <div className="grid gap-6 lg:grid-cols-3 lg:gap-4">
-          {plans.map((plan, i) => (
+      <div className="mx-auto mt-14 grid max-w-4xl items-stretch gap-5 md:mt-16 md:grid-cols-2">
+        {plans.map((plan, i) => {
+          const pro = plan.key === "pro"
+          return (
             <motion.div
-              key={plan.name}
+              key={plan.key}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1 }}
+              viewport={{ once: true, margin: "-60px" }}
+              transition={{ duration: 0.6, delay: i * 0.1, ease: EASE }}
               className={cn(
-                "relative rounded-xl border bg-card p-8 transition-all duration-300",
-                plan.popular
-                  ? "border-primary/40 shadow-[0_0_40px_rgba(var(--primary),0.1)]"
-                  : "border-border/50 hover:border-border",
+                "relative isolate flex flex-col overflow-hidden rounded-3xl p-7 sm:p-9",
+                pro
+                  ? "bg-ink text-white shadow-[0_30px_80px_-24px_oklch(0.55_0.21_258/0.55)]"
+                  : "border-line border bg-white shadow-rest",
               )}
             >
-              {plan.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-medium text-primary-foreground">
-                  Most Popular
-                </div>
+              {pro && (
+                <>
+                  {/* Brand glow and a lit top edge — the only dark, lit surface on the page */}
+                  <div
+                    aria-hidden
+                    className="bg-brand/45 pointer-events-none absolute -top-32 -right-24 -z-10 size-80 rounded-full blur-3xl"
+                  />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent"
+                  />
+                </>
               )}
 
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold">{plan.name}</h3>
-                <div className="mt-2 flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tight">
-                    {plan.price}
+              <div className="flex items-center gap-2.5">
+                <h3
+                  className={cn(
+                    "text-[18px] font-semibold tracking-[-0.015em]",
+                    pro ? "text-white" : "text-ink",
+                  )}
+                >
+                  {plan.name}
+                </h3>
+                {pro && (
+                  <span className="bg-brand rounded-full px-2.5 py-0.5 text-[11px] font-medium text-white">
+                    Recommended
                   </span>
-                  <span className="text-sm text-muted-foreground">
-                    {plan.period}
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {plan.description}
-                </p>
+                )}
               </div>
+              <p className={cn("mt-1.5 text-[14px]", pro ? "text-white/65" : "text-ink-soft")}>
+                {plan.blurb}
+              </p>
 
-              <ul className="mb-8 flex flex-col gap-3">
-                {plan.features.map((feature) => (
-                  <li key={feature} className="flex items-center gap-3 text-sm">
-                    <Check className="size-4 shrink-0 text-primary" />
-                    <span className="text-muted-foreground">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
+              <div className="mt-8 flex items-baseline gap-2">
+                <span
+                  className={cn(
+                    "text-[64px] leading-none font-semibold tracking-[-0.045em] tabular-nums",
+                    pro ? "text-white" : "text-ink",
+                  )}
+                >
+                  {plan.price}
+                </span>
+                <span className={cn("text-[14px]", pro ? "text-white/55" : "text-ink-faint")}>
+                  {plan.period}
+                </span>
+              </div>
               <Button
-                variant={plan.popular ? "default" : "outline"}
-                className="w-full"
+                variant={pro ? "default" : "outline"}
+                className={cn(
+                  "mt-6 h-12 w-full gap-2 rounded-xl text-[15px] font-medium",
+                  pro
+                    ? "shadow-[0_10px_30px_-10px_oklch(0.55_0.21_258/0.9)]"
+                    : "border-line text-ink hover:bg-surface-1 bg-white shadow-rest",
+                )}
                 asChild
               >
-                <a href="/sign-up">
+                <Link href="/sign-up">
                   {plan.cta}
                   <ArrowRight className="size-4" />
-                </a>
+                </Link>
               </Button>
+
+              <dl className="mt-8 flex flex-col">
+                {rows.map((row) => (
+                  <div
+                    key={row.label}
+                    className={cn(
+                      "flex items-center justify-between gap-4 border-t py-3.5",
+                      pro ? "border-white/10" : "border-line-soft",
+                    )}
+                  >
+                    <dt className={cn("text-[14px]", pro ? "text-white/60" : "text-ink-soft")}>
+                      {row.label}
+                    </dt>
+                    <dd
+                      className={cn(
+                        "text-right text-[14px] font-medium tabular-nums",
+                        pro ? "text-white" : "text-ink",
+                      )}
+                    >
+                      {pro ? row.pro : row.free}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             </motion.div>
-          ))}
-        </div>
+          )
+        })}
       </div>
-    </section>
+
+      <p className="text-ink-faint mx-auto mt-8 max-w-4xl text-center text-[12.5px]">
+        One AI answer is one reply from Synapse, however many steps it takes. Answers reset each
+        calendar month. Prices in USD.
+      </p>
+    </Section>
   )
 }

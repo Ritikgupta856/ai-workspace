@@ -40,7 +40,7 @@ const faqs = [
   {
     question: "Which tools does it connect to?",
     answer:
-      "GitHub, Slack, Notion, Linear and Figma today, alongside documents you upload directly. Each connection is per-workspace and can be disconnected at any time, which removes its access immediately.",
+      "GitHub, Notion, Linear and Figma today, alongside documents you upload directly. Each connection is per-workspace and can be disconnected at any time, which removes its access immediately.",
   },
   {
     question: "Do you train models on our data?",

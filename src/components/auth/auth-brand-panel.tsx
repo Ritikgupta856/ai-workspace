@@ -69,7 +69,7 @@ const NODES: Node[] = [
   },
 ]
 
-const LOGOS: BrandKey[] = ["github", "slack", "notion", "linear", "figma", "drive"]
+const LOGOS: BrandKey[] = ["github", "notion", "linear", "figma", "drive"]
 
 /* Hub sits at (350, 204) in the 700×400 diagram space; each path leaves its
    edge and stops just short of a card, which covers the last few pixels. */

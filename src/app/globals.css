@@ -486,29 +486,7 @@
     transform: translateY(-2px);
   }
 
-  /* ── Background textures ────────────────────────────────── */
-  .lp-grid {
-    background-image:
-      linear-gradient(to right, var(--lp-line-soft) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--lp-line-soft) 1px, transparent 1px);
-    background-size: 72px 72px;
-    background-position: center top;
-  }
-
-  .lp-dots {
-    background-image: radial-gradient(var(--lp-line) 1px, transparent 1px);
-    background-size: 22px 22px;
-  }
-
   /* ── Masks ──────────────────────────────────────────────── */
-  .lp-mask-b {
-    -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 100%);
-  }
-  .lp-mask-radial {
-    -webkit-mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
-    mask-image: radial-gradient(70% 60% at 50% 30%, #000 0%, transparent 100%);
-  }
   .lp-mask-x {
     -webkit-mask-image: linear-gradient(
       to right,

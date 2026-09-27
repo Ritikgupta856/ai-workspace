@@ -5,6 +5,7 @@ import { Hero } from "@/components/landing/hero"
 import { ProductPreview } from "@/components/landing/product-preview"
 import { TrustedBy } from "@/components/landing/trusted-by"
 import { Features } from "@/components/landing/features"
+import { ProductTour } from "@/components/landing/product-tour"
 import { AiWorkspace } from "@/components/landing/ai-workspace"
 import { Integrations } from "@/components/landing/integrations"
 import { Pricing } from "@/components/landing/pricing"
@@ -32,6 +33,7 @@ export function LandingPage() {
         <ProductPreview />
         <TrustedBy />
         <Features />
+        <ProductTour />
         <AiWorkspace />
         <Integrations />
         <Pricing />

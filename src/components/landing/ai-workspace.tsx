@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Section, Eyebrow, EASE, reveal } from "@/components/landing/section"
 import {
   GitHubColor,
-  SlackColor,
+  LinearColor,
   NotionColor,
 } from "@/components/landing/brand-logos"
 import { SynapseGlyph } from "@/components/landing/illustrations"
@@ -150,7 +150,7 @@ export function AiWorkspace() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {[
                         { Mark: GitHubColor, label: "PR #342" },
-                        { Mark: SlackColor, label: "#eng-platform" },
+                        { Mark: LinearColor, label: "AUTH-118" },
                         { Mark: NotionColor, label: "Platform wiki" },
                       ].map(({ Mark, label }) => (
                         <span

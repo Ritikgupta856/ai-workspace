@@ -22,6 +22,7 @@ function slugify(text: string): string {
 const RESERVED_WORKSPACE_SLUGS = new Set([
   "agent", "inbox", "my-work", "projects", "tasks", "pages", "boards",
   "chat", "invite", "sign-in", "sign-up", "api", "settings", "home", "w",
+  "forgot-password", "reset-password", "privacy", "terms",
 ])
 
 async function generateUniqueSlug(name: string): Promise<string> {

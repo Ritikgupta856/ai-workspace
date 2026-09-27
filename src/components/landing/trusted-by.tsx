@@ -6,7 +6,6 @@ import { reveal } from "@/components/landing/section"
 
 const ORDER: BrandKey[] = [
   "github",
-  "slack",
   "notion",
   "linear",
   "figma",

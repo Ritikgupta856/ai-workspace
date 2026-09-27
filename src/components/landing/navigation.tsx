@@ -47,7 +47,7 @@ export function Navigation() {
             alt="Synapse"
             width={120}
             height={40}
-            className="h-9 w-auto"
+            className="h-6 w-auto"
             priority
           />
         </Link>
@@ -112,12 +112,14 @@ export function Navigation() {
                 </a>
               ))}
               <hr className="my-2 border-border/50" />
-              <Button variant="ghost" asChild className="justify-start">
-                <a href="/sign-in">Login</a>
-              </Button>
-              <Button asChild>
-                <a href="/sign-up">Get Started</a>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" asChild>
+                  <Link href="/sign-in">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/sign-up">Get Started</Link>
+                </Button>
+              </div>
             </div>
           </motion.div>
         )}

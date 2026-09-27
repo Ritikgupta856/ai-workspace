@@ -9,14 +9,13 @@ import { BRANDS, type BrandKey } from "@/components/landing/brand-logos"
 import { RingBackdrop, SynapseGlyph } from "@/components/landing/illustrations"
 
 /**
- * Eight real brands on a ring. The chips counter-rotate against the ring so the
+ * Seven brands on a ring. The chips counter-rotate against the ring so the
  * logos stay upright while the orbit turns — the whole thing pauses for anyone
  * with reduced-motion on.
  */
 
 const ORBIT: BrandKey[] = [
   "github",
-  "slack",
   "linear",
   "notion",
   "figma",
@@ -44,7 +43,7 @@ export function Integrations() {
           </p>
 
           <ul className="divide-line-soft border-line mt-8 divide-y overflow-hidden rounded-xl border bg-white shadow-rest">
-            {ORBIT.slice(0, 5).map((key) => {
+            {ORBIT.slice(0, 4).map((key) => {
               const { name, Color, syncs } = BRANDS[key]
               return (
                 <li
@@ -75,7 +74,7 @@ export function Integrations() {
               </Link>
             </Button>
             <span className="text-ink-faint text-[13px]">
-              Plus Figma, Drive, Asana and Discord
+              More integrations on the way
             </span>
           </div>
         </motion.div>
