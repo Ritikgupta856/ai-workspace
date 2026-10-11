@@ -2,40 +2,31 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { requireWorkspace } from "@/lib/api/guards"
+import { commentSelect, formatComment } from "@/lib/task-comments"
 import { logActivity } from "@/lib/activity"
 import { notifyTaskAssignment, notifyTaskCompletion, notifyTaskUpdate } from "@/lib/notifications"
 
+/**
+ * One task. With `?panel=1` it also returns everything the task panel shows
+ * — comments, the people it can be assigned to, and whether it is favourited —
+ * queried in parallel after a single auth check, so opening the panel is one
+ * request instead of four chained ones.
+ */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
+    const ctx = await requireWorkspace()
+    if (ctx.error) return ctx.error
 
     const { id } = await params
+    const panel = new URL(req.url).searchParams.get("panel") === "1"
+    const userId = ctx.session.user.id
 
-    const task = await prisma.task.findFirst({
-      where: { id, workspaceId: membership.workspaceId },
+    const taskQuery = prisma.task.findFirst({
+      where: { id, workspaceId: ctx.workspaceId },
       include: {
         project: { select: { name: true } },
         assignee: { select: { name: true, image: true } },
@@ -45,6 +36,36 @@ export async function GET(
         _count: { select: { comments: true, subtasks: true } },
       },
     })
+
+    // The panel extras don't depend on the task row, so they run alongside it.
+    // Assignable people are the task's project members, or the whole workspace
+    // for a project-less task; both are cheap, so fetch both and pick after.
+    const [task, comments, projectMembers, workspaceMembers, favorite] = await Promise.all([
+      taskQuery,
+      panel
+        ? prisma.taskComment.findMany({ where: { taskId: id }, select: commentSelect, orderBy: { createdAt: "asc" } })
+        : null,
+      panel
+        ? prisma.projectMember.findMany({
+            where: { project: { workspaceId: ctx.workspaceId, tasks: { some: { id } } } },
+            select: { user: { select: { id: true, name: true, email: true, image: true } } },
+            orderBy: { createdAt: "asc" },
+          })
+        : null,
+      panel
+        ? prisma.workspaceMember.findMany({
+            where: { workspaceId: ctx.workspaceId },
+            select: { user: { select: { id: true, name: true, email: true, image: true } } },
+            orderBy: { createdAt: "asc" },
+          })
+        : null,
+      panel
+        ? prisma.favorite.findUnique({
+            where: { userId_entityType_entityId: { userId, entityType: "TASK", entityId: id } },
+            select: { id: true },
+          })
+        : null,
+    ])
 
     if (!task) {
       return NextResponse.json(
@@ -76,7 +97,23 @@ export async function GET(
       createdAt: task.createdAt.toISOString(),
     }
 
-    return NextResponse.json({ success: true, task: formatted })
+    if (!panel) return NextResponse.json({ success: true, task: formatted })
+
+    const members = task.projectId
+      ? projectMembers!.map(({ user }) => ({ userId: user.id, name: user.name || user.email, avatar: user.image }))
+      : workspaceMembers!.map(({ user }) => ({
+          userId: user.id,
+          name: user.name || user.email.split("@")[0],
+          avatar: user.image,
+        }))
+
+    return NextResponse.json({
+      success: true,
+      task: formatted,
+      comments: comments!.map(formatComment),
+      members,
+      favorited: favorite !== null,
+    })
   } catch (error) {
     console.error("Fetch Task Error:", error)
     return NextResponse.json(

@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Spinner } from "@/components/ui/spinner"
 import { createWorkspaceSchema, type CreateWorkspaceValues } from "@/lib/validation/workspace"
 import { cn } from "@/lib/utils"
+import { useCreateWorkspace } from "@/lib/query/workspace"
 
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml"]
 const MAX_SIZE = 2 * 1024 * 1024
@@ -75,7 +76,8 @@ export function CreateWorkspaceDialog({
   })
 
   const { register, handleSubmit, formState: { errors }, setValue, reset } = form
-  const [submitting, setSubmitting] = React.useState(false)
+  const create = useCreateWorkspace()
+  const submitting = create.isPending
   const [descCount, setDescCount] = React.useState(0)
 
   React.useEffect(() => {
@@ -128,29 +130,16 @@ export function CreateWorkspaceDialog({
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [setValue])
 
-  async function onSubmit(data: CreateWorkspaceValues) {
+  function onSubmit(data: CreateWorkspaceValues) {
     if (submitting) return
-    setSubmitting(true)
-    try {
-      const res = await fetch("/api/workspaces", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.success) {
-        throw new Error(json.error || "Failed to create workspace")
-      }
-
-      toast.success("Workspace created successfully.")
-      onOpenChange(false)
-      onSuccess?.()
-      router.push(`/${json.workspace.slug}/agent`)
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong")
-    } finally {
-      setSubmitting(false)
-    }
+    create.mutate(data, {
+      onSuccess: (workspace) => {
+        toast.success("Workspace created successfully.")
+        onOpenChange(false)
+        onSuccess?.()
+        router.push(`/${workspace.slug}/agent`)
+      },
+    })
   }
 
   return (

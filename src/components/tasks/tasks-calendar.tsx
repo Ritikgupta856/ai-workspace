@@ -148,6 +148,7 @@ export function TasksCalendar({
                     <button
                       key={task.id}
                       type="button"
+                      data-task-id={task.id}
                       onClick={() => onSelectTask(task)}
                       className={cn(
                         "flex items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-[11px] font-medium transition-colors hover:bg-accent",
@@ -187,6 +188,7 @@ export function TasksCalendar({
               <button
                 key={task.id}
                 type="button"
+                data-task-id={task.id}
                 onClick={() => onSelectTask(task)}
                 className={cn(
                   "flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs transition-colors hover:bg-accent",

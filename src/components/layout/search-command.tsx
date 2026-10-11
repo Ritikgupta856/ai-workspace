@@ -28,7 +28,8 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { SearchResult, SearchResultType } from "@/lib/search"
+import type { SearchResultType } from "@/lib/search"
+import { useSearch } from "@/lib/query/search"
 
 const navigationItems = [
   { title: "Inbox", subtitle: "Mentions, replies and updates", url: "/inbox", icon: Inbox },
@@ -50,7 +51,6 @@ const resultGroups: { type: SearchResultType; heading: string; label: string; ic
 ]
 
 const ASK_AGENT = "ask-agent"
-const SEARCH_DEBOUNCE_MS = 200
 
 const itemClass = "items-center gap-3 rounded-lg py-2.5"
 
@@ -60,17 +60,10 @@ export function SearchCommand() {
   const slug = useParams().slug as string
   const [open, setOpen] = React.useState(false)
   const [query, setQuery] = React.useState("")
-  // Results are tagged with the query they answer, so "loading" is simply a
-  // mismatch and stale results stay on screen until fresh ones land.
-  const [fetched, setFetched] = React.useState<{ query: string; results: SearchResult[] }>({
-    query: "",
-    results: [],
-  })
   const [selected, setSelected] = React.useState("")
 
   const q = query.trim()
-  const results = q ? fetched.results : []
-  const loading = q !== "" && fetched.query !== q
+  const { results, loading } = useSearch(query)
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -83,26 +76,6 @@ export function SearchCommand() {
     document.addEventListener("keydown", down)
     return () => document.removeEventListener("keydown", down)
   }, [])
-
-  React.useEffect(() => {
-    if (!q) return
-    const controller = new AbortController()
-    const timer = setTimeout(() => {
-      fetch(`/api/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
-        .then((res) => (res.ok ? res.json() : { results: [] }))
-        .then((data: { results?: SearchResult[] }) => {
-          setFetched({ query: q, results: data.results ?? [] })
-          setSelected("")
-        })
-        .catch((err: Error) => {
-          if (err.name !== "AbortError") setFetched({ query: q, results: [] })
-        })
-    }, SEARCH_DEBOUNCE_MS)
-    return () => {
-      clearTimeout(timer)
-      controller.abort()
-    }
-  }, [q])
 
   const groups = resultGroups
     .map((group) => ({ ...group, items: results.filter((r) => r.type === group.type) }))

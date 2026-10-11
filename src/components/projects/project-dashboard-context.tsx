@@ -75,6 +75,8 @@ export interface IntegrationItemData {
 export interface ProjectDashboardResponse {
   success: boolean
   error?: string
+  /** Whether the current user has starred this project. */
+  favorited: boolean
   project: ProjectDetailsData
   stats: StatsData
   health: HealthData

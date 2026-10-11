@@ -46,6 +46,7 @@ import {
 } from "@/lib/constants"
 import type { TaskStatus, TaskPriority, Task } from "@/components/tasks/tasks-view"
 import { createTask, updateTask } from "@/lib/api/tasks"
+import { useAssignableMembers } from "@/lib/query/tasks"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -60,12 +61,6 @@ const formSchema = z.object({
 })
 
 type FormValues = z.infer<typeof formSchema>
-
-type MemberOption = {
-  userId: string
-  name: string
-  avatar: string | null
-}
 
 function getInitials(name: string): string {
   return name
@@ -92,10 +87,14 @@ const priorityOptions = Object.entries(TASK_PRIORITY_CONFIG).map(
 export function LabelMultiSelect({
   selected,
   onChange,
+  variant = "field",
 }: {
   selected: string[]
   onChange: (labels: string[]) => void
+  /** `field`: a bordered form input. `inline`: a quiet value that edits in place, for record views. */
+  variant?: "field" | "inline"
 }) {
+  const inline = variant === "inline"
   const [open, setOpen] = React.useState(false)
 
   function toggle(label: string) {
@@ -114,30 +113,40 @@ export function LabelMultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="min-h-10 h-auto w-full justify-between font-normal"
+          className={
+            inline
+              ? "-ml-2 h-auto min-h-8 w-auto max-w-full justify-start gap-1.5 border-none bg-transparent px-2 py-1 text-[13px] font-normal shadow-none hover:bg-muted data-[state=open]:bg-muted"
+              : "min-h-10 h-auto w-full justify-between font-normal"
+          }
         >
           {selected.length > 0 ? (
-            <div className="flex flex-wrap gap-1 py-0.5 mr-2">
+            <div className={cn("flex flex-wrap gap-1 py-0.5", !inline && "mr-2")}>
               {selected.map((label) => (
                 <span
                   key={label}
                   className="inline-flex items-center gap-1 rounded-md bg-secondary px-1.5 py-0.5 text-xs font-medium text-secondary-foreground"
                 >
                   {label}
-                  <button
-                    type="button"
+                  {/* A span, not a button: it sits inside the trigger button, and
+                      buttons can't nest. Pointer-down is stopped so removing a
+                      label doesn't also open the picker. */}
+                  <span
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={`Remove ${label}`}
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={(e) => { e.stopPropagation(); toggle(label) }}
-                    className="hover:text-foreground"
+                    className="cursor-pointer hover:text-foreground"
                   >
                     <X className="size-3" />
-                  </button>
+                  </span>
                 </span>
               ))}
             </div>
           ) : (
-            <span className="text-muted-foreground">Select labels...</span>
+            <span className="text-muted-foreground">{inline ? "Add labels" : "Select labels..."}</span>
           )}
-          <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className={cn("shrink-0 opacity-50", inline ? "size-3" : "ml-auto size-4")} />
         </Button>
       </PopoverTrigger>
       {/* Portal to body — escapes overflow:hidden on dialog */}
@@ -239,8 +248,6 @@ export function TaskDialog({
   projectId,
   defaultStatus,
 }: TaskDialogProps) {
-  const [membersList, setMembersList] = React.useState<MemberOption[]>([])
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -262,29 +269,9 @@ export function TaskDialog({
   const taskProjectId = isEdit ? task?.projectId : projectId
 
   // Assignable people are scoped to the task's project members; an older
-  // project-less task falls back to the full workspace roster.
-  React.useEffect(() => {
-    if (!open) return
-    const url = taskProjectId ? `/api/projects/${taskProjectId}/members` : "/api/workspaces/members"
-    fetch(url)
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j.success) return setMembersList([])
-        const members: MemberOption[] = taskProjectId
-          ? j.members.map((m: { id: string; name: string; image: string | null }) => ({
-              userId: m.id,
-              name: m.name,
-              avatar: m.image,
-            }))
-          : j.members.map((m: { userId: string; name: string; avatar: string | null }) => ({
-              userId: m.userId,
-              name: m.name,
-              avatar: m.avatar,
-            }))
-        setMembersList(members)
-      })
-      .catch(() => setMembersList([]))
-  }, [open, taskProjectId])
+  // project-less task falls back to the full workspace roster. Cached, so
+  // reopening the dialog (or opening a task panel on the same project) is instant.
+  const { data: membersList = [] } = useAssignableMembers(taskProjectId ?? null, undefined, { enabled: open })
 
   React.useEffect(() => {
     if (!open) return

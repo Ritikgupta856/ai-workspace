@@ -2,46 +2,13 @@ import { NextResponse } from "next/server"
 
 import { prisma } from "@/lib/prisma"
 import { requireTask } from "@/lib/api/guards"
+import { commentSelect, formatComment } from "@/lib/task-comments"
 import { logActivity } from "@/lib/activity"
 import {
   extractMentionedUserIds,
   notifyCommentReply,
   notifyMention,
 } from "@/lib/notifications"
-
-const commentSelect = {
-  id: true,
-  taskId: true,
-  content: true,
-  parentId: true,
-  editedAt: true,
-  createdAt: true,
-  author: { select: { id: true, name: true, email: true, image: true } },
-} as const
-
-function formatComment(comment: {
-  id: string
-  taskId: string
-  content: string
-  parentId: string | null
-  editedAt: Date | null
-  createdAt: Date
-  author: { id: string; name: string | null; email: string; image: string | null }
-}) {
-  return {
-    id: comment.id,
-    taskId: comment.taskId,
-    content: comment.content,
-    parentId: comment.parentId,
-    edited: comment.editedAt !== null,
-    createdAt: comment.createdAt.toISOString(),
-    author: {
-      id: comment.author.id,
-      name: comment.author.name || comment.author.email,
-      image: comment.author.image,
-    },
-  }
-}
 
 export async function GET(
   _req: Request,

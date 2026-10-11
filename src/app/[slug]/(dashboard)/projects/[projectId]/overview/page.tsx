@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { toast } from "sonner"
-import { requestSidebarRefresh } from "@/lib/sidebar-events"
+import { useInvalidateProjects } from "@/lib/query/projects"
 
 import {
   Archive,
@@ -67,6 +67,7 @@ const STATUS_OPTIONS = (Object.keys(PROJECT_STATUS_CONFIG) as ProjectStatus[]).m
 import { useProjectDashboard } from "@/components/projects/project-dashboard-context"
 
 export default function ProjectOverviewPage() {
+  const invalidateProjects = useInvalidateProjects()
   const router = useRouter()
   const searchParams = useSearchParams()
   const params = useParams()
@@ -97,6 +98,7 @@ export default function ProjectOverviewPage() {
     setData({ ...data, project: { ...previous, status } })
     try {
       await updateProject(projectId, { status })
+      invalidateProjects()
       toast.success(status === "ARCHIVED" ? "Project archived" : "Status updated")
     } catch (err) {
       setData((prev) => (prev ? { ...prev, project: previous } : prev))
@@ -112,7 +114,7 @@ export default function ProjectOverviewPage() {
         status: data.project.status,
         icon: data.project.icon,
       })
-      requestSidebarRefresh()
+      invalidateProjects()
       toast.success("Project duplicated")
       router.push(`/${slug}/projects/${copy.id}/overview`)
     } catch (err) {
@@ -124,7 +126,7 @@ export default function ProjectOverviewPage() {
     setDeleting(true)
     try {
       await deleteProject(projectId)
-      requestSidebarRefresh()
+      invalidateProjects()
       toast.success("Project deleted")
       router.push(`/${slug}/projects`)
     } catch (err) {
@@ -174,7 +176,7 @@ export default function ProjectOverviewPage() {
         <HeaderButton icon={UserPlus} onClick={() => setManageMembersOpen(true)}>
           Add member
         </HeaderButton>
-        <FavoriteButton entityType="PROJECT" entityId={project.id} className="size-8 rounded-lg border-border/80 shadow-none" />
+        <FavoriteButton entityType="PROJECT" entityId={project.id} initial={data.favorited} className="size-8 rounded-lg border-border/80 shadow-none" />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button

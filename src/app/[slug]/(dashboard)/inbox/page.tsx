@@ -20,7 +20,15 @@ import {
   CheckCheck,
 } from "lucide-react"
 import { toast } from "sonner"
-import { requestSidebarRefresh } from "@/lib/sidebar-events"
+import { useAddTaskComment } from "@/lib/query/tasks"
+import {
+  useMarkAllRead,
+  useNotifications,
+  usePatchNotification,
+  type InboxView,
+  type NotificationDTO,
+  type NotificationType,
+} from "@/lib/query/notifications"
 
 import { HeaderButton, SectionHeader } from "@/components/dashboard/section-header"
 import { ToolbarSearch } from "@/components/common/toolbar-search"
@@ -31,28 +39,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InboxSkeleton } from "@/components/dashboard/loading-states"
 import { formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
-
-type NotificationType =
-  | "MENTION"
-  | "COMMENT_REPLY"
-  | "TASK_ASSIGNMENT"
-  | "TASK_UPDATE"
-  | "TASK_COMPLETION"
-
-type NotificationDTO = {
-  id: string
-  type: NotificationType
-  title: string | null
-  message: string | null
-  read: boolean
-  archived: boolean
-  createdAt: string
-  taskId: string | null
-  commentId: string | null
-  task: { id: string; title: string; projectId: string | null } | null
-  comment: { id: string; content: string; parentId: string | null } | null
-  actor: { id: string; name: string; image: string | null } | null
-}
 
 const TYPE_CONFIG: Record<NotificationType, { label: string; icon: typeof AtSign; className: string }> = {
   MENTION: { label: "Mention", icon: AtSign, className: "text-violet-600 bg-violet-50 dark:bg-violet-950/30" },
@@ -225,12 +211,17 @@ function NotificationRow({
   )
 }
 
+const EMPTY_NOTIFICATIONS: NotificationDTO[] = []
+
 export default function InboxPage() {
-  const [view, setView] = React.useState<"inbox" | "unread" | "archived">("inbox")
-  const [notifications, setNotifications] = React.useState<NotificationDTO[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [unreadCount, setUnreadCount] = React.useState(0)
+  const [view, setView] = React.useState<InboxView>("inbox")
   const [search, setSearch] = React.useState("")
+  const { data, isPending: loading, error } = useNotifications(view)
+  const notifications = data?.notifications ?? EMPTY_NOTIFICATIONS
+  const unreadCount = data?.unreadCount ?? 0
+  const patch = usePatchNotification()
+  const markAllRead = useMarkAllRead()
+  const addComment = useAddTaskComment()
 
   const visible = React.useMemo(() => {
     if (!search.trim()) return notifications
@@ -242,77 +233,27 @@ export default function InboxPage() {
     )
   }, [notifications, search])
 
-  const load = React.useCallback((v: typeof view) => {
-    setLoading(true)
-    fetch(`/api/notifications?view=${v}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          setNotifications(json.notifications)
-          setUnreadCount(json.unreadCount)
-        } else {
-          toast.error(json.error || "Failed to load notifications")
-        }
-      })
-      .catch(() => toast.error("Failed to load notifications"))
-      .finally(() => setLoading(false))
-  }, [])
-
   React.useEffect(() => {
-    load(view)
-  }, [view, load])
+    if (error) toast.error(error.message || "Failed to load notifications")
+  }, [error])
 
-  async function patchNotification(id: string, data: Record<string, unknown>) {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, ...data } : n))
-    )
-    try {
-      const res = await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, ...data }),
-      })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error || "Failed to update")
-      requestSidebarRefresh()
-      load(view)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update notification")
-      load(view)
-    }
-  }
+  const patchNotification = (id: string, changes: { read?: boolean; archived?: boolean }) =>
+    patch.mutateAsync({ id, ...changes }).catch(() => {})
 
-  async function handleMarkAllRead() {
-    try {
-      await fetch("/api/notifications", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markAllRead: true }),
-      })
-      requestSidebarRefresh()
-      load(view)
-    } catch {
-      toast.error("Failed to mark all as read")
-    }
-  }
+  const handleMarkAllRead = () => markAllRead.mutate()
 
   async function handleReply(notification: NotificationDTO, content: string) {
     if (!notification.taskId) return
     try {
-      const res = await fetch(`/api/tasks/${notification.taskId}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          content,
-          parentId: notification.commentId ?? undefined,
-        }),
+      await addComment.mutateAsync({
+        taskId: notification.taskId,
+        content,
+        parentId: notification.commentId ?? undefined,
       })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error || "Failed to send reply")
       toast.success("Reply sent")
       await patchNotification(notification.id, { read: true })
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to send reply")
+    } catch {
+      // the mutation already showed why it failed
     }
   }
 

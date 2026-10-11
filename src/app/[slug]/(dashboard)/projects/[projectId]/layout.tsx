@@ -36,7 +36,7 @@ export default async function ProjectLayout({
   })
   if (!membership) redirect(`/${slug}/projects`)
 
-  const dashboard = await buildProjectDashboard(projectId, membership.workspaceId)
+  const dashboard = await buildProjectDashboard(projectId, membership.workspaceId, session.user.id)
   if (!dashboard) notFound()
 
   const initialData: ProjectDashboardResponse = { success: true, ...dashboard }

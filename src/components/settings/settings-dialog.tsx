@@ -28,6 +28,7 @@ import {
   updateProfile,
   updateWorkspace,
 } from "@/lib/api/settings"
+import { useInvalidateSettings, useSettings } from "@/lib/query/settings"
 import { MembersPanel } from "@/components/members/members-panel"
 import { IntegrationsPanel } from "@/components/integrations/integrations-panel"
 import { useTheme } from "next-themes"
@@ -55,7 +56,7 @@ type Subscription = {
   cancelAtNextBillingDate: boolean
 }
 
-type SettingsData = {
+export type SettingsData = {
   profile: Profile
   workspace: Workspace
   role: string
@@ -143,8 +144,12 @@ export function SettingsDialog({
   const router = useRouter()
 
   const [section, setSection] = React.useState<Section>(initialSection ?? "profile")
-  const [loading, setLoading] = React.useState(true)
-  const [data, setData] = React.useState<SettingsData | null>(null)
+  const { data, isPending: loading, error } = useSettings(open)
+  const load = useInvalidateSettings()
+
+  React.useEffect(() => {
+    if (error) toast.error(error.message || "Failed to load settings")
+  }, [error])
 
   React.useEffect(() => {
     if (open && initialSection) setSection(initialSection)
@@ -164,30 +169,6 @@ export function SettingsDialog({
     }, 350)
     return () => clearTimeout(id)
   }, [open])
-
-  const load = React.useCallback(() => {
-    setLoading(true)
-    fetch("/api/settings")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          setData({
-            profile: json.profile,
-            workspace: json.workspace,
-            role: json.role,
-            subscription: json.subscription,
-          })
-        } else {
-          toast.error(json.error || "Failed to load settings")
-        }
-      })
-      .catch(() => toast.error("Failed to load settings"))
-      .finally(() => setLoading(false))
-  }, [])
-
-  React.useEffect(() => {
-    if (open) load()
-  }, [open, load])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

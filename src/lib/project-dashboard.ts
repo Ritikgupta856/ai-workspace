@@ -9,7 +9,7 @@ import type { ProjectStatus } from "@/lib/projects"
  * this on the server for first paint; /api/projects/[id]/dashboard exposes
  * the same shape for client-side reloads.
  */
-export async function buildProjectDashboard(projectId: string, workspaceId: string) {
+export async function buildProjectDashboard(projectId: string, workspaceId: string, userId?: string) {
   const project = await prisma.project.findFirst({
     where: { id: projectId, workspaceId: workspaceId },
     include: {
@@ -73,6 +73,11 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
   const documentsUpdatedThisWeek = await prisma.document.count({
     where: { projectId, updatedAt: { gte: weekAgo } },
   })
+
+  // Starred by the person asking (the AI tool, which has no user, gets false).
+  const favorited = userId
+    ? (await prisma.favorite.count({ where: { userId, entityType: "PROJECT", entityId: projectId } })) > 0
+    : false
 
   // ── Trend data (last 7 days) ──
   const trendData: number[] = []
@@ -159,6 +164,7 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
 
   // ── Build response ──
   const response = {
+    favorited,
     project: {
       id: project.id,
       name: project.name,

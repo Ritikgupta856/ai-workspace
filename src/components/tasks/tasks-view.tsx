@@ -46,7 +46,10 @@ import {
   taskKey,
   type TaskGroup,
 } from "@/components/tasks/task-grouped-list"
-import { fetchTasks, fetchMyTasks, createTask, updateTask, deleteTask } from "@/lib/api/tasks"
+import { createTask, updateTask, deleteTask } from "@/lib/api/tasks"
+import { prefetchTaskPanel, useTaskList } from "@/lib/query/tasks"
+import { queryKeys } from "@/lib/query/keys"
+import { useQueryClient } from "@tanstack/react-query"
 import { formatUpdatedDate, formatDueDate } from "@/lib/date"
 import { BoardSkeleton, TableSkeleton } from "@/components/dashboard/loading-states"
 
@@ -272,6 +275,7 @@ function TaskCard({
 
   return (
     <div
+      data-task-id={task.id}
       onClick={() => onOpen(task)}
       className="group cursor-grab rounded-lg border bg-card p-3 shadow-xs transition-[border-color,box-shadow] hover:border-foreground/15 hover:shadow-sm active:cursor-grabbing dark:border-white/15 dark:hover:border-white/25"
     >
@@ -384,31 +388,30 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
   const [createStatus, setCreateStatus] = React.useState<TaskStatus | undefined>(undefined)
   const [showCompleted, setShowCompleted] = React.useState(true)
   const [showEmptyGroups, setShowEmptyGroups] = React.useState(false)
-  const [taskList, setTaskList] = React.useState<Task[]>([])
+  const client = useQueryClient()
+  // The cache is the source of truth for the list: `setTaskList` writes into
+  // it, so optimistic edits below update every view of this list at once.
+  const { tasks: taskList, loading, error, refetch, setTasks: setTaskList } = useTaskList({ assignedToMe, projectId })
   const [dialogOpen, setDialogOpen] = React.useState(false)
   const [dialogMode, setDialogMode] = React.useState<"create" | "edit">("create")
   const [editingTask, setEditingTask] = React.useState<Task | undefined>(undefined)
   const [openTask, setOpenTask] = React.useState<Task | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
 
-  const fetchList = React.useCallback(
-    () => (assignedToMe ? fetchMyTasks() : fetchTasks(projectId)),
-    [assignedToMe, projectId]
+  // Start loading a task's panel once the pointer settles on it, so the
+  // click usually opens onto data that has already arrived. The short delay
+  // keeps a sweep across the board from firing a request per card.
+  const hoverTimer = React.useRef<number | undefined>(undefined)
+  const handleTaskHover = React.useCallback((event: React.PointerEvent) => {
+    const id = (event.target as HTMLElement).closest<HTMLElement>("[data-task-id]")?.dataset.taskId
+    window.clearTimeout(hoverTimer.current)
+    if (id) hoverTimer.current = window.setTimeout(() => prefetchTaskPanel(client, id), 120)
+  }, [client])
+  React.useEffect(() => () => window.clearTimeout(hoverTimer.current), [])
+  /** A task changed somewhere: every cached list refreshes, so other views catch up too. */
+  const invalidateTasks = React.useCallback(
+    () => client.invalidateQueries({ queryKey: queryKeys.tasks.all }),
+    [client]
   )
-
-  const loadTasks = React.useCallback(() => {
-    setLoading(true)
-    setError(null)
-    return fetchList()
-      .then((tasks) => setTaskList(tasks))
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false))
-  }, [fetchList])
-
-  React.useEffect(() => {
-    loadTasks()
-  }, [loadTasks])
 
   // Deep-link support: ?task=<id> opens the detail sheet directly,
   // so favorites/notifications links keep working without a full page.
@@ -427,6 +430,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
   }, [loading, taskList])
 
   function handleOpenTask(task: Task) {
+    window.clearTimeout(hoverTimer.current)
     setOpenTask(task)
   }
 
@@ -523,8 +527,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
     try {
       await deleteTask(id)
     } catch (err) {
-      const tasks = await fetchList()
-      setTaskList(tasks)
+      await refetch()
     }
   }
 
@@ -663,7 +666,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8">
+      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8" onPointerOver={handleTaskHover}>
         {loading ? (
           viewMode === "list" ? <TableSkeleton rows={8} /> : <BoardSkeleton />
         ) : error ? (
@@ -714,7 +717,7 @@ export function TasksView({ projectId, showPageHeader = true, header, assignedTo
         projectId={projectId}
         defaultStatus={createStatus}
         onSuccess={() => {
-          loadTasks()
+          invalidateTasks()
         }}
       />
 

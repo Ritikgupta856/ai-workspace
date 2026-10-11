@@ -27,70 +27,55 @@ import {
 import { PageDetailSkeleton } from "@/components/dashboard/loading-states"
 import { PageEditor } from "@/components/pages/page-editor"
 import { PageEditorToolbar } from "@/components/pages/page-editor-toolbar"
-import { fetchPage, updatePage, deletePage, type PageDetail } from "@/lib/api/page"
+import { updatePage, deletePage, type PageDetail } from "@/lib/api/page"
+import { useFavorite } from "@/lib/query/favorites"
+import { useCachePage, usePage } from "@/lib/query/pages"
 import { cn } from "@/lib/utils"
 
 const AUTOSAVE_DELAY = 1000
 const ICONS = ["📄", "📝", "📋", "📊", "🚀", "🎯", "⚙️", "🔐", "🧪", "📚"]
 
-/** The page editor, opened at `/<slug>/projects/<projectId>/pages/<pageId>`. */
+/**
+ * The page editor, opened at `/<slug>/projects/<projectId>/pages/<pageId>`.
+ * Loads the document through the cache (so reopening is instant), then hands
+ * it to the editor, which keeps its own draft.
+ */
 export function PageDetailView({ pageId }: { pageId: string }) {
+  const { data: page, isPending, error } = usePage(pageId)
+
+  if (isPending) return <PageDetailSkeleton />
+
+  if (error || !page) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-20 text-sm text-destructive">
+        {error?.message ?? "Page not found"}
+      </div>
+    )
+  }
+
+  return <PageDocument key={page.id} initial={page} />
+}
+
+function PageDocument({ initial }: { initial: PageDetail }) {
+  const pageId = initial.id
+  const cachePage = useCachePage()
   const router = useRouter()
   const slug = useParams().slug as string
 
-  const [page, setPage] = React.useState<PageDetail | null>(null)
-  const [title, setTitle] = React.useState("")
-  const [icon, setIcon] = React.useState<string | null>(null)
+  const [page, setPage] = React.useState<PageDetail>(initial)
+  const [title, setTitle] = React.useState(initial.title)
+  const [icon, setIcon] = React.useState<string | null>(initial.icon)
   const [dirty, setDirty] = React.useState(false)
   const [saving, setSaving] = React.useState(false)
   const [lastSavedAt, setLastSavedAt] = React.useState<Date | null>(null)
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [favorited, setFavorited] = React.useState(false)
+  const { favorited, toggle: toggleFavorite } = useFavorite("PAGE", pageId)
   const [confirmDelete, setConfirmDelete] = React.useState(false)
   const [editor, setEditor] = React.useState<Editor | null>(null)
 
   // Only the editor's JSON needs a ref — it changes on every keystroke and
   // nothing renders from it. Title and icon are passed into `save` instead of
   // being mirrored into refs during render.
-  const contentRef = React.useRef<unknown>(null)
-
-  // `loading` already starts true, so nothing needs resetting before the
-  // fetch — state is only written once the request settles. `cancelled` stops
-  // a slow response for a page you have already navigated away from landing on
-  // top of the one you are now looking at.
-  React.useEffect(() => {
-    let cancelled = false
-
-    fetchPage(pageId)
-      .then((page) => {
-        if (cancelled) return
-        setPage(page)
-        setTitle(page.title)
-        setIcon(page.icon)
-        contentRef.current = page.content
-        setDirty(false)
-      })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load page")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [pageId])
-
-  React.useEffect(() => {
-    fetch(`/api/favorites?entityType=PAGE&entityId=${pageId}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) setFavorited(json.favorited)
-      })
-      .catch(() => {})
-  }, [pageId])
+  const contentRef = React.useRef<unknown>(initial.content)
 
   const save = React.useCallback(async (nextTitle: string, nextIcon: string | null) => {
     setSaving(true)
@@ -101,6 +86,7 @@ export function PageDetailView({ pageId }: { pageId: string }) {
         content: contentRef.current,
       })
       setPage(updated)
+      cachePage(updated)
       setDirty(false)
       setLastSavedAt(new Date())
     } catch (err) {
@@ -108,7 +94,7 @@ export function PageDetailView({ pageId }: { pageId: string }) {
     } finally {
       setSaving(false)
     }
-  }, [pageId])
+  }, [pageId, cachePage])
 
   React.useEffect(() => {
     if (!dirty) return
@@ -137,23 +123,7 @@ export function PageDetailView({ pageId }: { pageId: string }) {
     return () => window.removeEventListener("beforeunload", onBeforeUnload)
   }, [dirty])
 
-  async function toggleFavorite() {
-    const next = !favorited
-    setFavorited(next)
-    try {
-      await fetch("/api/favorites", {
-        method: next ? "POST" : "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityType: "PAGE", entityId: pageId }),
-      })
-    } catch {
-      setFavorited(!next)
-      toast.error("Failed to update favorite")
-    }
-  }
-
   async function handleDelete() {
-    if (!page) return
     try {
       await deletePage(page.id)
       toast.success("Page deleted")
@@ -162,18 +132,6 @@ export function PageDetailView({ pageId }: { pageId: string }) {
       toast.error(err instanceof Error ? err.message : "Failed to delete page")
       setConfirmDelete(false)
     }
-  }
-
-  if (loading) {
-    return <PageDetailSkeleton />
-  }
-
-  if (error || !page) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-20 text-sm text-destructive">
-        {error ?? "Page not found"}
-      </div>
-    )
   }
 
   const projectRoot = `/${slug}/projects/${page.project.id}/overview`

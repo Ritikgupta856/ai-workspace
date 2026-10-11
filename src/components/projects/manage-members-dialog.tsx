@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { toast } from "sonner"
 import { Search, UserMinus, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -19,7 +18,8 @@ import { cn } from "@/lib/utils"
 import { getInitials } from "@/components/projects/project-card"
 import type { TeamMemberData } from "@/components/projects/project-dashboard-context"
 
-type WorkspaceMemberOption = { userId: string; name: string; avatar: string | null }
+import { useProjectMemberActions } from "@/lib/query/projects"
+import { useWorkspaceMembers, type Member } from "@/lib/query/workspace"
 
 export interface ManageProjectMembersDialogProps {
   projectId: string
@@ -29,6 +29,8 @@ export interface ManageProjectMembersDialogProps {
   onChanged: () => void
 }
 
+const EMPTY_ROSTER: Member[] = []
+
 export function ManageProjectMembersDialog({
   projectId,
   open,
@@ -36,69 +38,28 @@ export function ManageProjectMembersDialog({
   members,
   onChanged,
 }: ManageProjectMembersDialogProps) {
-  const [roster, setRoster] = React.useState<WorkspaceMemberOption[]>([])
-  const [busyUserId, setBusyUserId] = React.useState<string | null>(null)
   const [query, setQuery] = React.useState("")
-
-  React.useEffect(() => {
-    if (!open) return
-    setQuery("")
-    fetch("/api/workspaces/members")
-      .then((r) => r.json())
-      .then((j) => {
-        if (!j.success) return setRoster([])
-        setRoster(
-          j.members.map((m: { userId: string; name: string; avatar: string | null }) => ({
-            userId: m.userId,
-            name: m.name,
-            avatar: m.avatar,
-          }))
-        )
-      })
-      .catch(() => setRoster([]))
-  }, [open])
+  const { add, remove, busyUserId } = useProjectMemberActions(projectId)
+  // The workspace roster is the same cached list the Members screen uses.
+  const { data: rosterData } = useWorkspaceMembers({ enabled: open })
+  const roster = rosterData?.members ?? EMPTY_ROSTER
 
   const memberIds = new Set(members.map((m) => m.id))
   const addable = roster.filter(
     (m) => !memberIds.has(m.userId) && m.name.toLowerCase().includes(query.trim().toLowerCase())
   )
 
-  async function addMember(userId: string) {
-    setBusyUserId(userId)
-    try {
-      const res = await fetch(`/api/projects/${projectId}/members`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      onChanged()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add member")
-    } finally {
-      setBusyUserId(null)
-    }
-  }
-
-  async function removeMember(userId: string) {
-    setBusyUserId(userId)
-    try {
-      const res = await fetch(`/api/projects/${projectId}/members?userId=${userId}`, {
-        method: "DELETE",
-      })
-      const json = await res.json()
-      if (!json.success) throw new Error(json.error)
-      onChanged()
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to remove member")
-    } finally {
-      setBusyUserId(null)
-    }
-  }
+  const addMember = (userId: string) => add(userId, { onSuccess: onChanged })
+  const removeMember = (userId: string) => remove(userId, { onSuccess: onChanged })
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setQuery("")
+        onOpenChange(next)
+      }}
+    >
       <DialogContent className="flex max-h-[min(680px,calc(100dvh-40px))] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="gap-1 border-b border-border/70 px-6 py-4 text-left">
           <DialogTitle className="text-base">Project members</DialogTitle>

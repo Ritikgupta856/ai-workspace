@@ -29,7 +29,7 @@ import type { ProjectCardData } from "@/components/projects/project-card"
 import type { MemberRoleKey } from "@/lib/constants"
 import { signOut } from "@/lib/auth-client"
 import type { SidebarData, SidebarFavorite, SidebarProject } from "@/lib/sidebar-data"
-import { SIDEBAR_REFRESH_EVENT } from "@/lib/sidebar-events"
+import { useSidebarData } from "@/lib/query/sidebar"
 import { cn } from "@/lib/utils"
 import {
   Collapsible,
@@ -181,38 +181,15 @@ export function AppSidebar({
   const [openProjectId, setOpenProjectId] = React.useState<string | null>(null)
   const [favoritesOpen, setFavoritesOpen] = React.useState(true)
 
-  // Server data is the source of truth; a client refetch only overrides it for
-  // the workspace it was fetched for, so a workspace switch (which re-renders
-  // the server tree with new props) can't be shadowed by stale data.
-  const [override, setOverride] = React.useState<{ workspaceId: string | null; data: SidebarData } | null>(null)
-  const { projects, favorites, unreadCount } =
-    override && override.workspaceId === activeWorkspaceId ? override.data : initialData
+  // Starts from what the server rendered, then stays current through query
+  // invalidation: whatever changes projects, favourites or unread
+  // notifications invalidates it. Keyed by workspace, so a switch can't show
+  // another workspace's data.
+  const { projects, favorites, unreadCount } = useSidebarData(slug, activeWorkspaceId, initialData)
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
   const isActive = (url: string) => pathname.startsWith(url)
-
-  const refresh = React.useCallback(async () => {
-    try {
-      const res = await fetch(`/api/sidebar?slug=${slug}`)
-      const json = await res.json()
-      if (json.success) {
-        setOverride({
-          workspaceId: activeWorkspaceId,
-          data: { projects: json.projects, favorites: json.favorites, unreadCount: json.unreadCount },
-        })
-      }
-    } catch {
-      // The server copy stays on screen; nothing to do.
-    }
-  }, [activeWorkspaceId, slug])
-
-  // Mutations elsewhere (new project, favorite toggled, notification read)
-  // announce themselves instead of the sidebar polling on every navigation.
-  React.useEffect(() => {
-    window.addEventListener(SIDEBAR_REFRESH_EVENT, refresh)
-    return () => window.removeEventListener(SIDEBAR_REFRESH_EVENT, refresh)
-  }, [refresh])
 
   // The project the user is currently looking at always stays open — a
   // collapse elsewhere shouldn't hide the row they're actively reading.
@@ -605,7 +582,6 @@ export function AppSidebar({
         onOpenChange={setCreateProjectOpen}
         mode="create"
         onSuccess={(project: ProjectCardData) => {
-          refresh()
           router.push(`${base}/projects/${project.id}/overview`)
         }}
       />

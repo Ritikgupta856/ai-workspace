@@ -1,11 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { useParams, useRouter } from "next/navigation"
+
 import { toast } from "sonner"
 import {
   CheckSquare,
-  Maximize2,
   MoreHorizontal,
   Star,
   Trash2,
@@ -26,8 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Skeleton } from "@/components/ui/skeleton"
 import { TaskDetailBody } from "@/components/tasks/task-detail-body"
-import { fetchTask, deleteTask, type TaskDetail } from "@/lib/api/tasks"
+import { taskKey } from "@/components/tasks/task-grouped-list"
+import { useQueryClient } from "@tanstack/react-query"
+import { deleteTask, type TaskDetail } from "@/lib/api/tasks"
+import { patchTaskPanel, useTaskPanel } from "@/lib/query/tasks"
+import { useFavorite } from "@/lib/query/favorites"
 import { cn } from "@/lib/utils"
 import type { Task } from "@/components/tasks/tasks-view"
 
@@ -40,48 +44,24 @@ export interface TaskDetailSheetProps {
 }
 
 export function TaskDetailSheet({ task, open, onOpenChange, onChanged, onDeleted }: TaskDetailSheetProps) {
-  const router = useRouter()
-  const slug = useParams().slug as string
-  const [detail, setDetail] = React.useState<TaskDetail | null>(null)
-  const [favorited, setFavorited] = React.useState(false)
+  const client = useQueryClient()
   const [confirmDelete, setConfirmDelete] = React.useState(false)
 
-  React.useEffect(() => {
-    if (!open || !task) return
-    let cancelled = false
-    fetchTask(task.id)
-      .then((full) => { if (!cancelled) setDetail(full) })
-      .catch(() => { if (!cancelled) setDetail(null) })
-    return () => { cancelled = true }
-  }, [open, task])
+  // One cached request fills the whole panel (task, comments, assignees,
+  // favourite). Hovering the task already started it, so a click usually
+  // opens onto data that has arrived; reopening a task shows its cached copy
+  // at once and refreshes it in the background once it goes stale.
+  const taskId = task?.id
+  const { data: panel } = useTaskPanel(open ? taskId : undefined)
+  const detail = panel?.task ?? null
+  // The panel payload already says whether it's starred, so the star needs no request of its own.
+  const { favorited, toggle: toggleFavorite } = useFavorite("TASK", taskId ?? "", panel?.favorited, { enabled: Boolean(panel) })
 
-  React.useEffect(() => {
-    if (!open || !task) return
-    fetch(`/api/favorites?entityType=TASK&entityId=${task.id}`)
-      .then((res) => res.json())
-      .then((json) => { if (json.success) setFavorited(json.favorited) })
-      .catch(() => {})
-  }, [open, task?.id])
+  const handleOpenChange = onOpenChange
 
   function handleChanged(updated: TaskDetail) {
-    setDetail(updated)
+    patchTaskPanel(client, updated.id, (p) => ({ ...p, task: updated }))
     onChanged?.(updated)
-  }
-
-  async function toggleFavorite() {
-    if (!task) return
-    const next = !favorited
-    setFavorited(next)
-    try {
-      await fetch("/api/favorites", {
-        method: next ? "POST" : "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ entityType: "TASK", entityId: task.id }),
-      })
-    } catch {
-      setFavorited(!next)
-      toast.error("Failed to update favorite")
-    }
   }
 
   async function handleDelete() {
@@ -91,22 +71,16 @@ export function TaskDetailSheet({ task, open, onOpenChange, onChanged, onDeleted
       toast.success("Task deleted")
       setConfirmDelete(false)
       onDeleted?.(task.id)
-      onOpenChange(false)
+      handleOpenChange(false)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete task")
       setConfirmDelete(false)
     }
   }
 
-  function handleOpenInPage() {
-    if (!task) return
-    onOpenChange(false)
-    router.push(`/${slug}/tasks/${task.id}`)
-  }
-
   return (
     <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
+      <Sheet open={open} onOpenChange={handleOpenChange}>
         <SheetContent
           side="right"
           className="flex w-full flex-col gap-0 p-0 sm:max-w-2xl"
@@ -114,22 +88,14 @@ export function TaskDetailSheet({ task, open, onOpenChange, onChanged, onDeleted
           {!task ? null : (
             <>
               {/* Header */}
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b px-5 py-3.5">
+              <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-5">
                 <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
                   <CheckSquare className="size-4 shrink-0" />
                   <span className="max-w-48 truncate">{task.project ?? "Tasks"}</span>
                   <span>/</span>
-                  <span className="max-w-48 truncate text-foreground">Work item</span>
+                  <span className="font-mono text-xs tracking-wide text-foreground">{taskKey(task)}</span>
                 </div>
                 <div className="mr-6 flex shrink-0 items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={handleOpenInPage}
-                    aria-label="Open in page"
-                  >
-                    <Maximize2 className="size-4" />
-                  </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -158,9 +124,17 @@ export function TaskDetailSheet({ task, open, onOpenChange, onChanged, onDeleted
               </div>
 
               {/* Body */}
-              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-                {detail && detail.id === task.id && (
-                  <TaskDetailBody key={detail.id} task={detail} onChanged={handleChanged} />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {panel && detail && detail.id === task.id ? (
+                  <TaskDetailBody
+                    key={detail.id}
+                    task={detail}
+                    initialComments={panel.comments}
+                    initialMembers={panel.members}
+                    onChanged={handleChanged}
+                  />
+                ) : (
+                  <TaskPanelSkeleton task={task} />
                 )}
               </div>
             </>
@@ -187,5 +161,45 @@ export function TaskDetailSheet({ task, open, onOpenChange, onChanged, onDeleted
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+/**
+ * What the panel shows while its data loads: the title and key the list
+ * already knows, with placeholders laid out like the real body so nothing
+ * jumps when it arrives.
+ */
+function TaskPanelSkeleton({ task }: { task: Task }) {
+  return (
+    <div aria-busy="true" aria-label="Loading task">
+      <div className="px-6 pt-6 pb-5">
+        <div className="flex items-start gap-4">
+          <Skeleton className="size-14 shrink-0 rounded-2xl" />
+          <div className="min-w-0 flex-1 pt-0.5">
+            <h2 className="text-xl leading-snug font-semibold tracking-tight text-foreground">{task.title}</h2>
+            <div className="mt-1 font-mono text-xs tracking-wide text-muted-foreground">{taskKey(task)}</div>
+          </div>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <Skeleton className="h-8 w-28 rounded-lg" />
+          <Skeleton className="h-8 w-28 rounded-lg" />
+          <Skeleton className="h-8 w-24 rounded-lg" />
+        </div>
+      </div>
+      <div className="flex h-11 items-center gap-6 border-y px-6">
+        <Skeleton className="h-3.5 w-16" />
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-3.5 w-16" />
+      </div>
+      <div className="flex flex-col gap-5 px-6 py-6">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-3.5 w-28" />
+            <Skeleton className="h-3.5 w-36" />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }

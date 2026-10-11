@@ -102,6 +102,31 @@ function initials(name: string) {
     .join("")
 }
 
+/** A person's avatar with the same deterministic gradient used across task views. */
+export function PersonAvatar({
+  name,
+  image,
+  className,
+}: {
+  name: string
+  image?: string | null
+  className?: string
+}) {
+  return (
+    <Avatar className={cn("size-6 ring-2 ring-background", className)} title={name}>
+      {image ? <AvatarImage src={image} alt={name} /> : null}
+      <AvatarFallback
+        className={cn(
+          "bg-gradient-to-br text-[9px] font-semibold text-white",
+          AVATAR_GRADIENTS[hashString(name) % AVATAR_GRADIENTS.length]
+        )}
+      >
+        {initials(name)}
+      </AvatarFallback>
+    </Avatar>
+  )
+}
+
 /* ── Cells ──────────────────────────────────────────────────── */
 
 export function AssigneeAvatar({ task }: { task: Task }) {
@@ -213,6 +238,7 @@ function TaskRow({ task, selected, variant, onOpen, onEdit, onDuplicate, onDelet
     <div
       role="button"
       tabIndex={0}
+      data-task-id={task.id}
       aria-current={selected || undefined}
       onClick={() => onOpen(task)}
       onKeyDown={(e) => {

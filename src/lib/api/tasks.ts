@@ -19,6 +19,31 @@ export async function fetchTask(id: string): Promise<TaskDetail> {
   return json.task!
 }
 
+export type TaskComment = {
+  id: string
+  content: string
+  createdAt: string
+  author: { id: string; name: string; image: string | null }
+}
+
+export type TaskAssignee = { userId: string; name: string; avatar: string | null }
+
+/** Everything the task panel shows, from one `GET /api/tasks/[id]?panel=1`. */
+export type TaskPanel = {
+  task: TaskDetail
+  comments: TaskComment[]
+  members: TaskAssignee[]
+  favorited: boolean
+}
+
+/** One request for everything the task panel shows. Cached and prefetched by `@/lib/query/tasks`. */
+export async function fetchTaskPanel(id: string): Promise<TaskPanel> {
+  const res = await fetch(`${BASE}/${id}?panel=1`)
+  const json = await res.json()
+  if (!json.success) throw new Error(json.error)
+  return { task: json.task, comments: json.comments, members: json.members, favorited: json.favorited }
+}
+
 export async function fetchTasks(projectId?: string): Promise<Task[]> {
   const res = await fetch(projectId ? `${BASE}?projectId=${projectId}` : BASE)
   const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()

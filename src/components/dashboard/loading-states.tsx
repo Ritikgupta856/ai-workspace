@@ -248,58 +248,6 @@ export function PageDetailSkeleton() {
  * priority, assignee, due date), a description block and the details section
  * below it.
  */
-export function TaskDetailSkeleton() {
-  return (
-    <SkeletonRegion label="Loading task" className="flex flex-1 flex-col">
-      <DetailBreadcrumbSkeleton />
-
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <div className="mx-auto max-w-3xl px-8 py-10 sm:px-12">
-          <Skeleton className="mt-1 h-7 w-3/4" />
-
-          {/* Status / priority / assignee / due date */}
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <Skeleton className="h-8 w-28 rounded-md" />
-            <Skeleton className="h-8 w-24 rounded-md" />
-            <Skeleton className="h-8 w-32 rounded-md" />
-            <Skeleton className="h-8 w-28 rounded-md" />
-          </div>
-
-          <div className="mt-6 space-y-3">
-            <Skeleton className="h-3 w-full" />
-            <Skeleton className="h-3 w-5/6" />
-            <Skeleton className="h-3 w-2/3" />
-          </div>
-
-          <div className="mt-8 space-y-3 border-t pt-5">
-            <Skeleton className="h-3.5 w-24" />
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-between gap-4">
-                <Skeleton className="h-3 w-20" />
-                <Skeleton className="h-3 w-32" />
-              </div>
-            ))}
-          </div>
-
-          {/* Comments */}
-          <div className="mt-8 space-y-4 border-t pt-5">
-            <Skeleton className="h-3.5 w-20" />
-            {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="flex items-start gap-3">
-                <Skeleton className="size-7 shrink-0 rounded-full" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Skeleton className="h-3 w-28" />
-                  <Skeleton className="h-3 w-3/4" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </SkeletonRegion>
-  )
-}
-
 /** Integration provider grid: logo tile, connect button, name, description. */
 export function IntegrationsSkeleton({ count = 6 }: { count?: number }) {
   return (

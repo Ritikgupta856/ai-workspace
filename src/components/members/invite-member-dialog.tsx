@@ -4,7 +4,6 @@ import * as React from "react"
 import { useForm, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { toast } from "sonner"
 import {
   Dialog,
   DialogContent,
@@ -24,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Spinner } from "@/components/ui/spinner"
+import { useInviteMember } from "@/lib/query/workspace"
 
 const inviteFormSchema = z.object({
   email: z.string().min(1, "Email is required").email("Invalid email address"),
@@ -36,15 +36,13 @@ type InviteFormValues = z.infer<typeof inviteFormSchema>
 interface InviteMemberDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onSuccess?: () => void
 }
 
 export function InviteMemberDialog({
   open,
   onOpenChange,
-  onSuccess,
 }: InviteMemberDialogProps) {
-  const [isSubmitting, setIsSubmitting] = React.useState(false)
+  const invite = useInviteMember()
 
   const {
     register,
@@ -67,32 +65,8 @@ export function InviteMemberDialog({
     }
   }, [open, reset])
 
-  const onSubmit = async (values: InviteFormValues) => {
-    setIsSubmitting(true)
-    try {
-      const response = await fetch("/api/workspaces/invites", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(values),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to send invitation")
-      }
-
-      toast.success("Invitation sent successfully")
-      onOpenChange(false)
-      onSuccess?.()
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong")
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
+  const onSubmit = (values: InviteFormValues) =>
+    invite.mutate(values, { onSuccess: () => onOpenChange(false) })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -115,7 +89,7 @@ export function InviteMemberDialog({
               id="email"
               placeholder="e.g. name@domain.com"
               type="email"
-              disabled={isSubmitting}
+              disabled={invite.isPending}
               className={errors.email ? "border-destructive focus-visible:ring-destructive" : ""}
               {...register("email")}
             />
@@ -133,7 +107,7 @@ export function InviteMemberDialog({
                 <Select
                   value={field.value}
                   onValueChange={field.onChange}
-                  disabled={isSubmitting}
+                  disabled={invite.isPending}
                 >
                   <SelectTrigger className={errors.role ? "border-destructive" : ""}>
                     <SelectValue placeholder="Select a role" />
@@ -162,7 +136,7 @@ export function InviteMemberDialog({
               id="message"
               placeholder="Add a friendly note to your invitation..."
               rows={3}
-              disabled={isSubmitting}
+              disabled={invite.isPending}
               className={errors.message ? "border-destructive focus-visible:ring-destructive" : ""}
               {...register("message")}
             />
@@ -175,7 +149,7 @@ export function InviteMemberDialog({
             <Button
               type="button"
               variant="outline"
-              disabled={isSubmitting}
+              disabled={invite.isPending}
               onClick={() => onOpenChange(false)}
               className="flex-1 sm:flex-none"
             >
@@ -183,10 +157,10 @@ export function InviteMemberDialog({
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting}
+              disabled={invite.isPending}
               className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {isSubmitting ? (
+              {invite.isPending ? (
                 <>
                   <Spinner className="mr-2 text-white" />
                   Sending...

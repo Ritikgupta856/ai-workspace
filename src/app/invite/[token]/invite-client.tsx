@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
+import { useMutation, useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Compass, Loader2, CheckCircle, XCircle, Clock, AlertTriangle } from "lucide-react"
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
 import { StatusBadge } from "@/components/common/status-badge"
+import { apiRequest, jsonRequest } from "@/lib/query/fetcher"
+import { queryKeys } from "@/lib/query/keys"
 
 interface InviteData {
   email: string
@@ -25,79 +28,42 @@ export default function InviteClient({ token }: { token: string }) {
   const router = useRouter()
   const { data: session, isPending: sessionLoading } = useSession()
 
-  const [invite, setInvite] = useState<InviteData | null>(null)
-  const [pageState, setPageState] = useState<PageState>("loading")
-  const [errorMessage, setErrorMessage] = useState("")
-  const [emailMismatch, setEmailMismatch] = useState(false)
-  const [workspaceSlug, setWorkspaceSlug] = useState<string | null>(null)
+  const user = session?.user
 
+  // Not signed in: send them to sign in, and bring them back here after.
   useEffect(() => {
-    if (sessionLoading) return
+    if (!sessionLoading && !user) router.push(`/sign-in?callbackUrl=/invite/${token}`)
+  }, [sessionLoading, user, token, router])
 
-    const user = session?.user
-    if (!user) {
-      router.push(`/sign-in?callbackUrl=/invite/${token}`)
-      return
-    }
+  const inviteQuery = useQuery({
+    queryKey: queryKeys.invite(token),
+    queryFn: async () => (await apiRequest<{ invite: InviteData }>(`/api/workspaces/invites/${token}`)).invite,
+    enabled: Boolean(user),
+    retry: false,
+  })
+  const accept = useMutation({
+    mutationFn: () =>
+      apiRequest<{ workspace?: { slug?: string } }>("/api/workspaces/invites/accept", jsonRequest("POST", { token })),
+  })
 
-    const currentEmail = user.email
+  // The page's state is derived from the two requests, not stored beside them.
+  const invite = inviteQuery.data ?? null
+  const emailMismatch = Boolean(invite && user?.email && user.email.toLowerCase() !== invite.email.toLowerCase())
+  const errorMessage = emailMismatch
+    ? `This invitation was sent to ${invite?.email}, but you are signed in as ${user?.email}`
+    : (accept.error?.message ?? inviteQuery.error?.message ?? "")
+  const workspaceSlug = accept.data?.workspace?.slug ?? null
+  const pageState: PageState = accept.isSuccess
+    ? "accepted"
+    : accept.isPending
+      ? "accepting"
+      : emailMismatch || inviteQuery.isError || accept.isError
+        ? "error"
+        : invite
+          ? "valid"
+          : "loading"
 
-    async function loadInvite() {
-      try {
-        const res = await fetch(`/api/workspaces/invites/${token}`)
-        const data = await res.json()
-
-        if (!res.ok || !data.success) {
-          setErrorMessage(data.error || "Failed to load invitation")
-          setPageState("error")
-          return
-        }
-
-        setInvite(data.invite)
-
-        if (currentEmail?.toLowerCase() !== data.invite.email.toLowerCase()) {
-          setEmailMismatch(true)
-          setErrorMessage(
-            `This invitation was sent to ${data.invite.email}, but you are signed in as ${currentEmail}`
-          )
-          setPageState("error")
-          return
-        }
-
-        setPageState("valid")
-      } catch {
-        setErrorMessage("Failed to load invitation")
-        setPageState("error")
-      }
-    }
-
-    loadInvite()
-  }, [token, session, sessionLoading, router])
-
-  const handleAccept = async () => {
-    setPageState("accepting")
-    try {
-      const res = await fetch("/api/workspaces/invites/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok || !data.success) {
-        setErrorMessage(data.error || "Failed to accept invitation")
-        setPageState("error")
-        return
-      }
-
-      setWorkspaceSlug(data.workspace?.slug ?? null)
-      setPageState("accepted")
-    } catch {
-      setErrorMessage("Failed to accept invitation")
-      setPageState("error")
-    }
-  }
+  const handleAccept = () => accept.mutate()
 
   if (sessionLoading || pageState === "loading") {
     return (

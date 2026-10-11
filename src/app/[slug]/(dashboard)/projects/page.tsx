@@ -1,5 +1,6 @@
 "use client"
 
+import { useProjectList } from "@/lib/query/projects"
 import * as React from "react"
 import { useParams, useRouter } from "next/navigation"
 import {
@@ -13,7 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { toast } from "sonner"
-import { requestSidebarRefresh } from "@/lib/sidebar-events"
+import { useInvalidateProjects } from "@/lib/query/projects"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -43,7 +44,7 @@ import type { ProjectCardData } from "@/components/projects/project-card"
 import { PROJECT_STATUS_CONFIG } from "@/lib/constants"
 import type { ProjectStatus } from "@/lib/projects"
 import { cn } from "@/lib/utils"
-import { fetchProjects, createProject, updateProject, deleteProject } from "@/lib/api/projects"
+import { createProject, updateProject, deleteProject } from "@/lib/api/projects"
 
 type ViewMode = "list" | "grid"
 type GroupBy = "status" | "none"
@@ -77,12 +78,12 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string; pill: string }[] = [
 ]
 
 export default function ProjectsPage() {
+  const invalidateProjects = useInvalidateProjects()
   const router = useRouter()
   const slug = useParams().slug as string
-  const [projectList, setProjectList] = React.useState<ProjectCardData[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [reloadKey, setReloadKey] = React.useState(0)
+  // The cache is the source of truth; `setProjectList` writes into it, so the
+  // optimistic edits below update every view of this list at once.
+  const { projects: projectList, loading, error, refetch, setProjects: setProjectList } = useProjectList()
   const [search, setSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<StatusFilter>("all")
   const [groupBy, setGroupBy] = React.useState<GroupBy>("status")
@@ -92,29 +93,8 @@ export default function ProjectsPage() {
   const [editingProject, setEditingProject] = React.useState<ProjectCardData | null>(null)
   const [pendingDelete, setPendingDelete] = React.useState<ProjectCardData | null>(null)
 
-  React.useEffect(() => {
-    let cancelled = false
-    fetchProjects()
-      .then((projects) => {
-        if (cancelled) return
-        setProjectList(projects)
-        setError(null)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projects")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [reloadKey])
-
   function retry() {
-    setLoading(true)
-    setError(null)
-    setReloadKey((k) => k + 1)
+    void refetch()
   }
 
   const filtered = React.useMemo(() => {
@@ -203,7 +183,7 @@ export default function ProjectsPage() {
           icon: project.icon,
         })
         setProjectList((prev) => [created, ...prev])
-        requestSidebarRefresh()
+        invalidateProjects()
         toast.success("Project duplicated")
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to duplicate")
@@ -228,7 +208,7 @@ export default function ProjectsPage() {
     setProjectList((prev) => prev.filter((p) => p.id !== project.id))
     try {
       await deleteProject(project.id)
-      requestSidebarRefresh()
+      invalidateProjects()
       toast.success(`Deleted "${project.name}"`)
     } catch (err) {
       setProjectList(previous)

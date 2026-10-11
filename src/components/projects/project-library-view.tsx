@@ -1,5 +1,8 @@
 "use client"
 
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { queryKeys } from "@/lib/query/keys"
+import { useInvalidateSidebar } from "@/lib/query/sidebar"
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -67,6 +70,8 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: "created", label: "Newest first" },
 ]
 
+const NO_ITEMS: LibraryItem[] = []
+
 export interface ProjectLibraryViewProps {
   section: Extract<ProjectSectionTab, "pages" | "board">
   /** Singular noun for copy: "page", "board". */
@@ -99,9 +104,16 @@ export function ProjectLibraryView({
   const router = useRouter()
   const { projectId, data } = useProjectDashboard()
 
-  const [items, setItems] = React.useState<LibraryItem[]>([])
-  const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
+  const client = useQueryClient()
+  const invalidateSidebar = useInvalidateSidebar()
+  const libraryKey = queryKeys.library(section, projectId)
+  // Cached per project and section, so flipping between Pages and Board (or
+  // back to a project you just left) shows the last list at once.
+  const { data: items = NO_ITEMS, isPending: loading, error: loadError, refetch } = useQuery({
+    queryKey: libraryKey,
+    queryFn: load,
+  })
+  const error = loadError ? loadError.message || "Something went wrong" : null
   const [view, setView] = React.useState<ViewMode>("list")
   const [sortBy, setSortBy] = React.useState<SortBy>("updated")
   const [search, setSearch] = React.useState("")
@@ -109,35 +121,8 @@ export function ProjectLibraryView({
   const [pendingDelete, setPendingDelete] = React.useState<LibraryItem | null>(null)
   const [deleting, setDeleting] = React.useState(false)
 
-  const [reloadKey, setReloadKey] = React.useState(0)
-
-  // State only changes once the request settles; the initial `loading: true`
-  // covers the first fetch and `retry` resets it before bumping the key.
-  React.useEffect(() => {
-    let cancelled = false
-    load()
-      .then((list) => {
-        if (cancelled) return
-        setItems(list)
-        setError(null)
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Something went wrong")
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-    // `load` closes over projectId only; callers pass a fresh arrow per render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, reloadKey])
-
   function retry() {
-    setLoading(true)
-    setError(null)
-    setReloadKey((k) => k + 1)
+    void refetch()
   }
 
   const visible = React.useMemo(() => {
@@ -160,7 +145,10 @@ export function ProjectLibraryView({
   async function handleCreate() {
     setCreating(true)
     try {
-      router.push(await create())
+      const destination = await create()
+      client.invalidateQueries({ queryKey: libraryKey })
+      invalidateSidebar()
+      router.push(destination)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to create ${noun}`)
       setCreating(false)
@@ -172,7 +160,8 @@ export function ProjectLibraryView({
     setDeleting(true)
     try {
       await remove(pendingDelete.id)
-      setItems((prev) => prev.filter((i) => i.id !== pendingDelete.id))
+      client.setQueryData<LibraryItem[]>(libraryKey, (prev) => prev?.filter((i) => i.id !== pendingDelete.id))
+      invalidateSidebar()
       toast.success(`${noun[0].toUpperCase()}${noun.slice(1)} deleted`)
       setPendingDelete(null)
     } catch (err) {

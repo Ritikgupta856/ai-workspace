@@ -9,7 +9,15 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { StatusBadge } from "@/components/common/status-badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { MEMBER_ROLE_CONFIG, type MemberRoleKey } from "@/lib/constants"
+import { MEMBER_ROLE_CONFIG } from "@/lib/constants"
+import {
+  useCancelInvite,
+  useResendInvite,
+  useWorkspaceInvites,
+  useWorkspaceMembers,
+  type Invitation,
+  type Member,
+} from "@/lib/query/workspace"
 import type { ColumnDef } from "@tanstack/react-table"
 import { cn } from "@/lib/utils"
 import { MemberCardMenu } from "@/components/members/member-card-menu"
@@ -30,31 +38,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { TableSkeleton } from "@/components/dashboard/loading-states"
-
-export type Member = {
-  id: string
-  name: string
-  email: string
-  role: MemberRoleKey
-  avatar: string | null
-  joinedAt: string
-  lastActive: string
-  taskCount: number
-}
-
-export type Invitation = {
-  id: string
-  email: string
-  role: MemberRoleKey
-  status: string
-  token: string
-  invitedBy: {
-    name: string | null
-    email: string
-  }
-  createdAt: string
-  expiresAt: string
-}
 
 function getInitials(name: string): string {
   return name
@@ -169,8 +152,11 @@ const memberColumns: ColumnDef<Member>[] = [
   },
 ]
 
-function useInvitationColumns(onRefresh?: () => void) {
-  const [actionLoading, setActionLoading] = React.useState<string | null>(null)
+function useInvitationColumns() {
+  const resend = useResendInvite()
+  const cancel = useCancelInvite()
+  // Whichever invitation has a request in flight shows a spinner on its row.
+  const actionLoading = (resend.isPending ? resend.variables : cancel.isPending ? cancel.variables : null) ?? null
   const [cancelDialogOpen, setCancelDialogOpen] = React.useState(false)
   const [cancelTarget, setCancelTarget] = React.useState<Invitation | null>(null)
 
@@ -188,49 +174,13 @@ function useInvitationColumns(onRefresh?: () => void) {
     }
   }
 
-  const handleResend = async (invitation: Invitation) => {
-    setActionLoading(invitation.id)
-    try {
-      const res = await fetch("/api/workspaces/invites", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: invitation.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to resend invitation")
-      }
-      toast.success("Invitation resent successfully")
-      onRefresh?.()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to resend invitation")
-    } finally {
-      setActionLoading(null)
-    }
-  }
+  const handleResend = (invitation: Invitation) => resend.mutate(invitation.id)
 
-  const handleCancelConfirm = async () => {
+  const handleCancelConfirm = () => {
     if (!cancelTarget) return
-    setActionLoading(cancelTarget.id)
-    try {
-      const res = await fetch("/api/workspaces/invites", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: cancelTarget.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Failed to cancel invitation")
-      }
-      toast.success("Invitation cancelled")
-      setCancelDialogOpen(false)
-      setCancelTarget(null)
-      onRefresh?.()
-    } catch (err: any) {
-      toast.error(err.message || "Failed to cancel invitation")
-    } finally {
-      setActionLoading(null)
-    }
+    cancel.mutate(cancelTarget.id)
+    setCancelDialogOpen(false)
+    setCancelTarget(null)
   }
 
   const columns: ColumnDef<Invitation>[] = [
@@ -397,46 +347,18 @@ function FilterTrigger({
   )
 }
 
+const EMPTY_MEMBERS: Member[] = []
+const EMPTY_INVITES: Invitation[] = []
+
 export function MembersPanel() {
   const [memberFilter, setMemberFilter] = React.useState<MemberFilter>("all")
-  const [memberList, setMemberList] = React.useState<Member[]>([])
-  const [invitationList, setInvitationList] = React.useState<Invitation[]>([])
-  const [currentUserRole, setCurrentUserRole] = React.useState<string>("MEMBER")
-  const [isLoading, setIsLoading] = React.useState(true)
   const [isInviteOpen, setIsInviteOpen] = React.useState(false)
-
-  const fetchData = React.useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const [membersRes, invitesRes] = await Promise.all([
-        fetch("/api/workspaces/members"),
-        fetch("/api/workspaces/invites"),
-      ])
-
-      if (membersRes.ok) {
-        const membersData = await membersRes.json()
-        if (membersData.success) {
-          setMemberList(membersData.members)
-          setCurrentUserRole(membersData.currentUserRole)
-        }
-      }
-
-      if (invitesRes.ok) {
-        const invitesData = await invitesRes.json()
-        if (invitesData.success) {
-          setInvitationList(invitesData.invites)
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load workspace member data", error)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  React.useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  const membersQuery = useWorkspaceMembers()
+  const invitesQuery = useWorkspaceInvites()
+  const memberList = membersQuery.data?.members ?? EMPTY_MEMBERS
+  const invitationList = invitesQuery.data ?? EMPTY_INVITES
+  const currentUserRole = membersQuery.data?.currentUserRole ?? "MEMBER"
+  const isLoading = membersQuery.isPending || invitesQuery.isPending
 
   const filteredMembers = React.useMemo(() => {
     switch (memberFilter) {
@@ -453,7 +375,7 @@ export function MembersPanel() {
 
   const canInvite = currentUserRole === "OWNER" || currentUserRole === "ADMIN"
 
-  const { columns: invitationColumns } = useInvitationColumns(fetchData)
+  const { columns: invitationColumns } = useInvitationColumns()
 
   return (
     <div className="flex flex-col">
@@ -530,11 +452,7 @@ export function MembersPanel() {
         </div>
       </div>
 
-      <InviteMemberDialog
-        open={isInviteOpen}
-        onOpenChange={setIsInviteOpen}
-        onSuccess={fetchData}
-      />
+      <InviteMemberDialog open={isInviteOpen} onOpenChange={setIsInviteOpen} />
     </div>
   )
 }

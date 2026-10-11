@@ -5,24 +5,16 @@ import { toast } from "sonner"
 
 import { IntegrationsSkeleton } from "@/components/dashboard/loading-states"
 import { IntegrationsView, type IntegrationRuntime } from "@/components/integrations/integrations-view"
+import { useIntegrations } from "@/lib/query/integrations"
+
+const NO_RUNTIMES: Record<string, IntegrationRuntime> = {}
 
 export function IntegrationsPanel() {
-  const [loading, setLoading] = React.useState(true)
-  const [runtimes, setRuntimes] = React.useState<Record<string, IntegrationRuntime>>({})
+  const { data: runtimes = NO_RUNTIMES, isPending, error } = useIntegrations()
 
   React.useEffect(() => {
-    fetch("/api/integrations")
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success) {
-          setRuntimes(json.runtimes)
-        } else {
-          toast.error(json.error || "Failed to load integrations")
-        }
-      })
-      .catch(() => toast.error("Failed to load integrations"))
-      .finally(() => setLoading(false))
-  }, [])
+    if (error) toast.error(error.message || "Failed to load integrations")
+  }, [error])
 
   return (
     <div className="flex flex-col">
@@ -31,11 +23,7 @@ export function IntegrationsPanel() {
         Connect GitHub, Linear, Notion and more to your workspace.
       </p>
 
-      {loading ? (
-        <IntegrationsSkeleton count={4} />
-      ) : (
-        <IntegrationsView runtimes={runtimes} />
-      )}
+      {isPending ? <IntegrationsSkeleton count={4} /> : <IntegrationsView runtimes={runtimes} />}
     </div>
   )
 }

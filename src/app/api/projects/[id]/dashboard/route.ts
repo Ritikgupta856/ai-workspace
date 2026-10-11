@@ -32,7 +32,7 @@ export async function GET(
     }
 
     const { id: projectId } = await params
-    const response = await buildProjectDashboard(projectId, membership.workspaceId)
+    const response = await buildProjectDashboard(projectId, membership.workspaceId, session.user.id)
 
     if (!response) {
       return NextResponse.json(
