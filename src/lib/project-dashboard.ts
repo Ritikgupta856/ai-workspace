@@ -93,6 +93,14 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
     trendData.push(count)
   }
 
+  const statusGroups = await prisma.task.groupBy({
+    by: ["status"],
+    where: { projectId },
+    _count: { _all: true },
+  })
+  const taskBreakdown = { TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 }
+  for (const g of statusGroups) taskBreakdown[g.status] = g._count._all
+
   const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0
 
   // ── Activity ──
@@ -124,12 +132,14 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
       status: { not: "DONE" },
     },
     orderBy: { dueDate: "asc" },
-    take: 5,
+    take: 6,
     select: {
       id: true,
       title: true,
       dueDate: true,
       priority: true,
+      status: true,
+      assignee: { select: { id: true, name: true, email: true, image: true } },
     },
   })
 
@@ -224,7 +234,12 @@ export async function buildProjectDashboard(projectId: string, workspaceId: stri
       dueDate: t.dueDate!.toISOString(),
       dueDateLabel: formatDueDate(t.dueDate),
       priority: t.priority,
+      status: t.status,
+      assignee: t.assignee
+        ? { id: t.assignee.id, name: t.assignee.name || t.assignee.email, image: t.assignee.image }
+        : null,
     })),
+    taskBreakdown,
     teamMembers,
     integrations: integrations.map((i) => ({
       id: i.id,

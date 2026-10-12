@@ -4,20 +4,20 @@ import * as React from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import {
-  AtSign,
-  MessageSquare,
-  UserPlus,
-  Pencil,
-  CheckCircle2,
   Archive,
   ArchiveRestore,
+  ArrowLeft,
+  AtSign,
+  CheckCheck,
+  CheckCircle2,
+  ExternalLink,
   Inbox as InboxIcon,
-  Send,
   Mail,
   MailOpen,
-  ExternalLink,
-  Reply,
-  CheckCheck,
+  MessageSquare,
+  Pencil,
+  Send,
+  UserPlus,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useAddTaskComment } from "@/lib/query/tasks"
@@ -30,12 +30,14 @@ import {
   type NotificationType,
 } from "@/lib/query/notifications"
 
-import { HeaderButton, SectionHeader } from "@/components/dashboard/section-header"
-import { ToolbarSearch } from "@/components/common/toolbar-search"
+import { SectionHeader } from "@/components/dashboard/section-header"
+import { SearchCommand } from "@/components/layout/search-command"
+import { ThemeToggle } from "@/components/common/theme-menu"
+import { PersonAvatar } from "@/components/tasks/task-grouped-list"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Switch } from "@/components/ui/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { InboxSkeleton } from "@/components/dashboard/loading-states"
 import { formatUpdatedDate } from "@/lib/date"
 import { cn } from "@/lib/utils"
@@ -48,7 +50,23 @@ const TYPE_CONFIG: Record<NotificationType, { label: string; icon: typeof AtSign
   TASK_COMPLETION: { label: "Completed", icon: CheckCircle2, className: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30" },
 }
 
-function RowAction({
+type TabKey = "all" | "mentions" | "assignments" | "comments" | "updates"
+
+const TABS: { value: TabKey; label: string; types: NotificationType[] | null }[] = [
+  { value: "all", label: "All", types: null },
+  { value: "mentions", label: "Mentions", types: ["MENTION"] },
+  { value: "assignments", label: "Assignments", types: ["TASK_ASSIGNMENT"] },
+  { value: "comments", label: "Comments", types: ["COMMENT_REPLY"] },
+  { value: "updates", label: "Updates", types: ["TASK_UPDATE", "TASK_COMPLETION"] },
+]
+
+const EMPTY_NOTIFICATIONS: NotificationDTO[] = []
+
+function actorName(n: NotificationDTO) {
+  return n.actor?.name ?? null
+}
+
+function IconAction({
   label,
   icon: Icon,
   onClick,
@@ -60,17 +78,17 @@ function RowAction({
   href?: string
 }) {
   const className =
-    "flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    "flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         {href ? (
           <Link href={href} className={className} aria-label={label}>
-            <Icon className="size-3.5" />
+            <Icon className="size-4" />
           </Link>
         ) : (
           <button type="button" onClick={onClick} className={className} aria-label={label}>
-            <Icon className="size-3.5" />
+            <Icon className="size-4" />
           </button>
         )}
       </TooltipTrigger>
@@ -81,141 +99,217 @@ function RowAction({
   )
 }
 
-function NotificationRow({
+/* ── List row ───────────────────────────────────────────────── */
+
+function NotificationItem({
   notification,
+  selected,
+  onSelect,
+  onToggleRead,
+}: {
+  notification: NotificationDTO
+  selected: boolean
+  onSelect: () => void
+  onToggleRead: () => void
+}) {
+  const config = TYPE_CONFIG[notification.type]
+  const TypeIcon = config.icon
+  const name = actorName(notification)
+  const preview = notification.comment?.content ?? notification.message
+
+  return (
+    <div
+      className={cn(
+        "group relative border-b border-border/70 transition-colors",
+        selected ? "bg-accent/60" : "hover:bg-muted/40"
+      )}
+    >
+      <button type="button" onClick={onSelect} className="flex w-full items-start gap-3 px-5 py-4 pr-14 text-left">
+        {!notification.read && (
+          <span className="absolute top-8 left-2 size-1.5 rounded-full bg-primary" aria-label="Unread" />
+        )}
+        {name ? (
+          <PersonAvatar name={name} image={notification.actor?.image} className="size-8 shrink-0 ring-0" />
+        ) : (
+          <span className={cn("flex size-8 shrink-0 items-center justify-center rounded-full", config.className)}>
+            <TypeIcon className="size-4" />
+          </span>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+            {name && <span className="font-medium text-foreground">{name} </span>}
+            <span className={cn(!name && "font-medium text-foreground")}>
+              {notification.title || config.label}
+            </span>
+          </p>
+          {preview && <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{preview}</p>}
+          <div className="mt-1.5 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+            <TypeIcon className="size-3 shrink-0" />
+            {notification.task && <span className="truncate">{notification.task.title}</span>}
+            {notification.task && <span aria-hidden>·</span>}
+            <span className="shrink-0" suppressHydrationWarning>
+              {formatUpdatedDate(notification.createdAt)}
+            </span>
+          </div>
+        </div>
+      </button>
+
+      <div className="absolute top-3 right-4 opacity-60 transition-opacity group-hover:opacity-100">
+        <IconAction
+          label={notification.read ? "Mark unread" : "Mark read"}
+          icon={notification.read ? Mail : MailOpen}
+          onClick={onToggleRead}
+        />
+      </div>
+    </div>
+  )
+}
+
+/* ── Detail pane ────────────────────────────────────────────── */
+
+function NotificationDetail({
+  notification,
+  onBack,
   onToggleRead,
   onToggleArchive,
   onReply,
 }: {
   notification: NotificationDTO
-  onToggleRead: (id: string, read: boolean) => void
-  onToggleArchive: (id: string, archived: boolean) => void
+  onBack: () => void
+  onToggleRead: () => void
+  onToggleArchive: () => void
   onReply: (notification: NotificationDTO, content: string) => Promise<void>
 }) {
   const slug = useParams().slug as string
   const config = TYPE_CONFIG[notification.type]
-  const Icon = config.icon
-  const [replying, setReplying] = React.useState(false)
+  const name = actorName(notification)
   const [replyText, setReplyText] = React.useState("")
   const [sending, setSending] = React.useState(false)
 
   const canReply =
-    notification.taskId &&
-    (notification.type === "COMMENT_REPLY" || notification.type === "MENTION")
+    notification.taskId && (notification.type === "COMMENT_REPLY" || notification.type === "MENTION")
+
+  const taskHref = notification.taskId
+    ? notification.task?.projectId
+      ? `/${slug}/projects/${notification.task.projectId}/tasks?task=${notification.taskId}`
+      : `/${slug}/my-work?task=${notification.taskId}`
+    : null
 
   async function handleSend() {
-    if (!replyText.trim()) return
+    const content = replyText.trim()
+    if (!content) return
     setSending(true)
     try {
-      await onReply(notification, replyText.trim())
+      await onReply(notification, content)
       setReplyText("")
-      setReplying(false)
     } finally {
       setSending(false)
     }
   }
 
   return (
-    <div
-      className={cn(
-        "group flex flex-col rounded-lg border border-transparent px-4 transition-colors hover:border-border hover:bg-muted/40",
-        !notification.read && "bg-primary/[0.03]"
-      )}
-    >
-      <div className="flex min-h-11 items-center gap-3 py-2">
-        <div className={cn("flex size-7 shrink-0 items-center justify-center rounded-md", config.className)}>
-          <Icon className="size-3.5" />
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex min-w-0 items-center gap-2">
-            {!notification.read && <span className="size-1.5 shrink-0 rounded-full bg-primary" />}
-            <span className="truncate text-sm leading-5 text-foreground">
-              {notification.actor?.name ? (
-                <span className="font-medium">{notification.actor.name} </span>
-              ) : null}
-              <span className={cn(!notification.actor?.name && "font-medium")}>
-                {notification.title || config.label}
-              </span>
-              {notification.message ? (
-                <span className="text-muted-foreground"> — {notification.message}</span>
-              ) : null}
-            </span>
-          </div>
-          {notification.comment && (
-            <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-              &ldquo;{notification.comment.content}&rdquo;
-            </p>
-          )}
-        </div>
-
-        <span className="shrink-0 text-[13px] text-muted-foreground">
-          {formatUpdatedDate(notification.createdAt)}
-        </span>
-
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          {notification.taskId && (
-            <RowAction
-              label="Open task"
-              icon={ExternalLink}
-              href={
-                notification.task?.projectId
-                  ? `/${slug}/projects/${notification.task.projectId}/tasks?task=${notification.taskId}`
-                  : `/${slug}/my-work?task=${notification.taskId}`
-              }
-            />
-          )}
-          {canReply && (
-            <RowAction label="Reply" icon={Reply} onClick={() => setReplying((v) => !v)} />
-          )}
-          <RowAction
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border/70 px-5">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to list"
+          className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent md:hidden"
+        >
+          <ArrowLeft className="size-4" />
+        </button>
+        <span className={cn("rounded-md px-2 py-0.5 text-xs font-medium", config.className)}>{config.label}</span>
+        <div className="ml-auto flex items-center gap-0.5">
+          {taskHref && <IconAction label="Open task" icon={ExternalLink} href={taskHref} />}
+          <IconAction
             label={notification.read ? "Mark unread" : "Mark read"}
             icon={notification.read ? Mail : MailOpen}
-            onClick={() => onToggleRead(notification.id, !notification.read)}
+            onClick={onToggleRead}
           />
-          <RowAction
+          <IconAction
             label={notification.archived ? "Unarchive" : "Archive"}
             icon={notification.archived ? ArchiveRestore : Archive}
-            onClick={() => onToggleArchive(notification.id, !notification.archived)}
+            onClick={onToggleArchive}
           />
         </div>
       </div>
 
-      {replying && (
-        <div className="mb-2.5 ml-10 flex items-center gap-2">
-          <Avatar className="size-6 shrink-0">
-            <AvatarFallback className="text-[10px]">ME</AvatarFallback>
-          </Avatar>
-          <Input
-            autoFocus
-            placeholder="Write a reply..."
-            value={replyText}
-            onChange={(e) => setReplyText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleSend()
-              if (e.key === "Escape") setReplying(false)
-            }}
-            className="h-8 flex-1 rounded-lg text-[13px] shadow-none"
-          />
-          <Button
-            size="icon-sm"
-            onClick={handleSend}
-            disabled={sending || !replyText.trim()}
-            className="size-8 rounded-lg bg-foreground text-background hover:bg-foreground/90"
-          >
-            <Send className="size-3.5" />
-          </Button>
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <div className="mx-auto flex max-w-2xl flex-col gap-5">
+          <div className="flex items-start gap-3">
+            {name ? (
+              <PersonAvatar name={name} image={notification.actor?.image} className="size-9 shrink-0 ring-0" />
+            ) : (
+              <span className={cn("flex size-9 shrink-0 items-center justify-center rounded-full", config.className)}>
+                <config.icon className="size-4" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <h2 className="text-base leading-6 text-muted-foreground">
+                {name && <span className="font-semibold text-foreground">{name} </span>}
+                <span className={cn(!name && "font-semibold text-foreground")}>
+                  {notification.title || config.label}
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground" suppressHydrationWarning>
+                {formatUpdatedDate(notification.createdAt)}
+              </p>
+            </div>
+          </div>
+
+          {notification.task && (
+            <div className="rounded-xl border border-border/80 bg-card px-4 py-3 shadow-xs">
+              <p className="text-xs text-muted-foreground">Task</p>
+              <p className="mt-0.5 text-sm font-medium">{notification.task.title}</p>
+            </div>
+          )}
+
+          {notification.message && <p className="text-sm leading-6">{notification.message}</p>}
+
+          {notification.comment && (
+            <blockquote className="rounded-xl border border-border/80 bg-muted/40 px-4 py-3 text-sm leading-6">
+              {notification.comment.content}
+            </blockquote>
+          )}
+
+          {canReply && (
+            <div className="flex items-center gap-2 pt-2">
+              <Input
+                placeholder="Write a reply..."
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSend()
+                }}
+                className="h-9 flex-1 rounded-lg text-[13px] shadow-none"
+              />
+              <Button
+                size="icon-sm"
+                onClick={handleSend}
+                disabled={sending || !replyText.trim()}
+                className="size-9 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+                aria-label="Send reply"
+              >
+                <Send className="size-3.5" />
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
 
-const EMPTY_NOTIFICATIONS: NotificationDTO[] = []
+/* ── Page ───────────────────────────────────────────────────── */
 
 export default function InboxPage() {
-  const [view, setView] = React.useState<InboxView>("inbox")
-  const [search, setSearch] = React.useState("")
+  const [unreadOnly, setUnreadOnly] = React.useState(false)
+  const [showArchived, setShowArchived] = React.useState(false)
+  const [tab, setTab] = React.useState<TabKey>("all")
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+
+  const view: InboxView = showArchived ? "archived" : unreadOnly ? "unread" : "inbox"
   const { data, isPending: loading, error } = useNotifications(view)
   const notifications = data?.notifications ?? EMPTY_NOTIFICATIONS
   const unreadCount = data?.unreadCount ?? 0
@@ -223,24 +317,33 @@ export default function InboxPage() {
   const markAllRead = useMarkAllRead()
   const addComment = useAddTaskComment()
 
-  const visible = React.useMemo(() => {
-    if (!search.trim()) return notifications
-    const q = search.toLowerCase()
-    return notifications.filter((n) =>
-      [n.title, n.message, n.actor?.name, n.comment?.content, n.task?.title]
-        .filter(Boolean)
-        .some((text) => text!.toLowerCase().includes(q))
-    )
-  }, [notifications, search])
-
   React.useEffect(() => {
     if (error) toast.error(error.message || "Failed to load notifications")
   }, [error])
 
+  // Per-tab counts are the notifications still waiting on you in this view.
+  const tabCounts = React.useMemo(() => {
+    const counts = {} as Record<TabKey, number>
+    for (const t of TABS) {
+      counts[t.value] = notifications.filter((n) => !n.read && (!t.types || t.types.includes(n.type))).length
+    }
+    return counts
+  }, [notifications])
+
+  const visible = React.useMemo(() => {
+    const types = TABS.find((t) => t.value === tab)?.types
+    return types ? notifications.filter((n) => types.includes(n.type)) : notifications
+  }, [notifications, tab])
+
+  const selected = visible.find((n) => n.id === selectedId) ?? null
+
   const patchNotification = (id: string, changes: { read?: boolean; archived?: boolean }) =>
     patch.mutateAsync({ id, ...changes }).catch(() => {})
 
-  const handleMarkAllRead = () => markAllRead.mutate()
+  function handleSelect(n: NotificationDTO) {
+    setSelectedId(n.id)
+    if (!n.read) void patchNotification(n.id, { read: true })
+  }
 
   async function handleReply(notification: NotificationDTO, content: string) {
     if (!notification.taskId) return
@@ -257,89 +360,124 @@ export default function InboxPage() {
     }
   }
 
-  const tabs: { value: typeof view; label: string; count?: number }[] = [
-    { value: "inbox", label: "Inbox" },
-    { value: "unread", label: "Unread", count: unreadCount },
-    { value: "archived", label: "Archived" },
-  ]
-
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* Search lives in the toolbar below, next to the results it filters. */}
-      <SectionHeader icon={InboxIcon} title="Inbox" count={unreadCount}>
-        <HeaderButton icon={CheckCheck} onClick={handleMarkAllRead} disabled={unreadCount === 0}>
-          Mark all read
-        </HeaderButton>
+      <SectionHeader icon={InboxIcon} title="Inbox">
+        <SearchCommand variant="header" />
+        <ThemeToggle />
       </SectionHeader>
 
-      {/* Toolbar */}
-      <div className="flex min-h-12 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-border/70 px-5 py-1.5">
-        <div className="flex items-center gap-1.5">
-          {tabs.map((tab) => {
-            const active = view === tab.value
-            return (
-              <button
-                key={tab.value}
-                type="button"
-                onClick={() => setView(tab.value)}
-                className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-[13px] transition-colors",
-                  active
-                    ? "border border-border/80 bg-card font-medium text-foreground shadow-xs"
-                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                )}
-              >
-                {tab.label}
-                {tab.count ? (
-                  <span className="inline-flex h-4.5 min-w-4.5 items-center justify-center rounded border border-border/80 bg-card px-1 font-mono text-[10px] leading-none text-muted-foreground">
-                    {tab.count}
-                  </span>
-                ) : null}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="ml-auto flex items-center gap-2">
-          <ToolbarSearch
-            value={search}
-            onChange={setSearch}
-            placeholder="Search notifications..."
-          />
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="flex min-h-0 flex-1 flex-col px-5 pt-5 pb-8">
-        {loading ? (
-          <InboxSkeleton />
-        ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-1.5 py-24 text-center">
-            <InboxIcon className="mb-1 size-7 text-muted-foreground/50" />
-            <p className="text-sm font-medium text-foreground">
-              {search ? `No notifications match "${search}"` : "You're all caught up"}
-            </p>
-            <p className="text-[13px] text-muted-foreground">
-              {search ? "Try a different search." : "Mentions, replies, and task updates will show up here."}
-            </p>
-          </div>
-        ) : (
-          <div className="flex flex-col">
-            <div className="grid h-8 grid-cols-[minmax(0,1fr)_auto] items-center px-4 text-[13px] text-muted-foreground">
-              <span>Notification</span>
-              <span>When</span>
+      <div className="flex min-h-0 flex-1">
+        {/* List */}
+        <div
+          className={cn(
+            "min-h-0 w-full flex-col border-border/70 md:flex md:w-[420px] md:shrink-0 md:border-r lg:w-[525px]",
+            selected ? "hidden" : "flex"
+          )}
+        >
+          <div className="shrink-0 border-b border-border/70 px-5 pt-5">
+            <div className="flex items-center justify-between gap-3">
+              <h1 className="text-xl font-semibold tracking-tight">Inbox</h1>
+              <div className="flex items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-muted-foreground">
+                  <Switch
+                    checked={unreadOnly}
+                    onCheckedChange={setUnreadOnly}
+                    disabled={showArchived}
+                    aria-label="Show unread only"
+                  />
+                  Unread
+                </label>
+                <IconAction
+                  label={showArchived ? "Back to inbox" : "View archived"}
+                  icon={showArchived ? InboxIcon : Archive}
+                  onClick={() => setShowArchived((v) => !v)}
+                />
+                <IconAction
+                  label="Mark all read"
+                  icon={CheckCheck}
+                  onClick={() => unreadCount > 0 && markAllRead.mutate()}
+                />
+              </div>
             </div>
-            {visible.map((n) => (
-              <NotificationRow
-                key={n.id}
-                notification={n}
-                onToggleRead={(id, read) => patchNotification(id, { read })}
-                onToggleArchive={(id, archived) => patchNotification(id, { archived })}
-                onReply={handleReply}
-              />
-            ))}
+
+            <div className="mt-3 flex items-center gap-5 overflow-x-auto">
+              {TABS.map((t) => {
+                const active = tab === t.value
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setTab(t.value)}
+                    className={cn(
+                      "-mb-px inline-flex h-9 shrink-0 items-center gap-1 border-b-2 text-[13px] transition-colors",
+                      active
+                        ? "border-foreground font-medium text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {t.label}
+                    {tabCounts[t.value] > 0 && (
+                      <span className="text-xs text-muted-foreground">{tabCounts[t.value]}</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
           </div>
-        )}
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {loading ? (
+              <div className="p-3">
+                <InboxSkeleton />
+              </div>
+            ) : visible.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-24 text-center">
+                <InboxIcon className="mb-1 size-7 text-muted-foreground/50" />
+                <p className="text-sm font-medium text-foreground">
+                  {showArchived ? "Nothing archived" : "You're all caught up"}
+                </p>
+                <p className="text-[13px] text-muted-foreground">
+                  Mentions, replies, and task updates will show up here.
+                </p>
+              </div>
+            ) : (
+              visible.map((n) => (
+                <NotificationItem
+                  key={n.id}
+                  notification={n}
+                  selected={n.id === selectedId}
+                  onSelect={() => handleSelect(n)}
+                  onToggleRead={() => patchNotification(n.id, { read: !n.read })}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Detail */}
+        <div className={cn("min-w-0 flex-1 flex-col md:flex", selected ? "flex" : "hidden")}>
+          {selected ? (
+            <NotificationDetail
+              notification={selected}
+              onBack={() => setSelectedId(null)}
+              onToggleRead={() => patchNotification(selected.id, { read: !selected.read })}
+              onToggleArchive={() => {
+                patchNotification(selected.id, { archived: !selected.archived })
+                setSelectedId(null)
+              }}
+              onReply={handleReply}
+            />
+          ) : (
+            <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center">
+              <MailOpen className="mb-1 size-7 text-muted-foreground" />
+              <p className="text-[15px] font-semibold text-foreground">Select a notification</p>
+              <p className="text-[13px] text-muted-foreground">
+                Read the conversation and reply without leaving your inbox.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

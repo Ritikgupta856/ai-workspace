@@ -76,7 +76,7 @@ export type Task = {
 }
 
 // Same names, icons and colors as the list view's status bands.
-const boardColumns: KanbanColumn[] = groupByStatus([], true).map(({ key, label, icon: Icon, iconClass }) => ({
+export const boardColumns: KanbanColumn[] = groupByStatus([], true).map(({ key, label, icon: Icon, iconClass }) => ({
   id: key,
   title: label,
   icon: <Icon className={cn("size-3.5", iconClass)} />,
@@ -253,7 +253,7 @@ export const columns: ColumnDef<Task>[] = [
 
 const VISIBLE_CARD_LABELS = 2
 
-function TaskCard({
+export function TaskCard({
   task,
   showAssignee,
   onOpen,

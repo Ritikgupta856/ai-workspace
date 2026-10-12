@@ -53,6 +53,8 @@ export interface DeadlineData {
   dueDate: string
   dueDateLabel: string
   priority: string
+  status: "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE"
+  assignee: { id: string; name: string; image: string | null } | null
 }
 
 export interface TeamMemberData {
@@ -83,6 +85,7 @@ export interface ProjectDashboardResponse {
   recentActivity: ActivityDTO[]
   latestDocuments: DocumentItem[]
   upcomingDeadlines: DeadlineData[]
+  taskBreakdown: Record<"TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE", number>
   teamMembers: TeamMemberData[]
   integrations: IntegrationItemData[]
 }

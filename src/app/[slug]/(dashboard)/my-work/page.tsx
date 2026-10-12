@@ -1,21 +1,6 @@
-"use client"
+import { TaskListView } from "@/components/tasks/task-list-view"
 
-import { CircleCheck } from "lucide-react"
-
-import { TasksView } from "@/components/tasks/tasks-view"
-import { SectionHeader } from "@/components/dashboard/section-header"
-
-/**
- * View switching and search live in the toolbar TasksView renders directly
- * below this header, so they are deliberately not repeated up here. My work
- * only lists what's assigned to you; tasks are created inside projects.
- */
-export default function MyWorkPage() {
-  return (
-    <TasksView
-      assignedToMe
-      showPageHeader={false}
-      header={() => <SectionHeader icon={CircleCheck} title="My work" />}
-    />
-  )
+/** The signed-in user's assigned tasks. The URL stays /my-work so existing links keep working. */
+export default function MyTasksPage() {
+  return <TaskListView />
 }

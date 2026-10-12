@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 
-import type { SettingsData } from "@/components/settings/settings-dialog"
+import type { SettingsData } from "@/components/settings/settings-panels"
 import { apiRequest } from "@/lib/query/fetcher"
 import { queryKeys } from "@/lib/query/keys"
 

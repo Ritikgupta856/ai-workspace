@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Loader2, Lock, TriangleAlert, User, Building2, SlidersHorizontal, CreditCard, Users, Puzzle } from "lucide-react"
+import { Loader2, Lock, TriangleAlert } from "lucide-react"
 import { toast } from "sonner"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { SettingsPanelSkeleton } from "@/components/dashboard/loading-states"
 import { Switch } from "@/components/ui/switch"
 import {
   Dialog,
@@ -28,9 +27,7 @@ import {
   updateProfile,
   updateWorkspace,
 } from "@/lib/api/settings"
-import { useInvalidateSettings, useSettings } from "@/lib/query/settings"
-import { MembersPanel } from "@/components/members/members-panel"
-import { IntegrationsPanel } from "@/components/integrations/integrations-panel"
+
 import { useTheme } from "next-themes"
 import { THEME_OPTIONS } from "@/components/common/theme-menu"
 
@@ -70,15 +67,6 @@ export type Section =
   | "integrations"
   | "preferences"
   | "billing"
-
-const SECTIONS: { id: Section; label: string; icon: typeof User }[] = [
-  { id: "profile", label: "Profile", icon: User },
-  { id: "workspace", label: "Workspace", icon: Building2 },
-  { id: "members", label: "Members", icon: Users },
-  { id: "integrations", label: "Integrations", icon: Puzzle },
-  { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
-  { id: "billing", label: "Billing", icon: CreditCard },
-]
 
 function initials(name: string, fallback: string) {
   const source = name.trim() || fallback
@@ -132,112 +120,7 @@ function Field({
   )
 }
 
-export function SettingsDialog({
-  open,
-  onOpenChange,
-  initialSection,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  initialSection?: Section
-}) {
-  const router = useRouter()
-
-  const [section, setSection] = React.useState<Section>(initialSection ?? "profile")
-  const { data, isPending: loading, error } = useSettings(open)
-  const load = useInvalidateSettings()
-
-  React.useEffect(() => {
-    if (error) toast.error(error.message || "Failed to load settings")
-  }, [error])
-
-  React.useEffect(() => {
-    if (open && initialSection) setSection(initialSection)
-  }, [open, initialSection])
-
-  // Defensive cleanup: if a Dialog open/close races with another Radix
-  // primitive closing at the same time (e.g. the dropdown menu item that
-  // triggers this dialog), `pointer-events: none` can get stuck on <body>
-  // and the whole page stops responding to clicks. Nothing else should be
-  // setting this, so clearing it on close is always safe.
-  React.useEffect(() => {
-    if (open) return
-    const id = setTimeout(() => {
-      if (document.body.style.pointerEvents === "none") {
-        document.body.style.pointerEvents = ""
-      }
-    }, 350)
-    return () => clearTimeout(id)
-  }, [open])
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="h-[min(640px,calc(100dvh-40px))] w-[min(1040px,calc(100vw-32px))] max-w-none gap-0 overflow-hidden rounded-xl p-0">
-        <DialogTitle className="sr-only">Settings</DialogTitle>
-        <DialogDescription className="sr-only">
-          Manage your profile and workspace settings.
-        </DialogDescription>
-
-        <div className="flex h-full min-h-0">
-          <aside className="flex w-48 shrink-0 flex-col border-r border-border/70 bg-sidebar px-2 pt-3 pb-2">
-            <p className="px-2 pb-2 text-xs font-medium text-muted-foreground">Settings</p>
-            <nav className="flex flex-col gap-1">
-              {SECTIONS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setSection(s.id)}
-                  className={cn(
-                    "flex h-8 items-center gap-2 rounded-md py-2 pr-2 pl-1.5 text-left text-sm leading-5 transition-colors",
-                    section === s.id
-                      ? "bg-accent font-medium text-foreground"
-                      : "font-normal text-foreground/80 hover:bg-accent"
-                  )}
-                >
-                  <s.icon className="size-4 text-muted-foreground" />
-                  {s.label}
-                </button>
-              ))}
-            </nav>
-          </aside>
-
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-6 py-5 sm:px-8">
-            {loading || !data ? (
-              <SettingsPanelSkeleton />
-            ) : section === "profile" ? (
-              <ProfilePanel profile={data.profile} onSaved={load} />
-            ) : section === "workspace" ? (
-              <WorkspacePanel
-                workspace={data.workspace}
-                role={data.role}
-                onSaved={load}
-                onDeleted={(nextWorkspaceSlug) => {
-                  onOpenChange(false)
-                  router.push(nextWorkspaceSlug ? `/${nextWorkspaceSlug}/agent` : "/")
-                  router.refresh()
-                }}
-              />
-            ) : section === "members" ? (
-              <MembersPanel />
-            ) : section === "integrations" ? (
-              <IntegrationsPanel />
-            ) : section === "preferences" ? (
-              <PreferencesPanel />
-            ) : (
-              <BillingPanel
-                workspace={data.workspace}
-                role={data.role}
-                subscription={data.subscription}
-              />
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ProfilePanel({
+export function ProfilePanel({
   profile,
   onSaved,
 }: {
@@ -286,7 +169,7 @@ function ProfilePanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-[15px] font-semibold tracking-tight">Profile</h2>
+      <h2 className="text-xl font-semibold tracking-tight">Profile</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         How you appear to other people in this workspace.
       </p>
@@ -327,7 +210,7 @@ function ProfilePanel({
   )
 }
 
-function WorkspacePanel({
+export function WorkspacePanel({
   workspace,
   role,
   onSaved,
@@ -406,7 +289,7 @@ function WorkspacePanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-[15px] font-semibold tracking-tight">Workspace</h2>
+      <h2 className="text-xl font-semibold tracking-tight">Workspace</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         {canEdit
           ? "Name and describe this workspace for your team."
@@ -536,7 +419,7 @@ function WorkspacePanel({
   )
 }
 
-function PreferencesPanel() {
+export function PreferencesPanel() {
   const { theme, setTheme } = useTheme()
   const [emailNotifs, setEmailNotifs] = React.useState(true)
   const [desktopNotifs, setDesktopNotifs] = React.useState(true)
@@ -545,7 +428,7 @@ function PreferencesPanel() {
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-[15px] font-semibold tracking-tight">Preferences</h2>
+      <h2 className="text-xl font-semibold tracking-tight">Preferences</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         Control how Synapse looks and notifies you.
       </p>
@@ -621,7 +504,7 @@ const SUBSCRIPTION_STATUS_CONFIG: Record<
   },
 }
 
-function BillingPanel({
+export function BillingPanel({
   workspace,
   role,
   subscription,
@@ -654,7 +537,7 @@ function BillingPanel({
 
   return (
     <div className="flex flex-col">
-      <h2 className="text-[15px] font-semibold tracking-tight">Billing</h2>
+      <h2 className="text-xl font-semibold tracking-tight">Billing</h2>
       <p className="text-muted-foreground mt-1 mb-4 text-sm">
         Manage the plan and payment details for {workspace.name}.
       </p>

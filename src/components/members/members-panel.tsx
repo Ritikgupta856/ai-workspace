@@ -336,9 +336,9 @@ function FilterTrigger({
       type="button"
       onClick={onClick}
       className={cn(
-        "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        "inline-flex h-7 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         active
-          ? "bg-background text-foreground shadow-sm"
+          ? "bg-card font-medium text-foreground shadow-xs"
           : "text-muted-foreground hover:text-foreground"
       )}
     >
@@ -381,19 +381,24 @@ export function MembersPanel() {
     <div className="flex flex-col">
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-[15px] font-semibold tracking-tight">Members</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Members</h2>
           <p className="text-muted-foreground mt-1 text-sm">
             Manage who has access to this workspace and their roles.
           </p>
         </div>
-        <Button size="sm" onClick={() => setIsInviteOpen(true)} disabled={!canInvite}>
-          <UserPlus className="size-4" />
+        <Button
+          size="sm"
+          className="h-8 gap-1.5 rounded-lg text-[13px]"
+          onClick={() => setIsInviteOpen(true)}
+          disabled={!canInvite}
+        >
+          <UserPlus className="size-3.5" />
           Invite member
         </Button>
       </div>
 
       <div className="flex flex-col gap-6">
-        <div className="inline-flex w-fit items-center rounded-md bg-muted p-1 text-muted-foreground">
+        <div className="inline-flex w-fit items-center rounded-lg bg-muted p-0.5 text-muted-foreground">
           {filterOptions.map((opt) => {
             const Icon = opt.icon
             return (
@@ -402,7 +407,7 @@ export function MembersPanel() {
                 active={memberFilter === opt.value}
                 onClick={() => setMemberFilter(opt.value)}
               >
-                <Icon className="size-4" />
+                <Icon className="size-3.5" />
                 {opt.label}
               </FilterTrigger>
             )
@@ -442,6 +447,7 @@ export function MembersPanel() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-8 rounded-lg text-[13px]"
                   onClick={() => setIsInviteOpen(true)}
                 >
                   Invite Member

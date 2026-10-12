@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense, useEffect, useState } from "react"
+import { Suspense, useEffect } from "react"
 import { toast } from "sonner"
 import {
   Avatar,
@@ -22,7 +22,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronsUpDown,
   Settings,
@@ -30,7 +30,7 @@ import {
 } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
 import { ThemeSubmenu } from "@/components/common/theme-menu"
-import { SettingsDialog, type Section } from "@/components/settings/settings-dialog"
+import type { Section } from "@/components/settings/settings-panels"
 
 const INTEGRATION_ERRORS: Record<string, string> = {
   missing_params: "The provider did not return an authorization code.",
@@ -52,12 +52,9 @@ const VALID_SECTIONS: Section[] = [
 ]
 
 /** Reads ?settings=/&success=/&error= once per navigation and clears them. */
-function SettingsQuerySync({
-  onSection,
-}: {
-  onSection: (section: Section) => void
-}) {
+function SettingsQuerySync() {
   const router = useRouter()
+  const slug = useParams().slug as string
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -67,15 +64,18 @@ function SettingsQuerySync({
 
     if (!settings && !success && !error) return
 
-    if (settings && (VALID_SECTIONS as string[]).includes(settings)) {
-      onSection(settings as Section)
-    }
     if (success) toast.success("Connected successfully.")
     if (error) {
       toast.error(
         INTEGRATION_ERRORS[error] ??
           (error.endsWith("_denied") ? "Authorization was denied." : "Failed to connect integration. Please try again.")
       )
+    }
+
+    // Settings is a page now; old ?settings=<section> links land on it.
+    if (settings && (VALID_SECTIONS as string[]).includes(settings)) {
+      router.replace(`/${slug}/settings?section=${settings}`)
+      return
     }
 
     const params = new URLSearchParams(searchParams)
@@ -101,8 +101,7 @@ export function NavUser({
 }) {
   const router = useRouter()
   const { isMobile } = useSidebar()
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const [settingsSection, setSettingsSection] = useState<Section | undefined>(undefined)
+  const slug = useParams().slug as string
 
   return (
     <SidebarMenu>
@@ -148,16 +147,7 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem
-                onSelect={(e) => {
-                  // Opening a Dialog synchronously from a DropdownMenuItem races
-                  // Radix's own close cleanup and can leave `pointer-events: none`
-                  // stuck on <body> — deferring a tick lets the menu finish closing
-                  // first, which is the documented workaround for that bug.
-                  e.preventDefault()
-                  setTimeout(() => setSettingsOpen(true), 0)
-                }}
-              >
+              <DropdownMenuItem onSelect={() => router.push(`/${slug}/settings`)}>
                 <Settings className="mr-2 size-4" />
                 Settings
               </DropdownMenuItem>
@@ -173,19 +163,8 @@ export function NavUser({
       </SidebarMenuItem>
 
       <Suspense fallback={null}>
-        <SettingsQuerySync
-          onSection={(section) => {
-            setSettingsSection(section)
-            setSettingsOpen(true)
-          }}
-        />
+        <SettingsQuerySync />
       </Suspense>
-
-      <SettingsDialog
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-        initialSection={settingsSection}
-      />
     </SidebarMenu>
   )
 }

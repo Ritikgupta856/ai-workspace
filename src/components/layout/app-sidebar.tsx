@@ -5,6 +5,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   Bot,
+  Home,
   Inbox,
   CircleCheck,
   ChevronsUpDown,
@@ -14,7 +15,7 @@ import {
   FileText,
   Frame,
   LayoutPanelTop,
-  AlignLeft,
+  PanelLeft,
   Check,
   Settings,
   LogOut,
@@ -22,7 +23,6 @@ import {
 } from "lucide-react"
 
 import { NavUser } from "@/components/layout/nav-user"
-import { SearchCommand } from "@/components/layout/search-command"
 import { CreateWorkspaceDialog } from "@/components/workspaces/create-workspace-dialog"
 import { ProjectDialog } from "@/components/projects/create-project-dialog"
 import type { ProjectCardData } from "@/components/projects/project-card"
@@ -90,9 +90,10 @@ const flatNavItems: {
   icon: LucideIcon
   badgeKey: "inbox" | null
 }[] = [
+  { title: "Home", url: "", icon: Home, badgeKey: null },
   { title: "Agent", url: "/agent", icon: Bot, badgeKey: null },
   { title: "Inbox", url: "/inbox", icon: Inbox, badgeKey: "inbox" },
-  { title: "My work", url: "/my-work", icon: CircleCheck, badgeKey: null },
+  { title: "My Tasks", url: "/my-work", icon: CircleCheck, badgeKey: null },
 ]
 
 const FAVORITE_ICONS: Record<SidebarFavorite["entityType"], typeof FileText> = {
@@ -189,7 +190,9 @@ export function AppSidebar({
 
   const resolvedUser = user ?? { name: "User", email: "", avatar: "" }
 
-  const isActive = (url: string) => pathname.startsWith(url)
+  // Home lives at the workspace root, which is a prefix of every other route,
+  // so it only counts as active on an exact match.
+  const isActive = (url: string) => (url === base ? pathname === url : pathname.startsWith(url))
 
   // The project the user is currently looking at always stays open — a
   // collapse elsewhere shouldn't hide the row they're actively reading.
@@ -353,16 +356,12 @@ export function AppSidebar({
           aria-label="Toggle sidebar"
           className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-border"
         >
-          <AlignLeft className="size-4" />
+          <PanelLeft className="size-4" />
         </button>
       </SidebarHeader>
 
-      {/* ── Links: search · nav · sections, 20px apart ── */}
+      {/* ── Links: nav · sections, 20px apart ── */}
       <SidebarContent className="gap-5 px-2 pt-3 pb-2">
-        <div className="group-data-[collapsible=icon]:hidden">
-          <SearchCommand />
-        </div>
-
         <SidebarGroup className="p-0">
           <SidebarMenu className="gap-1">
             {flatNavItems.map((item) => {

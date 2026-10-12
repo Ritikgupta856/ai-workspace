@@ -33,7 +33,7 @@ import { useSearch } from "@/lib/query/search"
 
 const navigationItems = [
   { title: "Inbox", subtitle: "Mentions, replies and updates", url: "/inbox", icon: Inbox },
-  { title: "My Work", subtitle: "Tasks assigned to you", url: "/my-work", icon: ListChecks },
+  { title: "My Tasks", subtitle: "Tasks assigned to you", url: "/my-work", icon: ListChecks },
   { title: "Agent", subtitle: "Ask the agent about your workspace", url: "/agent", icon: Bot },
   { title: "Projects", subtitle: "Every project in this workspace", url: "/projects", icon: FolderOpen },
   { title: "Integrations", subtitle: "Connect GitHub, Linear, Notion…", url: "?settings=integrations", icon: Puzzle },
@@ -54,7 +54,17 @@ const ASK_AGENT = "ask-agent"
 
 const itemClass = "items-center gap-3 rounded-lg py-2.5"
 
-export function SearchCommand() {
+/**
+ * `header` is the wide top-bar trigger. Only one instance should own Ctrl/⌘+K
+ * (the sidebar one), otherwise two listeners toggle the dialog open and shut.
+ */
+export function SearchCommand({
+  variant = "sidebar",
+  hotkey = true,
+}: {
+  variant?: "sidebar" | "header"
+  hotkey?: boolean
+}) {
   const router = useRouter()
   const pathname = usePathname()
   const slug = useParams().slug as string
@@ -66,6 +76,7 @@ export function SearchCommand() {
   const { results, loading } = useSearch(query)
 
   React.useEffect(() => {
+    if (!hotkey) return
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
@@ -75,7 +86,7 @@ export function SearchCommand() {
     }
     document.addEventListener("keydown", down)
     return () => document.removeEventListener("keydown", down)
-  }, [])
+  }, [hotkey])
 
   const groups = resultGroups
     .map((group) => ({ ...group, items: results.filter((r) => r.type === group.type) }))
@@ -105,6 +116,18 @@ export function SearchCommand() {
 
   return (
     <>
+      {variant === "header" ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleOpenChange(true)}
+          className="h-8 w-56 justify-start gap-2 rounded-lg border-border/80 bg-card px-2.5 font-normal text-muted-foreground shadow-none hover:bg-card sm:w-72"
+        >
+          <Search className="size-3.5" />
+          <span className="flex-1 truncate text-left text-[13px]">Search or jump to…</span>
+          <kbd className="rounded bg-muted px-1.5 font-mono text-[10px] leading-4 text-foreground/70">Ctrl K</kbd>
+        </Button>
+      ) : (
       <Button
         variant="outline"
         size="sm"
@@ -124,6 +147,7 @@ export function SearchCommand() {
           ))}
         </span>
       </Button>
+      )}
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
