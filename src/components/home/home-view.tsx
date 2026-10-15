@@ -167,7 +167,7 @@ export function HomeView({ data, firstName }: { data: HomeData; firstName: strin
       <SearchCommand variant="header" />
       <ThemeToggle />
     </SectionHeader>
-    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 pt-8 pb-12">
+    <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 pt-5 pb-12">
       {/* Greeting + quick actions */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>

@@ -379,3 +379,220 @@ export function PageShellSkeleton() {
     </SkeletonRegion>
   )
 }
+
+/* ── Redesigned page shells ─────────────────────────────────── */
+
+/** 48px top bar: breadcrumb on the left, search box and theme button on the right. */
+function TopBarSkeleton({ crumbs = 2 }: { crumbs?: number }) {
+  return (
+    <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border/70 px-5">
+      {Array.from({ length: crumbs }).map((_, i) => (
+        <Skeleton key={i} className={cn("h-3.5", i === 0 ? "w-16" : i === 1 ? "w-32" : "w-14")} />
+      ))}
+      <div className="ml-auto flex items-center gap-2.5">
+        <Skeleton className="hidden h-8 w-56 rounded-lg sm:block sm:w-72" />
+        <Skeleton className="size-8 rounded-lg" />
+      </div>
+    </div>
+  )
+}
+
+/** Big page title + one-line summary on the left, primary button on the right. */
+function TitleBlockSkeleton() {
+  return (
+    <div className="flex items-start justify-between gap-4 px-6 pt-8 pb-5">
+      <div className="space-y-2.5">
+        <Skeleton className="h-7 w-40" />
+        <Skeleton className="h-3.5 w-64" />
+      </div>
+      <Skeleton className="h-8 w-28 rounded-lg" />
+    </div>
+  )
+}
+
+/** Search box, a couple of filter pills, and the view switch at the right end. */
+function SearchRowSkeleton({ pills = 2, switchWidth = "w-56" }: { pills?: number; switchWidth?: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border/70 px-6 pb-4">
+      <Skeleton className="h-9 w-56 rounded-lg sm:w-64" />
+      {Array.from({ length: pills }).map((_, i) => (
+        <Skeleton key={i} className="hidden h-8 w-24 rounded-lg md:block" />
+      ))}
+      <Skeleton className={cn("ml-auto h-8 rounded-lg", switchWidth)} />
+    </div>
+  )
+}
+
+/** A white card with a title row, as used on Home and the project overview. */
+function CardSkeleton({ titleWidth = "w-28", children }: { titleWidth?: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/80 bg-card shadow-xs">
+      <div className="flex h-12 items-center justify-between px-5">
+        <Skeleton className={cn("h-3.5", titleWidth)} />
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <div className="px-5 pb-5">{children}</div>
+    </div>
+  )
+}
+
+/** Project overview: breadcrumb bar, project title block, About/Progress/Coming up + Details/Health/Activity. */
+export function ProjectOverviewSkeleton() {
+  return (
+    <SkeletonRegion label="Loading project" className="flex flex-1 flex-col">
+      <TopBarSkeleton />
+      <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-6 px-6 pt-6 pb-12">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="size-11 rounded-xl" />
+            <Skeleton className="h-7 w-52" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="hidden items-center -space-x-1.5 sm:flex">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="size-7 rounded-full ring-2 ring-background" />
+              ))}
+            </div>
+            <Skeleton className="size-8 rounded-lg" />
+            <Skeleton className="size-8 rounded-lg" />
+          </div>
+        </div>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_380px]">
+          <div className="flex min-w-0 flex-col gap-6">
+            <CardSkeleton titleWidth="w-14">
+              <div className="space-y-2.5 pt-1">
+                <Skeleton className="h-3.5 w-full" />
+                <Skeleton className="h-3.5 w-3/4" />
+              </div>
+            </CardSkeleton>
+            <CardSkeleton titleWidth="w-20">
+              <Skeleton className="h-9 w-24" />
+              <Skeleton className="mt-4 h-2 w-full rounded-full" />
+              <div className="mt-4 flex flex-wrap gap-5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-3 w-20" />
+                ))}
+              </div>
+            </CardSkeleton>
+            <CardSkeleton titleWidth="w-24">
+              <div className="-mx-5 -mb-5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex h-12 items-center gap-3 border-t border-border/70 px-5">
+                    <Skeleton className="size-4 rounded-full" />
+                    <Skeleton className={cn("h-3.5", i % 2 ? "w-1/2" : "w-2/3")} />
+                    <Skeleton className="ml-auto h-3 w-14" />
+                    <Skeleton className="size-6 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </CardSkeleton>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-6">
+            <CardSkeleton titleWidth="w-16">
+              <div className="flex flex-col">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="flex h-10 items-center gap-3">
+                    <Skeleton className="h-3.5 w-24" />
+                    <Skeleton className={cn("h-3.5", i % 2 ? "w-20" : "w-28")} />
+                  </div>
+                ))}
+              </div>
+            </CardSkeleton>
+            <CardSkeleton titleWidth="w-28">
+              <div className="flex flex-col gap-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="size-3.5 rounded-full" />
+                    <Skeleton className="h-3 w-32" />
+                    <Skeleton className="ml-auto h-3 w-5" />
+                  </div>
+                ))}
+              </div>
+            </CardSkeleton>
+            <CardSkeleton titleWidth="w-28">
+              <div className="flex flex-col gap-4">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <Skeleton className="size-6 rounded-full" />
+                    <div className="flex-1 space-y-2">
+                      <Skeleton className="h-3 w-full" />
+                      <Skeleton className="h-3 w-1/2" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardSkeleton>
+          </div>
+        </div>
+      </div>
+    </SkeletonRegion>
+  )
+}
+
+/** My Tasks / project Tasks: title block, search row with the List/Kanban/Calendar switch, grouped table. */
+export function TaskListPageSkeleton({ crumbs = 1 }: { crumbs?: number }) {
+  return (
+    <SkeletonRegion label="Loading tasks" className="flex flex-1 flex-col">
+      <TopBarSkeleton crumbs={crumbs} />
+      <TitleBlockSkeleton />
+      <SearchRowSkeleton pills={2} switchWidth="w-64" />
+      <div className="px-6 pt-1">
+        <div className="flex h-10 items-center gap-4 border-b border-border/70 px-3">
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="ml-auto hidden h-3 w-16 lg:block" />
+          <Skeleton className="hidden h-3 w-14 md:block" />
+          <Skeleton className="h-3 w-16" />
+        </div>
+        {[3, 4].map((rows, g) => (
+          <div key={g}>
+            <div className="flex h-12 items-center gap-2 px-1">
+              <Skeleton className="size-4 rounded" />
+              <Skeleton className="h-3.5 w-20" />
+            </div>
+            <div className="border-t border-border/70">
+              {Array.from({ length: rows }).map((_, i) => (
+                <div key={i} className="flex h-12 items-center gap-3 border-b border-border/70 px-3">
+                  <Skeleton className="size-5 rounded-full" />
+                  <Skeleton className="hidden h-3 w-14 sm:block" />
+                  <Skeleton className={cn("h-3.5", i % 2 ? "w-1/3" : "w-2/5")} />
+                  <Skeleton className="ml-auto hidden h-3 w-24 lg:block" />
+                  <Skeleton className="hidden h-3 w-16 md:block" />
+                  <Skeleton className="h-3 w-14" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </SkeletonRegion>
+  )
+}
+
+/** Pages / Whiteboards: title block, search row with the List/Grid switch, a simple table. */
+export function LibraryPageSkeleton() {
+  return (
+    <SkeletonRegion label="Loading" className="flex flex-1 flex-col">
+      <TopBarSkeleton crumbs={3} />
+      <TitleBlockSkeleton />
+      <SearchRowSkeleton pills={1} switchWidth="w-36" />
+      <div className="px-6 pt-2">
+        <div className="flex h-10 items-center gap-4 border-b border-border/70 px-3">
+          <Skeleton className="h-3 w-12" />
+          <Skeleton className="ml-auto hidden h-3 w-20 sm:block" />
+          <Skeleton className="hidden h-3 w-16 sm:block" />
+        </div>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex h-12 items-center gap-3 border-b border-border/70 px-3">
+            <Skeleton className="size-7 rounded-md" />
+            <Skeleton className={cn("h-3.5", i % 2 ? "w-1/4" : "w-1/3")} />
+            <Skeleton className="ml-auto hidden h-3 w-28 sm:block" />
+            <Skeleton className="hidden h-3 w-20 sm:block" />
+          </div>
+        ))}
+      </div>
+    </SkeletonRegion>
+  )
+}

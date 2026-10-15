@@ -133,9 +133,10 @@ export function useAssignableMembers(
 }
 
 /** A task's own timeline; only fetched once its tab is opened. */
-export function useTaskActivity(id: string) {
+export function useTaskActivity(id: string, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.tasks.activity(id),
+    enabled: options?.enabled ?? true,
     queryFn: async (): Promise<ActivityDTO[]> => {
       const res = await fetch(`/api/activity?taskId=${id}&limit=30`)
       const json = await res.json()

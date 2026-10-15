@@ -4,38 +4,27 @@ import * as React from "react"
 
 import { toast } from "sonner"
 import {
+  AlertCircle,
+  AtSign,
   CalendarDays,
   CalendarIcon,
-  ChevronsUpDown,
+  CheckCircle2,
+  Circle,
   CircleDot,
-  Clock3,
   CornerLeftUp,
-  Flag,
-  FolderKanban,
-  History,
-  Link2,
-  ListChecks,
-  ListPlus,
-  MessageSquare,
-  PenLine,
+  FolderClosed,
   Plus,
-  RefreshCw,
-  Send,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
   Tag,
   UserRound,
   type LucideIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -46,9 +35,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command"
-import { StatusBadge } from "@/components/common/status-badge"
 import { LabelMultiSelect } from "@/components/tasks/task-dialog"
-import { PersonAvatar, taskKey } from "@/components/tasks/task-grouped-list"
+import { PersonAvatar } from "@/components/tasks/task-grouped-list"
 import { TASK_STATUS_CONFIG, TASK_PRIORITY_CONFIG } from "@/lib/constants"
 import { formatDueDate, formatUpdatedDate } from "@/lib/date"
 import { format, isBefore, startOfToday } from "date-fns"
@@ -63,15 +51,16 @@ import {
 } from "@/lib/api/tasks"
 import { useQueryClient } from "@tanstack/react-query"
 import { queryKeys } from "@/lib/query/keys"
+import { useProjectList } from "@/lib/query/projects"
 import { useAddTaskComment, useAssignableMembers, useTaskActivity, useTaskComments } from "@/lib/query/tasks"
+import { useSession } from "@/lib/auth-client"
 import { cn } from "@/lib/utils"
 import type { Task, TaskStatus, TaskPriority } from "@/components/tasks/tasks-view"
 
 /**
- * The task record, laid out like every other record view: an identity block
- * (status tile, title, key and project, the people involved), quick actions,
- * then icon tabs. Details is a list of icon + label + value rows where every
- * value edits in place.
+ * The task record as one scrolling page: an editable title, a column of
+ * properties where every value edits in place, description, subtasks, then
+ * Comments / Activity tabs with the composer underneath.
  *
  * Render this keyed by `task.id` (both call sites do) so switching to a
  * different task remounts fresh local state instead of needing an effect to
@@ -81,19 +70,42 @@ import type { Task, TaskStatus, TaskPriority } from "@/components/tasks/tasks-vi
 const statusOptions = Object.entries(TASK_STATUS_CONFIG).map(([value, config]) => ({ value, ...config }))
 const priorityOptions = Object.entries(TASK_PRIORITY_CONFIG).map(([value, config]) => ({ value, ...config }))
 
-type Tab = "details" | "comments" | "subtasks" | "activity"
+type Tab = "comments" | "activity"
 
-/** Status tiles: the record's "logo", tinted by where the task is. */
-const STATUS_TILE: Record<TaskStatus, string> = {
-  TODO: "bg-muted text-muted-foreground",
-  IN_PROGRESS: "bg-blue-500/12 text-blue-600 dark:text-blue-400",
-  IN_REVIEW: "bg-amber-500/14 text-amber-600 dark:text-amber-400",
-  DONE: "bg-emerald-500/12 text-emerald-600 dark:text-emerald-400",
+const STATUS_ICON_CLASS: Record<TaskStatus, string> = {
+  TODO: "text-muted-foreground",
+  IN_PROGRESS: "text-amber-500",
+  IN_REVIEW: "text-violet-500",
+  DONE: "text-emerald-500",
 }
 
-/** The trigger look shared by every editable value: quiet until hovered. */
-const inlineTrigger =
-  "h-8 w-auto -ml-2 gap-1.5 border-none bg-transparent px-2 text-[13px] font-normal shadow-none hover:bg-muted data-[state=open]:bg-muted [&>svg]:opacity-50"
+// Same hash the sidebar uses, so a project keeps its colour everywhere.
+const PROJECT_DOTS = [
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-teal-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-indigo-500",
+  "bg-cyan-500",
+]
+
+export function projectDot(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return PROJECT_DOTS[hash % PROJECT_DOTS.length]
+}
+
+/** Every editable value: plain text until hovered, then a soft grey box. No chevron. */
+const valueTrigger =
+  "-ml-1.5 inline-flex h-7 w-auto max-w-full items-center justify-start gap-2 rounded-md border-none bg-transparent px-1.5 py-0 text-[13px] font-normal text-foreground shadow-none transition-colors hover:bg-muted focus:ring-0 focus:ring-offset-0 focus-visible:ring-2 focus-visible:ring-ring/40 data-[state=open]:bg-muted [&>svg]:hidden"
+
+function PriorityIcon({ priority }: { priority: string }) {
+  if (priority === "URGENT") return <AlertCircle className="size-3.5 shrink-0 text-red-600" />
+  const Icon = priority === "HIGH" ? SignalHigh : priority === "MEDIUM" ? SignalMedium : SignalLow
+  return <Icon className="size-3.5 shrink-0 text-foreground/70" />
+}
 
 export interface TaskDetailBodyProps {
   task: TaskDetail
@@ -104,17 +116,11 @@ export interface TaskDetailBodyProps {
   onChanged: (task: TaskDetail) => void
 }
 
-export function TaskDetailBody({
-  task,
-  initialComments,
-  initialMembers,
-  onChanged,
-}: TaskDetailBodyProps) {
-  const [tab, setTab] = React.useState<Tab>("details")
+export function TaskDetailBody({ task, initialComments, initialMembers, onChanged }: TaskDetailBodyProps) {
+  const [tab, setTab] = React.useState<Tab>("comments")
   const [title, setTitle] = React.useState(task.title)
   const [description, setDescription] = React.useState(task.description)
   const client = useQueryClient()
-  const [focusComposer, setFocusComposer] = React.useState(false)
   const [parentPickerOpen, setParentPickerOpen] = React.useState(false)
   const [parentCandidates, setParentCandidates] = React.useState<Task[]>([])
   const [addingSubtask, setAddingSubtask] = React.useState(false)
@@ -131,9 +137,12 @@ export function TaskDetailBody({
     projectId === openedOnProject ? initialMembers : undefined
   )
   const { data: comments = [] } = useTaskComments(task.id, initialComments)
+  // Loaded once the Activity tab is opened; its count shows from then on.
+  const [activityOpened, setActivityOpened] = React.useState(false)
+  const { data: activity } = useTaskActivity(task.id, { enabled: activityOpened })
+  const { projects } = useProjectList()
 
   const addComment = useAddTaskComment()
-  const handleAddComment = (content: string) => addComment.mutate({ taskId: task.id, content })
 
   async function persist(patch: Parameters<typeof updateTask>[1]) {
     try {
@@ -148,6 +157,7 @@ export function TaskDetailBody({
 
   function handleTitleBlur() {
     const trimmed = title.trim() || "Untitled"
+    if (trimmed !== title) setTitle(trimmed)
     if (trimmed !== task.title) persist({ title: trimmed })
   }
 
@@ -172,349 +182,320 @@ export function TaskDetailBody({
       const fresh = await fetchTask(task.id)
       onChanged(fresh)
       setSubtaskTitle("")
-      setAddingSubtask(false)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to add sub-work item")
+      toast.error(err instanceof Error ? err.message : "Failed to add subtask")
     }
   }
 
-  async function copyLink() {
+  async function toggleSubtask(sub: TaskDetail["subtasks"][number]) {
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}${window.location.pathname}?task=${task.id}`)
-      toast.success("Link copied")
-    } catch {
-      toast.error("Couldn't copy the link")
+      await updateTask(sub.id, { status: sub.status === "DONE" ? "TODO" : "DONE" })
+      const fresh = await fetchTask(task.id)
+      onChanged(fresh)
+      client.invalidateQueries({ queryKey: queryKeys.tasks.all })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to update subtask")
     }
   }
 
-  const StatusIcon = TASK_STATUS_CONFIG[task.status].icon
   const statusConfig = TASK_STATUS_CONFIG[task.status]
-  const priorityConfig = TASK_PRIORITY_CONFIG[task.priority]
+  const StatusIcon = statusConfig.icon
   const assigned = Boolean(task.assigneeId) && task.assignee !== "Unassigned"
   const overdue = task.dueDate !== null && task.status !== "DONE" && isBefore(new Date(task.dueDate), startOfToday())
-
-  // Everyone involved, assignee first, then whoever created or discussed it.
-  const people = React.useMemo(() => {
-    const seen = new Map<string, string | null>()
-    if (assigned) seen.set(task.assignee, task.assigneeImage ?? null)
-    if (task.createdBy && !seen.has(task.createdBy)) seen.set(task.createdBy, null)
-    for (const c of comments) if (!seen.has(c.author.name)) seen.set(c.author.name, c.author.image)
-    return [...seen].map(([name, image]) => ({ name, image }))
-  }, [assigned, task.assignee, task.assigneeImage, task.createdBy, comments])
-
-  const tabs: { id: Tab; label: string; icon: LucideIcon; count?: number }[] = [
-    { id: "details", label: "Details", icon: ListChecks },
-    { id: "comments", label: "Comments", icon: MessageSquare, count: comments.length },
-    { id: "subtasks", label: "Sub-items", icon: ListPlus, count: task.subtasks.length },
-    { id: "activity", label: "Activity", icon: History },
-  ]
-
-  const composerRef = React.useRef<HTMLInputElement>(null)
-
-  function startComment() {
-    setTab("comments")
-    setFocusComposer(true)
-  }
-
-  function startSubtask() {
-    setTab("subtasks")
-    setAddingSubtask(true)
-  }
-
-  const identity = (
-    <div className="flex items-start gap-4">
-      <div
-        className={cn("flex size-14 shrink-0 items-center justify-center rounded-2xl", STATUS_TILE[task.status])}
-        title={statusConfig.label}
-      >
-        <StatusIcon className="size-6" />
-      </div>
-
-      <div className="min-w-0 flex-1 pt-0.5">
-        <textarea
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={handleTitleBlur}
-          rows={1}
-          placeholder="Task title"
-          className="field-sizing-content w-full resize-none border-0 bg-transparent p-0 text-xl leading-snug font-semibold tracking-tight text-foreground outline-none placeholder:text-muted-foreground/40"
-        />
-        <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[13px] text-muted-foreground">
-          <span className="font-mono text-xs tracking-wide">{taskKey(task)}</span>
-          <span aria-hidden>·</span>
-          <FolderKanban className="size-3.5 shrink-0" />
-          <span className="truncate">{task.project ?? "No project"}</span>
-        </div>
-      </div>
-
-      {people.length > 0 && (
-        <div className="flex shrink-0 items-center -space-x-1.5 pt-1">
-          {people.slice(0, 4).map((p) => (
-            <PersonAvatar key={p.name} name={p.name} image={p.image} className="size-7" />
-          ))}
-          {people.length > 4 && (
-            <span className="flex size-7 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground ring-2 ring-background">
-              +{people.length - 4}
-            </span>
-          )}
-        </div>
-      )}
-    </div>
-  )
-
-  const quickActions = (
-    <div className="mt-5 flex flex-wrap gap-2">
-      <QuickAction icon={MessageSquare} onClick={startComment}>
-        Comment
-      </QuickAction>
-      <QuickAction icon={ListPlus} onClick={startSubtask}>
-        Add sub-item
-      </QuickAction>
-      <QuickAction icon={Link2} onClick={copyLink}>
-        Copy link
-      </QuickAction>
-    </div>
-  )
-
-  const propertyRows = (
-    <>
-      <PropertyRow icon={CircleDot} label="Status">
-        <Select value={task.status} onValueChange={(v) => persist({ status: v as TaskStatus })}>
-          <SelectTrigger className={inlineTrigger}>
-            <SelectValue>
-              <StatusBadge label={statusConfig.label} className={statusConfig.className} icon={statusConfig.icon} />
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {statusOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                <StatusBadge label={opt.label} className={opt.className} icon={opt.icon} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </PropertyRow>
-
-      <PropertyRow icon={Flag} label="Priority">
-        <Select value={task.priority} onValueChange={(v) => persist({ priority: v as TaskPriority })}>
-          <SelectTrigger className={inlineTrigger}>
-            <SelectValue>
-              <StatusBadge label={priorityConfig.label} className={priorityConfig.className} icon={priorityConfig.icon} />
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {priorityOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                <StatusBadge label={opt.label} className={opt.className} icon={opt.icon} />
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </PropertyRow>
-
-      <PropertyRow icon={UserRound} label="Assignee">
-        <Select
-          value={task.assigneeId ?? "unassigned"}
-          onValueChange={(v) => persist({ assigneeId: v === "unassigned" ? undefined : v })}
-        >
-          <SelectTrigger className={inlineTrigger}>
-            <SelectValue placeholder="Unassigned">
-              {assigned ? (
-                <span className="flex items-center gap-2">
-                  <PersonAvatar name={task.assignee} image={task.assigneeImage} className="size-5 ring-0" />
-                  {task.assignee}
-                </span>
-              ) : (
-                <span className="text-muted-foreground">Unassigned</span>
-              )}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {membersList.map((m) => (
-              <SelectItem key={m.userId} value={m.userId}>
-                <span className="flex items-center gap-2">
-                  <PersonAvatar name={m.name} image={m.avatar} className="size-5 ring-0" />
-                  {m.name}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </PropertyRow>
-
-      <PropertyRow icon={CalendarDays} label="Due date">
-        <Popover>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "-ml-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-[13px] hover:bg-muted",
-                !task.dueDate && "text-muted-foreground",
-                overdue && "text-destructive"
-              )}
-            >
-              <CalendarIcon className="size-3.5 opacity-60" />
-              {task.dueDate ? formatDueDate(task.dueDate) : "Set due date"}
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={task.dueDate ? new Date(task.dueDate) : undefined}
-              onSelect={(date) => persist({ dueDate: date ? format(date, "yyyy-MM-dd") : null })}
-              initialFocus
-            />
-          </PopoverContent>
-        </Popover>
-      </PropertyRow>
-
-      <PropertyRow icon={FolderKanban} label="Project">
-        <span className={cn(!task.project && "text-muted-foreground")}>{task.project ?? "No project"}</span>
-      </PropertyRow>
-
-      <PropertyRow icon={CornerLeftUp} label="Parent">
-        <Popover open={parentPickerOpen} onOpenChange={openParentPicker}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className={cn(
-                "-ml-2 inline-flex h-8 max-w-full items-center gap-1.5 rounded-md px-2 text-[13px] hover:bg-muted",
-                !task.parent && "text-muted-foreground"
-              )}
-            >
-              <span className="truncate">{task.parent ? task.parent.title : "Add parent"}</span>
-              <ChevronsUpDown className="size-3 shrink-0 opacity-50" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-0" align="start">
-            <Command>
-              <CommandInput placeholder="Search tasks..." />
-              <CommandList>
-                <CommandEmpty>No matching tasks.</CommandEmpty>
-                <CommandGroup>
-                  {task.parent && (
-                    <CommandItem
-                      onSelect={() => {
-                        persist({ parentTaskId: null })
-                        setParentPickerOpen(false)
-                      }}
-                    >
-                      <span className="text-muted-foreground">Clear parent</span>
-                    </CommandItem>
-                  )}
-                  {parentCandidates.map((t) => (
-                    <CommandItem
-                      key={t.id}
-                      onSelect={() => {
-                        persist({ parentTaskId: t.id })
-                        setParentPickerOpen(false)
-                      }}
-                    >
-                      {t.title}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </Command>
-          </PopoverContent>
-        </Popover>
-      </PropertyRow>
-
-      <PropertyRow icon={Tag} label="Labels">
-        <LabelMultiSelect variant="inline" selected={task.labels} onChange={(labels) => persist({ labels })} />
-      </PropertyRow>
-    </>
-  )
-
-  const recordRows = (
-    <>
-      <PropertyRow icon={PenLine} label="Created by">
-        <span className="flex items-center gap-2">
-          <PersonAvatar name={task.createdBy} className="size-5 ring-0" />
-          {task.createdBy}
-        </span>
-      </PropertyRow>
-      <PropertyRow icon={Clock3} label="Created">
-        {format(new Date(task.createdAt), "MMM d, yyyy")}
-      </PropertyRow>
-      <PropertyRow icon={RefreshCw} label="Updated">
-        {formatUpdatedDate(task.updatedAt)}
-      </PropertyRow>
-    </>
-  )
-
-  const descriptionField = (
-    <Textarea
-      value={description}
-      onChange={(e) => setDescription(e.target.value)}
-      onBlur={handleDescriptionBlur}
-      placeholder="Add a description..."
-      className="mt-2 min-h-28 resize-y border-none bg-transparent px-0 text-[14px] leading-relaxed shadow-none focus-visible:ring-0"
-    />
-  )
-
-  const subtaskList = (
-    <div className="flex flex-col">
-      {task.subtasks.length === 0 && !addingSubtask && (
-        <p className="px-2 py-3 text-[13px] text-muted-foreground">No sub-items yet.</p>
-      )}
-      {task.subtasks.map((sub) => {
-        const subStatus = TASK_STATUS_CONFIG[sub.status]
-        const SubIcon = subStatus.icon
-        return (
-          <div key={sub.id} className="flex h-11 w-full items-center gap-2.5 rounded-md px-2 text-[13px]">
-            <SubIcon className="size-4 shrink-0 text-muted-foreground" />
-            <span
-              className={cn(
-                "min-w-0 flex-1 truncate",
-                sub.status === "DONE" && "text-muted-foreground line-through decoration-muted-foreground/40"
-              )}
-            >
-              {sub.title}
-            </span>
-            <StatusBadge label={subStatus.label} className={subStatus.className} />
-          </div>
-        )
-      })}
-
-      {addingSubtask ? (
-        <div className="px-2 py-1.5">
-          <Input
-            autoFocus
-            value={subtaskTitle}
-            onChange={(e) => setSubtaskTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleAddSubtask()
-              if (e.key === "Escape") { setAddingSubtask(false); setSubtaskTitle("") }
-            }}
-            onBlur={() => { if (!subtaskTitle.trim()) setAddingSubtask(false) }}
-            placeholder="Sub-item title, then Enter"
-            className="h-9 text-[13px]"
-          />
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setAddingSubtask(true)}
-          className="flex h-10 items-center gap-2 rounded-md px-2 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <Plus className="size-4" />
-          Add sub-item
-        </button>
-      )}
-    </div>
-  )
+  const doneSubtasks = task.subtasks.filter((s) => s.status === "DONE").length
 
   return (
-    <div className="flex flex-col">
-      <div className="px-6 pt-6 pb-5">
-        {identity}
-        {quickActions}
-      </div>
+    <div className="flex flex-col px-6 pt-5 pb-8">
+      {/* Title */}
+      <textarea
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onBlur={handleTitleBlur}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            e.currentTarget.blur()
+          }
+        }}
+        rows={1}
+        placeholder="Task title"
+        aria-label="Task title"
+        className="field-sizing-content -mx-2 w-[calc(100%+1rem)] resize-none rounded-md border-0 bg-transparent px-2 py-1 text-lg leading-7 font-semibold tracking-tight text-foreground outline-none transition-colors placeholder:text-muted-foreground/40 hover:bg-muted/70 focus:bg-muted/70"
+      />
 
-      <div role="tablist" aria-label="Task sections" className="flex items-center gap-1 overflow-x-auto border-y px-4">
-        {tabs.map(({ id, label, icon: Icon, count }) => {
+      {/* Properties */}
+      <dl className="mt-4 flex flex-col">
+        <PropertyRow icon={CircleDot} label="Status">
+          <Select value={task.status} onValueChange={(v) => persist({ status: v as TaskStatus })}>
+            <SelectTrigger className={valueTrigger} aria-label="Status">
+              <SelectValue>
+                <span className="inline-flex items-center gap-2">
+                  <StatusIcon className={cn("size-3.5 shrink-0", STATUS_ICON_CLASS[task.status])} />
+                  {statusConfig.label}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <span className="inline-flex items-center gap-2">
+                    <opt.icon className={cn("size-3.5 shrink-0", STATUS_ICON_CLASS[opt.value as TaskStatus])} />
+                    {opt.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PropertyRow>
+
+        <PropertyRow icon={SignalMedium} label="Priority">
+          <Select value={task.priority} onValueChange={(v) => persist({ priority: v as TaskPriority })}>
+            <SelectTrigger className={valueTrigger} aria-label="Priority">
+              <SelectValue>
+                <span className="inline-flex items-center gap-2">
+                  <PriorityIcon priority={task.priority} />
+                  {TASK_PRIORITY_CONFIG[task.priority].label}
+                </span>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {priorityOptions.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <span className="inline-flex items-center gap-2">
+                    <PriorityIcon priority={opt.value} />
+                    {opt.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PropertyRow>
+
+        <PropertyRow icon={UserRound} label="Assignee">
+          <Select
+            value={task.assigneeId ?? "unassigned"}
+            onValueChange={(v) => persist({ assigneeId: v === "unassigned" ? undefined : v })}
+          >
+            <SelectTrigger className={valueTrigger} aria-label="Assignee">
+              <SelectValue>
+                {assigned ? (
+                  <span className="inline-flex items-center gap-2">
+                    <PersonAvatar name={task.assignee} image={task.assigneeImage} className="size-5 ring-0" />
+                    {task.assignee}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Unassigned</span>
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
+              {membersList.map((m) => (
+                <SelectItem key={m.userId} value={m.userId}>
+                  <span className="inline-flex items-center gap-2">
+                    <PersonAvatar name={m.name} image={m.avatar} className="size-5 ring-0" />
+                    {m.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PropertyRow>
+
+        <PropertyRow icon={CalendarDays} label="Due date">
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={cn(valueTrigger, !task.dueDate && "text-muted-foreground", overdue && "text-destructive")}
+              >
+                <CalendarIcon className="size-3.5 shrink-0" />
+                {task.dueDate ? formatDueDate(task.dueDate) : "Set due date"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={task.dueDate ? new Date(task.dueDate) : undefined}
+                onSelect={(date) => persist({ dueDate: date ? format(date, "yyyy-MM-dd") : null })}
+                initialFocus
+              />
+              {task.dueDate && (
+                <div className="border-t p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => persist({ dueDate: null })}
+                    className="w-full rounded-md px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    Clear date
+                  </button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        </PropertyRow>
+
+        <PropertyRow icon={FolderClosed} label="Project">
+          {/* A task can move between projects; there is no "remove from project". */}
+          <Select value={task.projectId ?? undefined} onValueChange={(v) => persist({ projectId: v })}>
+            <SelectTrigger className={valueTrigger} aria-label="Project">
+              <SelectValue
+                placeholder={<span className="text-muted-foreground">No project</span>}
+              >
+                {task.projectId ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className={cn("size-2 shrink-0 rounded-full", projectDot(task.projectId))} />
+                    {task.project}
+                  </span>
+                ) : undefined}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {projects.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  <span className="inline-flex items-center gap-2">
+                    <span className={cn("size-2 shrink-0 rounded-full", projectDot(p.id))} />
+                    {p.name}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PropertyRow>
+
+        <PropertyRow icon={Tag} label="Labels">
+          <LabelMultiSelect variant="inline" selected={task.labels} onChange={(labels) => persist({ labels })} />
+        </PropertyRow>
+
+        <PropertyRow icon={CornerLeftUp} label="Parent">
+          <Popover open={parentPickerOpen} onOpenChange={openParentPicker}>
+            <PopoverTrigger asChild>
+              <button type="button" className={cn(valueTrigger, !task.parent && "text-muted-foreground")}>
+                <span className="truncate">{task.parent ? task.parent.title : "None"}</span>
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search tasks..." />
+                <CommandList>
+                  <CommandEmpty>No matching tasks.</CommandEmpty>
+                  <CommandGroup>
+                    {task.parent && (
+                      <CommandItem
+                        onSelect={() => {
+                          persist({ parentTaskId: null })
+                          setParentPickerOpen(false)
+                        }}
+                      >
+                        <span className="text-muted-foreground">Clear parent</span>
+                      </CommandItem>
+                    )}
+                    {parentCandidates.map((t) => (
+                      <CommandItem
+                        key={t.id}
+                        onSelect={() => {
+                          persist({ parentTaskId: t.id })
+                          setParentPickerOpen(false)
+                        }}
+                      >
+                        {t.title}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </PropertyRow>
+      </dl>
+
+      {/* Description */}
+      <section className="mt-7">
+        <h3 className="text-sm font-semibold text-foreground">Description</h3>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleDescriptionBlur}
+          placeholder="Add a description…"
+          aria-label="Description"
+          className="field-sizing-content mt-3 block min-h-16 w-full resize-none rounded-lg border border-transparent bg-transparent px-3 py-2.5 text-[13px] leading-5 text-foreground outline-none transition-colors placeholder:text-muted-foreground hover:border-border focus:border-foreground/50 focus:bg-card focus:ring-[3px] focus:ring-foreground/10"
+        />
+      </section>
+
+      {/* Subtasks */}
+      <section className="mt-7">
+        <h3 className="flex items-baseline gap-2 text-sm font-semibold text-foreground">
+          Subtasks
+          <span className="text-[13px] font-normal text-muted-foreground tabular-nums">
+            {doneSubtasks}/{task.subtasks.length}
+          </span>
+        </h3>
+        <div className="mt-2 flex flex-col">
+          {task.subtasks.map((sub) => {
+            const done = sub.status === "DONE"
+            return (
+              <div key={sub.id} className="flex h-8 items-center gap-2.5 rounded-md px-2 hover:bg-muted/50">
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={done}
+                  aria-label={done ? `Mark "${sub.title}" not done` : `Mark "${sub.title}" done`}
+                  onClick={() => toggleSubtask(sub)}
+                  className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {done ? <CheckCircle2 className="size-4 text-emerald-500" /> : <Circle className="size-4" />}
+                </button>
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate text-[13px]",
+                    done && "text-muted-foreground line-through decoration-muted-foreground/40"
+                  )}
+                >
+                  {sub.title}
+                </span>
+              </div>
+            )
+          })}
+
+          {addingSubtask ? (
+            <Input
+              autoFocus
+              value={subtaskTitle}
+              onChange={(e) => setSubtaskTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleAddSubtask()
+                if (e.key === "Escape") {
+                  setAddingSubtask(false)
+                  setSubtaskTitle("")
+                }
+              }}
+              onBlur={() => {
+                if (!subtaskTitle.trim()) setAddingSubtask(false)
+              }}
+              placeholder="Subtask title, then Enter"
+              className="mt-1 h-8 rounded-lg border-border px-3 text-[13px] shadow-none focus-visible:border-foreground/50 focus-visible:ring-[3px] focus-visible:ring-foreground/10 focus-visible:ring-offset-0 md:text-[13px]"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAddingSubtask(true)}
+              className="flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
+            >
+              <Plus className="size-4" />
+              Add subtask
+            </button>
+          )}
+        </div>
+      </section>
+
+      {/* Comments / Activity */}
+      <div role="tablist" aria-label="Task discussion" className="mt-8 flex items-center gap-1 border-b">
+        {(
+          [
+            { id: "comments", label: "Comments", count: comments.length },
+            { id: "activity", label: "Activity", count: activity?.length },
+          ] as const
+        ).map(({ id, label, count }) => {
           const active = tab === id
           return (
             <button
@@ -522,54 +503,32 @@ export function TaskDetailBody({
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setTab(id)}
+              onClick={() => {
+                setTab(id)
+                if (id === "activity") setActivityOpened(true)
+              }}
               className={cn(
-                "relative flex h-11 shrink-0 items-center gap-2 px-2.5 text-[13px] font-medium transition-colors",
-                active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                "relative -mb-px flex h-10 items-center gap-1.5 border-b-2 px-3 text-[13px] transition-colors",
+                active
+                  ? "border-foreground font-medium text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon className="size-4" />
               {label}
-              {count !== undefined && count > 0 && (
-                <span className="rounded-full bg-muted px-1.5 text-[11px] leading-4.5 tabular-nums text-muted-foreground">
-                  {count}
-                </span>
-              )}
-              {active && <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-foreground" />}
+              {count !== undefined && <span className="text-xs font-normal text-muted-foreground">{count}</span>}
             </button>
           )
         })}
       </div>
 
-      {tab === "details" && (
-        <div role="tabpanel">
-          <dl className="flex flex-col px-6 py-3">
-            {propertyRows}
-            {recordRows}
-          </dl>
-          <section className="border-t px-6 pt-5 pb-6">
-            <h3 className="text-sm font-semibold text-foreground">Description</h3>
-            {descriptionField}
-          </section>
-        </div>
-      )}
-
-      {tab === "comments" && (
-        <div role="tabpanel">
-          <CommentsPanel comments={comments} autoFocus={focusComposer} inputRef={composerRef} onAdd={handleAddComment} />
-        </div>
-      )}
-
-      {tab === "subtasks" && (
-        <div role="tabpanel" className="px-4 py-3">
-          {subtaskList}
-        </div>
-      )}
-
-      {tab === "activity" && (
-        <div role="tabpanel">
-          <ActivityPanel taskId={task.id} />
-        </div>
+      {tab === "comments" ? (
+        <CommentsPanel
+          comments={comments}
+          sending={addComment.isPending}
+          onAdd={(content) => addComment.mutate({ taskId: task.id, content })}
+        />
+      ) : (
+        <ActivityPanel taskId={task.id} />
       )}
     </div>
   )
@@ -577,42 +536,11 @@ export function TaskDetailBody({
 
 /* ── Pieces ─────────────────────────────────────────────────── */
 
-function QuickAction({
-  icon: Icon,
-  onClick,
-  children,
-}: {
-  icon: LucideIcon
-  onClick: () => void
-  children: React.ReactNode
-}) {
+function PropertyRow({ icon: Icon, label, children }: { icon: LucideIcon; label: string; children: React.ReactNode }) {
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={onClick}
-      className="h-8 gap-1.5 rounded-lg px-2.5 text-[13px] font-normal text-muted-foreground hover:text-foreground"
-    >
-      <Icon className="size-3.5" />
-      {children}
-    </Button>
-  )
-}
-
-function PropertyRow({
-  icon: Icon,
-  label,
-  children,
-}: {
-  icon: LucideIcon
-  label: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="flex min-h-11 items-center gap-3">
-      <dt className="flex w-32 shrink-0 items-center gap-2.5 text-[13px] text-muted-foreground">
-        <Icon className="size-4 shrink-0" />
+    <div className="flex min-h-8 items-center gap-2">
+      <dt className="flex w-[118px] shrink-0 items-center gap-2.5 text-[13px] text-muted-foreground">
+        <Icon className="size-3.5 shrink-0" />
         {label}
       </dt>
       <dd className="min-w-0 flex-1 text-[13px] text-foreground">{children}</dd>
@@ -622,59 +550,100 @@ function PropertyRow({
 
 function CommentsPanel({
   comments,
-  autoFocus,
-  inputRef,
+  sending,
   onAdd,
 }: {
   comments: TaskComment[]
-  autoFocus: boolean
-  inputRef?: React.Ref<HTMLInputElement>
+  sending: boolean
   onAdd: (content: string) => void
 }) {
   const [draft, setDraft] = React.useState("")
+  const inputRef = React.useRef<HTMLTextAreaElement>(null)
+  const { data: session } = useSession()
+  const me = session?.user
 
-  function submit(e: React.FormEvent) {
-    e.preventDefault()
+  function submit() {
     const content = draft.trim()
     if (!content) return
     onAdd(content)
     setDraft("")
   }
 
+  function insertMention() {
+    setDraft((d) => (d && !d.endsWith(" ") ? `${d} @` : `${d}@`))
+    inputRef.current?.focus()
+  }
+
   return (
     <div className="flex flex-col">
       {comments.length === 0 ? (
-        <p className="px-6 py-6 text-[13px] text-muted-foreground">No comments yet. Start the conversation.</p>
+        <p className="py-4 text-[13px] text-muted-foreground">No comments yet. Start the conversation.</p>
       ) : (
-        <ul className="flex flex-col px-6 py-2">
+        <ul className="flex flex-col py-2">
           {comments.map((c) => (
-            <li key={c.id} className="flex gap-3 py-3">
-              <PersonAvatar name={c.author.name} image={c.author.image} className="mt-0.5 size-7 ring-0" />
+            <li key={c.id} className="flex gap-3 py-2.5">
+              <PersonAvatar name={c.author.name} image={c.author.image} className="mt-0.5 size-6 ring-0" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="text-[13px] font-medium text-foreground">{c.author.name}</span>
-                  <span className="text-xs text-muted-foreground">{formatUpdatedDate(c.createdAt)}</span>
+                  <span className="text-xs text-muted-foreground" suppressHydrationWarning>
+                    {formatUpdatedDate(c.createdAt)}
+                  </span>
                 </div>
-                <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{c.content}</p>
+                <p className="mt-0.5 text-[13px] leading-relaxed whitespace-pre-wrap text-foreground/90">{c.content}</p>
               </div>
             </li>
           ))}
         </ul>
       )}
 
-      <form onSubmit={submit} className="flex items-center gap-2 border-t px-6 py-4">
-        <Input
-          ref={inputRef}
-          autoFocus={autoFocus}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="Write a comment… use @ to mention"
-          className="h-9 flex-1 bg-muted/60 text-[13px]"
-        />
-        <Button type="submit" size="icon-sm" variant="ghost" disabled={!draft.trim()} aria-label="Post comment">
-          <Send className="size-4" />
-        </Button>
-      </form>
+      <div className="flex gap-3">
+        <PersonAvatar name={me?.name || me?.email || "You"} image={me?.image} className="mt-1 size-6 ring-0" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            submit()
+          }}
+          className="min-w-0 flex-1 rounded-lg border border-border bg-card transition-colors focus-within:border-foreground/50 focus-within:ring-[3px] focus-within:ring-foreground/10"
+        >
+          <textarea
+            ref={inputRef}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault()
+                submit()
+              }
+            }}
+            rows={2}
+            placeholder="Leave a comment… type @ to mention"
+            aria-label="Comment"
+            className="field-sizing-content block max-h-60 min-h-12 w-full resize-none bg-transparent px-3 pt-2.5 text-[13px] leading-relaxed outline-none placeholder:text-muted-foreground"
+          />
+          <div className="flex items-center justify-between gap-2 px-2 pb-2">
+            <button
+              type="button"
+              onClick={insertMention}
+              aria-label="Mention someone"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <AtSign className="size-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              <span className="hidden text-[11px] text-muted-foreground sm:inline">Ctrl+Enter</span>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={!draft.trim() || sending}
+                className="h-7 rounded-md px-3 text-xs font-semibold"
+              >
+                Comment
+              </Button>
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -685,7 +654,7 @@ function ActivityPanel({ taskId }: { taskId: string }) {
 
   if (isPending) {
     return (
-      <div className="flex flex-col gap-4 px-6 py-5" aria-busy="true">
+      <div className="flex flex-col gap-4 py-4" aria-busy="true">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex items-center gap-3">
             <Skeleton className="size-6 rounded-full" />
@@ -697,18 +666,20 @@ function ActivityPanel({ taskId }: { taskId: string }) {
   }
 
   if (!items || items.length === 0) {
-    return <p className="px-6 py-6 text-[13px] text-muted-foreground">No activity yet.</p>
+    return <p className="py-4 text-[13px] text-muted-foreground">No activity yet.</p>
   }
 
   return (
-    <ol className="flex flex-col px-6 py-3">
+    <ol className="flex flex-col py-2">
       {items.map((a) => (
-        <li key={a.id} className="flex min-h-11 items-center gap-3 py-1.5">
+        <li key={a.id} className="flex min-h-10 items-center gap-3 py-1">
           <PersonAvatar name={a.user.name} image={a.user.image} className="size-6 ring-0" />
           <p className="min-w-0 flex-1 text-[13px] text-muted-foreground">
             <span className="font-medium text-foreground">{a.user.name}</span> {a.description}
           </p>
-          <span className="shrink-0 text-xs text-muted-foreground">{formatUpdatedDate(a.createdAt)}</span>
+          <span className="shrink-0 text-xs text-muted-foreground" suppressHydrationWarning>
+            {formatUpdatedDate(a.createdAt)}
+          </span>
         </li>
       ))}
     </ol>

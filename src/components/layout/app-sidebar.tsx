@@ -103,23 +103,6 @@ const FAVORITE_ICONS: Record<SidebarFavorite["entityType"], typeof FileText> = {
   PROJECT: LayoutPanelTop,
 }
 
-const PROJECT_DOT_COLORS = [
-  "bg-blue-500",
-  "bg-purple-500",
-  "bg-teal-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-indigo-500",
-  "bg-cyan-500",
-]
-
-function projectDotColor(id: string) {
-  let hash = 0
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
-  return PROJECT_DOT_COLORS[hash % PROJECT_DOT_COLORS.length]
-}
-
 // Workspace marks cycle through the reference's gradients, stable per id.
 const WORKSPACE_GRADIENTS = [
   "from-blue-500 to-purple-500",
@@ -149,9 +132,9 @@ function SectionChevron({ open }: { open: boolean }) {
 }
 
 const ROW =
-  "h-7 gap-2 rounded-md py-2 pr-2 pl-1.5 text-sm leading-5 transition-colors [&>svg]:size-4 [&>svg]:text-muted-foreground"
-const ROW_ACTIVE = "bg-accent font-medium text-foreground"
-const ROW_IDLE = "font-normal text-foreground/80 hover:bg-accent"
+  "h-[30px] gap-[9px] rounded-md px-2 py-0 text-[13px] font-medium leading-5 whitespace-nowrap transition-colors [&>svg]:size-4 [&>svg]:text-muted-foreground"
+const ROW_ACTIVE = "bg-accent font-[550] text-foreground"
+const ROW_IDLE = "text-foreground/80 hover:bg-accent"
 
 const projectSubLinks = (counts: Pick<SidebarProject, "taskCount" | "pageCount" | "whiteboardCount">) => [
   { label: "Overview", tab: "overview", icon: LayoutPanelTop, count: null as number | null },
@@ -363,7 +346,7 @@ export function AppSidebar({
       {/* ── Links: nav · sections, 20px apart ── */}
       <SidebarContent className="gap-5 px-2 pt-3 pb-2">
         <SidebarGroup className="p-0">
-          <SidebarMenu className="gap-1">
+          <SidebarMenu className="gap-0">
             {flatNavItems.map((item) => {
               const href = `${base}${item.url}`
               const active = isActive(href)
@@ -388,7 +371,7 @@ export function AppSidebar({
                     </Link>
                   </SidebarMenuButton>
                   {badge !== null && (
-                    <SidebarMenuBadge className="top-1 h-5 min-w-5 text-[11px] text-muted-foreground">
+                    <SidebarMenuBadge className="top-[5px] h-5 min-w-5 text-[11px] text-muted-foreground">
                       {badge}
                     </SidebarMenuBadge>
                   )}
@@ -405,7 +388,7 @@ export function AppSidebar({
               <CollapsibleTrigger asChild>
                 <SidebarGroupLabel
                   asChild
-                  className="h-auto cursor-pointer gap-1.5 rounded-none px-1.5 pb-[3px] text-xs font-medium leading-4 text-muted-foreground hover:text-foreground/80"
+                  className="h-auto cursor-pointer gap-1.5 rounded-none px-1.5 pb-[3px] text-2xs font-semibold tracking-wider uppercase text-muted-foreground hover:text-foreground/80"
                 >
                   <button type="button">
                     Favorites
@@ -414,7 +397,7 @@ export function AppSidebar({
                 </SidebarGroupLabel>
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <SidebarMenu className="gap-1">
+                <SidebarMenu className="gap-0">
                   {visibleFavorites.map((fav) => {
                     const Icon = FAVORITE_ICONS[fav.entityType]
                     const active = pathname.startsWith(fav.href)
@@ -429,7 +412,7 @@ export function AppSidebar({
                           <Link href={fav.href} prefetch>
                             {fav.entityType === "PROJECT" ? (
                               <span className="flex size-4 shrink-0 items-center justify-center">
-                                <span className={cn("size-[7px] rounded-full", projectDotColor(fav.entityId))} />
+                                <span className="text-[13px] leading-none">{fav.icon || "📁"}</span>
                               </span>
                             ) : (
                               <Icon />
@@ -461,7 +444,7 @@ export function AppSidebar({
           <SidebarGroupLabel
             asChild
             className={cn(
-              "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-xs font-medium leading-4 hover:text-foreground/80",
+              "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-2xs font-semibold tracking-wider uppercase hover:text-foreground/80",
               pathname === `${base}/projects` ? "text-foreground" : "text-muted-foreground"
             )}
           >
@@ -476,7 +459,7 @@ export function AppSidebar({
           >
             <Plus />
           </SidebarGroupAction>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-0">
               {visibleProjects.map((project) => {
                 const href = `${base}/projects/${project.id}`
                 const active = pathname.startsWith(href)
@@ -497,7 +480,7 @@ export function AppSidebar({
                           className={cn(ROW, "group/project cursor-pointer", active && !isOpen ? ROW_ACTIVE : ROW_IDLE)}
                         >
                           <span className="flex size-4 shrink-0 items-center justify-center">
-                            <span className={cn("size-[7px] rounded-full", projectDotColor(project.id))} />
+                            <span className="text-[13px] leading-none">{project.icon || "📁"}</span>
                           </span>
                           <span className="min-w-0 flex-1 truncate">{project.name}</span>
                           {favorited && (
@@ -514,7 +497,7 @@ export function AppSidebar({
                       </CollapsibleTrigger>
 
                       <CollapsibleContent>
-                        <SidebarMenuSub className="mx-2.5 gap-0.5 pr-0">
+                        <SidebarMenuSub className="mx-2.5 gap-0 pr-0">
                           {projectSubLinks(project).map((link) => {
                             const linkHref = `${href}/${link.tab}`
                             const isLinkActive = pathname === linkHref || pathname.startsWith(`${linkHref}/`)
@@ -524,8 +507,8 @@ export function AppSidebar({
                                   asChild
                                   isActive={isLinkActive}
                                   className={cn(
-                                    "h-7 gap-2 rounded-md text-sm [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
-                                    isLinkActive ? "bg-accent font-medium text-foreground" : "text-foreground/80"
+                                    "h-[30px] gap-[9px] rounded-md px-2 text-[13px] font-medium [&>svg]:size-3.5 [&>svg]:text-muted-foreground",
+                                    isLinkActive ? "bg-accent font-[550] text-foreground" : "text-foreground/80"
                                   )}
                                 >
                                   <Link href={linkHref} prefetch onMouseEnter={() => prefetchRoute(linkHref)}>

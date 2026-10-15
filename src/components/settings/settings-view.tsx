@@ -85,7 +85,7 @@ export function SettingsView() {
           <nav className="flex gap-4 overflow-x-auto md:flex-col md:gap-6" aria-label="Settings sections">
             {GROUPS.map((group) => (
               <div key={group.heading} className="flex shrink-0 flex-col gap-1">
-                <p className="px-2.5 pb-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+                <p className="px-2.5 pb-1 text-2xs font-semibold tracking-wider text-muted-foreground uppercase">
                   {group.heading}
                 </p>
                 {group.items.map((item) => {

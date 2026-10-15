@@ -30,6 +30,7 @@ import { SectionHeader } from "@/components/dashboard/section-header"
 import { TableSkeleton } from "@/components/dashboard/loading-states"
 import { ThemeToggle } from "@/components/common/theme-menu"
 import { ToolbarSelect } from "@/components/common/toolbar-select"
+import { ViewSwitch, type ViewSwitchOption } from "@/components/common/view-switch"
 import { SearchCommand } from "@/components/layout/search-command"
 import { TaskCardMenu } from "@/components/tasks/task-card-menu"
 import { TaskDetailSheet } from "@/components/tasks/task-detail-sheet"
@@ -47,6 +48,12 @@ import { prefetchTaskPanel, useTaskList } from "@/lib/query/tasks"
 import { cn } from "@/lib/utils"
 
 type ViewMode = "list" | "kanban" | "calendar"
+
+const VIEW_OPTIONS: ViewSwitchOption<ViewMode>[] = [
+  { value: "list", label: "List", icon: List },
+  { value: "kanban", label: "Kanban", icon: LayoutGrid },
+  { value: "calendar", label: "Calendar", icon: CalendarIcon },
+]
 type SortBy = "dueDate" | "priority" | "updatedAt"
 type PriorityFilter = "all" | TaskPriority
 
@@ -471,42 +478,16 @@ export function TaskListView({ projectId, title = "My Tasks", breadcrumb }: Task
       )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" onPointerOver={handleHover}>
-        {/* Title + view switch */}
+        {/* Title + primary action */}
         <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-8 pb-5">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{summaryText || (personal ? "Nothing assigned to you right now." : "No open tasks in this project.")}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg bg-muted p-0.5">
-              {(
-                [
-                  { value: "list", label: "List", icon: List },
-                  { value: "kanban", label: "Kanban", icon: LayoutGrid },
-                  { value: "calendar", label: "Calendar", icon: CalendarIcon },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setViewMode(tab.value)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors",
-                    viewMode === tab.value
-                      ? "bg-card font-medium text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon className="size-3.5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <Button size="sm" className="h-8 gap-1.5 rounded-lg text-[13px]" onClick={openCreate}>
-              <Plus className="size-3.5" />
-              New task
-            </Button>
-          </div>
+          <Button size="sm" className="h-8 gap-1.5 rounded-lg text-[13px]" onClick={openCreate}>
+            <Plus className="size-3.5" />
+            New task
+          </Button>
         </div>
 
         {/* Toolbar */}
@@ -538,6 +519,7 @@ export function TaskListView({ projectId, title = "My Tasks", breadcrumb }: Task
             />
             Show completed
           </label>
+          <ViewSwitch className="ml-auto" value={viewMode} onChange={setViewMode} options={VIEW_OPTIONS} />
         </div>
 
         {/* Content */}

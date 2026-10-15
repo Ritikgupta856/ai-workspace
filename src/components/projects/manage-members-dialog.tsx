@@ -70,7 +70,7 @@ export function ManageProjectMembersDialog({
 
         {/* Current roster */}
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          <p className="px-2.5 pb-1.5 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+          <p className="px-2.5 pb-1.5 text-2xs font-semibold tracking-wider text-muted-foreground uppercase">
             In this project · {members.length}
           </p>
           <div className="flex flex-col gap-0.5">
@@ -117,7 +117,7 @@ export function ManageProjectMembersDialog({
 
         {/* Add from workspace */}
         <div className="flex min-h-0 flex-col border-t border-border/70 bg-muted/20 px-3 py-3">
-          <p className="px-2.5 pb-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+          <p className="px-2.5 pb-2 text-2xs font-semibold tracking-wider text-muted-foreground uppercase">
             Add from workspace
           </p>
           <div className="relative px-0.5 pb-2">

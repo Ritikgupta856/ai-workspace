@@ -1,6 +1,9 @@
-import { TableSkeleton } from "@/components/dashboard/loading-states"
+import { ProjectRouteSkeleton } from "@/components/projects/project-route-skeleton"
 
-/** Projects list. Defaults to the list view, so that is what the placeholder draws. */
+/**
+ * Covers the projects list and, while a project's layout fetches its data,
+ * every project section — so it draws whichever page is about to appear.
+ */
 export default function Loading() {
-  return <TableSkeleton rows={6} label="Loading projects" />
+  return <ProjectRouteSkeleton />
 }

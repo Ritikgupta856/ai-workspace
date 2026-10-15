@@ -195,6 +195,9 @@
 }
 
 @theme inline {
+  /* --fs-2xs: section labels (WORKSPACE, PROJECTS), set uppercase at 600. */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

@@ -86,7 +86,7 @@ export async function updateTask(
     description: string
     status: TaskStatus
     priority: TaskPriority
-    assigneeId: string
+    assigneeId: string | null
     projectId: string
     labels: string[]
     dueDate: string | null

@@ -1,9 +1,15 @@
+import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 
 import { HomeView } from "@/components/home/home-view"
 import { getHomeData } from "@/lib/home"
 import { prisma } from "@/lib/prisma"
 import { getCachedSession } from "@/lib/session"
+
+export const metadata: Metadata = {
+  title: "Home",
+  description: "Your tasks, deadlines and project progress across the workspace.",
+}
 
 export default async function HomePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params

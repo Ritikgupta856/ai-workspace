@@ -37,11 +37,11 @@ import { ThemeToggle } from "@/components/common/theme-menu"
 import { SearchCommand } from "@/components/layout/search-command"
 import { PersonAvatar } from "@/components/tasks/task-grouped-list"
 import { ToolbarSelect } from "@/components/common/toolbar-select"
+import { ViewSwitch, type ViewSwitchOption } from "@/components/common/view-switch"
 import { TableSkeleton } from "@/components/dashboard/loading-states"
 import type { ProjectSectionTab } from "@/components/projects/project-section-header"
 import { useProjectDashboard } from "@/components/projects/project-dashboard-context"
 import { formatUpdatedDate } from "@/lib/date"
-import { cn } from "@/lib/utils"
 
 /* ── Types ──────────────────────────────────────────────────── */
 
@@ -59,7 +59,7 @@ export interface LibraryItem {
 type ViewMode = "list" | "grid"
 type SortBy = "updated" | "title" | "created"
 
-const VIEW_TABS: { value: ViewMode; label: string; icon: LucideIcon }[] = [
+const VIEW_TABS: ViewSwitchOption<ViewMode>[] = [
   { value: "list", label: "List", icon: List },
   { value: "grid", label: "Grid", icon: LayoutGrid },
 ]
@@ -232,7 +232,7 @@ export function ProjectLibraryView({
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        {/* Title + view switch + primary action */}
+        {/* Title + primary action */}
         <div className="flex flex-wrap items-start justify-between gap-4 px-6 pt-8 pb-5">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -240,30 +240,10 @@ export function ProjectLibraryView({
               {loading ? "Loading…" : `${items.length} ${noun}${items.length === 1 ? "" : "s"} in ${data.project.name}`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center rounded-lg bg-muted p-0.5">
-              {VIEW_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setView(tab.value)}
-                  className={cn(
-                    "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-[13px] transition-colors",
-                    view === tab.value
-                      ? "bg-card font-medium text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <tab.icon className="size-3.5" />
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-            <Button size="sm" className="h-8 gap-1.5 rounded-lg text-[13px]" onClick={handleCreate} disabled={creating}>
-              <Plus className="size-3.5" />
-              New {noun}
-            </Button>
-          </div>
+          <Button size="sm" className="h-8 gap-1.5 rounded-lg text-[13px]" onClick={handleCreate} disabled={creating}>
+            <Plus className="size-3.5" />
+            New {noun}
+          </Button>
         </div>
 
         {/* Toolbar */}
@@ -279,6 +259,7 @@ export function ProjectLibraryView({
             />
           </div>
           <ToolbarSelect icon={ArrowUpDown} prefix="Sort" value={sortBy} options={SORT_OPTIONS} onChange={setSortBy} />
+          <ViewSwitch className="ml-auto" value={view} onChange={setView} options={VIEW_TABS} />
         </div>
 
         {/* Content */}

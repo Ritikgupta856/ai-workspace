@@ -7,24 +7,37 @@ import { z } from "zod"
 import { format } from "date-fns"
 import { formatDueDate } from "@/lib/date"
 import {
+  AlertCircle,
   CalendarIcon,
   Check,
   ChevronsUpDown,
-  Clock,
+  CircleDashed,
+  Plus,
+  SignalHigh,
+  SignalLow,
+  SignalMedium,
+  Tag,
+  UserRound,
   X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  FormDialogFooter,
+  FormDialogHeader,
+  formChip,
+  formChipIcon,
+  formChipTrigger,
+  formDescriptionFieldClass,
+  formDialogBodyClass,
+  formDialogContentClass,
+  formFieldFocus,
+  formNameFieldClass,
+  submitOnModEnter,
+} from "@/components/common/form-dialog"
 import {
   Select,
   SelectContent,
@@ -38,8 +51,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Switch } from "@/components/ui/switch"
+import { PersonAvatar } from "@/components/tasks/task-grouped-list"
 import {
   TASK_STATUS_CONFIG,
   TASK_PRIORITY_CONFIG,
@@ -47,6 +59,7 @@ import {
 import type { TaskStatus, TaskPriority, Task } from "@/components/tasks/tasks-view"
 import { createTask, updateTask } from "@/lib/api/tasks"
 import { useAssignableMembers } from "@/lib/query/tasks"
+import { useProjectList } from "@/lib/query/projects"
 
 const formSchema = z.object({
   title: z.string().min(1, "Title is required"),
@@ -56,20 +69,9 @@ const formSchema = z.object({
   priority: z.string().optional(),
   labels: z.array(z.string()).optional(),
   dueDate: z.date().optional(),
-  estimatedHours: z.number().min(0).optional(),
-  addToBacklog: z.boolean().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
-
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2)
-}
 
 export const availableLabels = [
   "Backend", "Auth", "AI", "Frontend", "Bug", "Design",
@@ -84,6 +86,15 @@ const priorityOptions = Object.entries(TASK_PRIORITY_CONFIG).map(
   ([value, config]) => ({ value, ...config })
 )
 
+const LABEL_DOTS = ["bg-rose-500", "bg-amber-500", "bg-emerald-500", "bg-blue-500", "bg-violet-500", "bg-cyan-500"]
+
+/** A stable colour per label name, so "Design" is the same dot everywhere. */
+export function labelDot(label: string) {
+  let hash = 0
+  for (let i = 0; i < label.length; i++) hash = (hash * 31 + label.charCodeAt(i)) >>> 0
+  return LABEL_DOTS[hash % LABEL_DOTS.length]
+}
+
 export function LabelMultiSelect({
   selected,
   onChange,
@@ -91,10 +102,11 @@ export function LabelMultiSelect({
 }: {
   selected: string[]
   onChange: (labels: string[]) => void
-  /** `field`: a bordered form input. `inline`: a quiet value that edits in place, for record views. */
-  variant?: "field" | "inline"
+  /** `field`: a bordered form input. `inline`: label pills that edit in place, for record views. `chip`: a dialog property chip. */
+  variant?: "field" | "inline" | "chip"
 }) {
   const inline = variant === "inline"
+  const chip = variant === "chip"
   const [open, setOpen] = React.useState(false)
 
   function toggle(label: string) {
@@ -114,13 +126,38 @@ export function LabelMultiSelect({
           role="combobox"
           aria-expanded={open}
           className={
-            inline
-              ? "-ml-2 h-auto min-h-8 w-auto max-w-full justify-start gap-1.5 border-none bg-transparent px-2 py-1 text-[13px] font-normal shadow-none hover:bg-muted data-[state=open]:bg-muted"
+            chip
+              ? "h-6.5 gap-1.5 rounded-md border-border bg-card px-2 py-0 text-xs font-normal text-foreground shadow-none [&_svg]:size-3.5"
+              : inline
+              ? "-ml-1.5 h-auto min-h-7 w-auto max-w-full justify-start gap-1 border-none bg-transparent px-1.5 py-0.5 text-[13px] font-normal shadow-none hover:bg-muted data-[state=open]:bg-muted"
               : "min-h-10 h-auto w-full justify-between font-normal"
           }
         >
-          {selected.length > 0 ? (
-            <div className={cn("flex flex-wrap gap-1 py-0.5", !inline && "mr-2")}>
+          {chip ? (
+            <>
+              <Tag className="size-3.5 shrink-0 text-foreground/70" />
+              <span>
+                {selected.length === 0 ? "Labels" : selected.length === 1 ? selected[0] : `${selected.length} labels`}
+              </span>
+            </>
+          ) : inline ? (
+            selected.length > 0 ? (
+              <span className="flex flex-wrap gap-1">
+                {selected.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+                  >
+                    <span className={cn("size-1.5 shrink-0 rounded-full", labelDot(label))} />
+                    {label}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              <span className="text-muted-foreground">Add labels</span>
+            )
+          ) : selected.length > 0 ? (
+            <div className="mr-2 flex flex-wrap gap-1 py-0.5">
               {selected.map((label) => (
                 <span
                   key={label}
@@ -144,9 +181,9 @@ export function LabelMultiSelect({
               ))}
             </div>
           ) : (
-            <span className="text-muted-foreground">{inline ? "Add labels" : "Select labels..."}</span>
+            <span className="text-muted-foreground">Select labels...</span>
           )}
-          <ChevronsUpDown className={cn("shrink-0 opacity-50", inline ? "size-3" : "ml-auto size-4")} />
+          {!chip && !inline && <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />}
         </Button>
       </PopoverTrigger>
       {/* Portal to body — escapes overflow:hidden on dialog */}
@@ -185,7 +222,44 @@ export function LabelMultiSelect({
   )
 }
 
-function DatePicker({
+const NO_VALUE = "none"
+
+const chipBase = formChip
+const chipTrigger = formChipTrigger
+const chipIcon = formChipIcon
+
+// Same hash the sidebar uses, so a project keeps its colour everywhere.
+const PROJECT_DOTS = [
+  "bg-blue-500",
+  "bg-purple-500",
+  "bg-teal-500",
+  "bg-emerald-500",
+  "bg-amber-500",
+  "bg-rose-500",
+  "bg-indigo-500",
+  "bg-cyan-500",
+]
+
+function projectDot(id: string) {
+  let hash = 0
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0
+  return PROJECT_DOTS[hash % PROJECT_DOTS.length]
+}
+
+const STATUS_ICON_CLASS: Record<string, string> = {
+  TODO: "text-foreground/70",
+  IN_PROGRESS: "text-amber-500",
+  IN_REVIEW: "text-violet-500",
+  DONE: "text-emerald-500",
+}
+
+function PriorityIcon({ priority }: { priority: string }) {
+  if (priority === "URGENT") return <AlertCircle className="size-3.5 shrink-0 text-red-600" />
+  const Icon = priority === "HIGH" ? SignalHigh : priority === "MEDIUM" ? SignalMedium : SignalLow
+  return <Icon className={chipIcon} />
+}
+
+function DueDateChip({
   value,
   onChange,
 }: {
@@ -197,29 +271,40 @@ function DatePicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            "h-10 w-full justify-start gap-2 font-normal",
-            !value && "text-muted-foreground"
+        <button type="button" className={cn(chipBase, "transition-colors hover:bg-muted/60")}>
+          <CalendarIcon className={chipIcon} />
+          {value ? formatDueDate(value) : "Due date"}
+          {value && (
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear due date"
+              onClick={(e) => {
+                e.stopPropagation()
+                onChange(undefined)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.stopPropagation()
+                  onChange(undefined)
+                }
+              }}
+              className="-mr-1 rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="size-3" />
+            </span>
           )}
-        >
-          <CalendarIcon className="size-4 shrink-0" />
-          {value ? formatDueDate(value) : "Pick a date..."}
-        </Button>
+        </button>
       </PopoverTrigger>
       {/* Portal to body — escapes overflow:hidden on dialog */}
-      <PopoverContent
-        className="w-auto p-0"
-        align="start"
-        avoidCollisions
-        collisionPadding={8}
-      >
+      <PopoverContent className="w-auto p-0" align="start" avoidCollisions collisionPadding={8}>
         <Calendar
           mode="single"
           selected={value}
-          onSelect={(date) => { onChange(date); setOpen(false) }}
+          onSelect={(date) => {
+            onChange(date)
+            setOpen(false)
+          }}
           initialFocus
         />
       </PopoverContent>
@@ -233,7 +318,7 @@ export interface TaskDialogProps {
   mode: "create" | "edit"
   task?: Task
   onSuccess?: () => void
-  /** The project new tasks are created in; tasks are only created from inside a project. */
+  /** Fixes the project new tasks are created in. Without it, the dialog lets you pick one (or none). */
   projectId?: string
   /** Pre-selects the status when creating from a status group's "+" button. Still editable. */
   defaultStatus?: TaskStatus
@@ -258,23 +343,32 @@ export function TaskDialog({
       priority: "MEDIUM",
       labels: [],
       dueDate: undefined,
-      estimatedHours: undefined,
-      addToBacklog: false,
     },
   })
 
   const watchedLabels = form.watch("labels") ?? []
   const [submitting, setSubmitting] = React.useState(false)
+  const [createMore, setCreateMore] = React.useState(false)
+  const [pickedProjectId, setPickedProjectId] = React.useState<string>("")
+  const [subtasks, setSubtasks] = React.useState<string[]>([])
+  const [subtaskDraft, setSubtaskDraft] = React.useState("")
   const isEdit = mode === "edit"
-  const taskProjectId = isEdit ? task?.projectId : projectId
+  const projectLocked = isEdit || Boolean(projectId)
+  const taskProjectId = (isEdit ? task?.projectId : (projectId ?? (pickedProjectId || undefined))) ?? undefined
 
-  // Assignable people are scoped to the task's project members; an older
-  // project-less task falls back to the full workspace roster. Cached, so
-  // reopening the dialog (or opening a task panel on the same project) is instant.
+  const { projects } = useProjectList()
+  const projectName = projects.find((p) => p.id === taskProjectId)?.name ?? task?.project ?? null
+
+  // Assignable people are scoped to the task's project members; a task with no
+  // project falls back to the full workspace roster. Cached, so reopening the
+  // dialog (or opening a task panel on the same project) is instant.
   const { data: membersList = [] } = useAssignableMembers(taskProjectId ?? null, undefined, { enabled: open })
 
   React.useEffect(() => {
     if (!open) return
+    setSubtasks([])
+    setSubtaskDraft("")
+    setPickedProjectId("")
     if (isEdit && task) {
       form.reset({
         title: task.title,
@@ -284,8 +378,6 @@ export function TaskDialog({
         priority: task.priority,
         labels: task.labels,
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
-        estimatedHours: undefined,
-        addToBacklog: false,
       })
     } else {
       form.reset({
@@ -296,11 +388,17 @@ export function TaskDialog({
         priority: "MEDIUM",
         labels: [],
         dueDate: undefined,
-        estimatedHours: undefined,
-        addToBacklog: false,
       })
     }
   }, [open, task, isEdit, form, defaultStatus])
+
+  // An assignee from another project's roster isn't valid after switching projects.
+  React.useEffect(() => {
+    const current = form.getValues("assigneeId")
+    if (current && membersList.length > 0 && !membersList.some((m) => m.userId === current)) {
+      form.setValue("assigneeId", "")
+    }
+  }, [membersList, form])
 
   async function onSubmit(data: FormValues) {
     if (submitting) return
@@ -310,27 +408,41 @@ export function TaskDialog({
         await updateTask(task.id, {
           title: data.title,
           description: data.description ?? "",
-          assigneeId: data.assigneeId || undefined,
+          assigneeId: data.assigneeId || null,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
           labels: data.labels ?? [],
           dueDate: data.dueDate ? format(data.dueDate, "yyyy-MM-dd") : null,
         })
       } else {
-        await createTask({
+        const created = await createTask({
           title: data.title,
           description: data.description ?? "",
-          projectId,
+          projectId: taskProjectId,
           assigneeId: data.assigneeId || undefined,
           status: data.status as TaskStatus,
           priority: data.priority as TaskPriority,
           labels: data.labels ?? [],
           dueDate: data.dueDate ? format(data.dueDate, "yyyy-MM-dd") : null,
         })
+        // Subtasks are ordinary tasks pointing at the parent.
+        await Promise.all(
+          subtasks.map((title) =>
+            createTask({ title, projectId: taskProjectId, parentTaskId: created.id, status: "TODO" })
+          )
+        )
       }
-      form.reset()
       onSuccess?.()
-      onOpenChange(false)
+      if (!isEdit && createMore) {
+        // Keep the context (project, status, priority, assignee); clear what is per-task.
+        form.reset({ ...form.getValues(), title: "", description: "", labels: [], dueDate: undefined })
+        setSubtasks([])
+        setSubtaskDraft("")
+        form.setFocus("title")
+      } else {
+        form.reset()
+        onOpenChange(false)
+      }
     } catch {
       // error handled in parent
     } finally {
@@ -343,21 +455,21 @@ export function TaskDialog({
     onOpenChange(false)
   }
 
+  function commitSubtask() {
+    const title = subtaskDraft.trim()
+    if (!title) return
+    setSubtasks((prev) => [...prev, title])
+    setSubtaskDraft("")
+  }
+
+  const status = form.watch("status")
+  const priority = form.watch("priority")
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn(
-          // Size: full-width on mobile, capped on desktop
-          "w-full sm:max-w-[760px]",
-          // Height: leaves room for browser chrome on mobile with dvh
-          "max-h-[90dvh] sm:max-h-[85dvh]",
-          // Padding & rounding from shadcn base are stripped in dialog.tsx;
-          // we own all spacing here
-          "rounded-xl p-0",
-          // overflow-hidden clips the rounded corners cleanly;
-          // actual scrolling happens on the inner div below
-          "overflow-hidden",
-        )}
+        showCloseButton={false}
+        className={formDialogContentClass}
         onPointerDownOutside={(e) => {
           const target = (e.detail?.originalEvent?.target ?? e.target) as HTMLElement | null
           if (target?.closest("[data-radix-popper-content-wrapper]")) {
@@ -365,206 +477,205 @@ export function TaskDialog({
           }
         }}
       >
-        {/* ── Sticky Header ── */}
-        <DialogHeader className="shrink-0 border-b px-5 py-4 sm:px-6">
-          <DialogTitle className="text-base sm:text-lg">
-            {isEdit ? "Edit Task" : "New Task"}
-          </DialogTitle>
-          <DialogDescription className="mt-0.5 text-sm">
-            {isEdit
-              ? "Update the task details."
-              : "Create a new task and add all the essential details."}
-          </DialogDescription>
-        </DialogHeader>
+        <FormDialogHeader
+          title={isEdit ? "Edit task" : "New task"}
+          description={isEdit ? "Update the task details." : "Create a new task and add the essential details."}
+        />
 
-        {/* ── Scrollable Form Body ── */}
-        {/*
-          The form is flex-col + flex-1 so it fills the space between
-          header and footer. min-h-0 prevents the classic flexbox bug
-          where children refuse to shrink below their content height.
-        */}
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col flex-1 min-h-0"
+          onKeyDown={submitOnModEnter(() => void form.handleSubmit(onSubmit)())}
+          className="flex min-h-0 flex-1 flex-col"
         >
-          <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">
-            <div className="space-y-5">
-
-              {/* Title */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">
-                  Title <span className="text-destructive">*</span>
-                </label>
-                <Input placeholder="Implement GitHub OAuth" {...form.register("title")} />
-                {form.formState.errors.title && (
-                  <p className="text-xs text-destructive">
-                    {form.formState.errors.title.message}
-                  </p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Description</label>
-                <Textarea
-                  placeholder="Describe the task..."
-                  className="min-h-[90px] resize-y"
-                  {...form.register("description")}
-                />
-              </div>
-
-              {/* 2-col grid */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-
-                {/* Assignee */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Assignee</label>
-                  <Select
-                    value={form.watch("assigneeId")}
-                    onValueChange={(v) => form.setValue("assigneeId", v)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Assign to..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">Unassigned</SelectItem>
-                      {membersList.map((m) => (
-                        <SelectItem key={m.userId} value={m.userId}>
-                          <div className="flex items-center gap-2">
-                            <Avatar className="size-6 shrink-0">
-                              {m.avatar ? (
-                                <img src={m.avatar} alt={m.name} className="size-full rounded-full object-cover" />
-                              ) : (
-                                <AvatarFallback className="text-[10px]">{getInitials(m.name)}</AvatarFallback>
-                              )}
-                            </Avatar>
-                            {m.name}
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Status */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={form.watch("status")} onValueChange={(v) => form.setValue("status", v)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select status..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((opt) => {
-                        const Icon = opt.icon
-                        return (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", opt.className)}>
-                              <Icon className="size-3" />
-                              {opt.label}
-                            </span>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Priority */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Priority</label>
-                  <Select value={form.watch("priority")} onValueChange={(v) => form.setValue("priority", v)}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select priority..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {priorityOptions.map((opt) => {
-                        const Icon = opt.icon
-                        return (
-                          <SelectItem key={opt.value} value={opt.value}>
-                            <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", opt.className)}>
-                              <Icon className="size-3" />
-                              {opt.label}
-                            </span>
-                          </SelectItem>
-                        )
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Labels */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Labels</label>
-                  <LabelMultiSelect
-                    selected={watchedLabels}
-                    onChange={(labels) => form.setValue("labels", labels)}
-                  />
-                </div>
-
-                {/* Due Date */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Due Date</label>
-                  <DatePicker
-                    value={form.watch("dueDate")}
-                    onChange={(date) => form.setValue("dueDate", date)}
-                  />
-                </div>
-
-                {/* Estimated Hours */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground">Estimated Hours</label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      type="number"
-                      min={0}
-                      step={0.5}
-                      placeholder="e.g. 4"
-                      className="pl-9"
-                      onChange={(e) => {
-                        const v = e.target.value
-                        form.setValue("estimatedHours", v ? parseFloat(v) : undefined)
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Add to Backlog */}
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-muted-foreground">Add to Backlog</label>
-                  <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
-                    <Switch
-                      checked={form.watch("addToBacklog") ?? false}
-                      onCheckedChange={(v) => form.setValue("addToBacklog", v)}
-                    />
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-sm font-medium">
-                        {form.watch("addToBacklog") ? "Added to backlog" : "Not in backlog"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {form.watch("addToBacklog")
-                          ? "Task will appear in the backlog view"
-                          : "Task will be placed in the active sprint"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+          <div className={formDialogBodyClass}>
+            <div className="space-y-1.5">
+              <Input
+                autoFocus
+                placeholder="Task name"
+                aria-label="Task name"
+                className={formNameFieldClass}
+                {...form.register("title")}
+              />
+              {form.formState.errors.title && (
+                <p className="text-[13px] text-destructive">{form.formState.errors.title.message}</p>
+              )}
             </div>
+
+            <Textarea
+              placeholder="Add a description… (optional)"
+              aria-label="Description"
+              className={formDescriptionFieldClass}
+              {...form.register("description")}
+            />
+
+            {/* Property chips */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {projectLocked ? (
+                <span className={chipBase}>
+                  <span
+                    className={cn(
+                      "size-1.5 shrink-0 rounded-full",
+                      taskProjectId ? projectDot(taskProjectId) : "bg-muted-foreground/50"
+                    )}
+                  />
+                  {projectName ?? "No project"}
+                </span>
+              ) : (
+                <Select
+                  value={pickedProjectId || NO_VALUE}
+                  onValueChange={(v) => setPickedProjectId(v === NO_VALUE ? "" : v)}
+                >
+                  <SelectTrigger className={chipTrigger} aria-label="Project">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VALUE}>
+                      <span className="inline-flex items-center gap-2">
+                        <span className="size-1.5 shrink-0 rounded-full bg-muted-foreground/50" />
+                        No project
+                      </span>
+                    </SelectItem>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="inline-flex items-center gap-2">
+                          <span className={cn("size-1.5 shrink-0 rounded-full", projectDot(p.id))} />
+                          {p.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <Select value={status} onValueChange={(v) => form.setValue("status", v)}>
+                <SelectTrigger className={chipTrigger} aria-label="Status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((opt) => {
+                    const Icon = opt.icon
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <span className="inline-flex items-center gap-2">
+                          <Icon className={cn("size-3.5 shrink-0", STATUS_ICON_CLASS[opt.value])} />
+                          {opt.label}
+                        </span>
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+
+              {/* "" shows the placeholder; the Unassigned item maps back to "". */}
+              <Select
+                value={form.watch("assigneeId") || ""}
+                onValueChange={(v) => form.setValue("assigneeId", v === NO_VALUE ? "" : v)}
+              >
+                <SelectTrigger className={chipTrigger} aria-label="Assignee">
+                  <SelectValue
+                    placeholder={
+                      <span className="inline-flex items-center gap-2">
+                        <UserRound className={chipIcon} />
+                        Assignee
+                      </span>
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_VALUE}>
+                    <span className="inline-flex items-center gap-2">
+                      <UserRound className="size-3.5 shrink-0 text-muted-foreground" />
+                      Unassigned
+                    </span>
+                  </SelectItem>
+                  {membersList.map((m) => (
+                    <SelectItem key={m.userId} value={m.userId}>
+                      <span className="inline-flex items-center gap-2">
+                        <PersonAvatar name={m.name} image={m.avatar} className="size-4.5 ring-0" />
+                        {m.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={priority} onValueChange={(v) => form.setValue("priority", v)}>
+                <SelectTrigger className={chipTrigger} aria-label="Priority">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {priorityOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <span className="inline-flex items-center gap-2">
+                        <PriorityIcon priority={opt.value} />
+                        {opt.label}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <DueDateChip value={form.watch("dueDate")} onChange={(date) => form.setValue("dueDate", date)} />
+
+              <LabelMultiSelect
+                variant="chip"
+                selected={watchedLabels}
+                onChange={(labels) => form.setValue("labels", labels)}
+              />
+            </div>
+
+            {!isEdit && (
+              <div>
+                <p className="mb-1.5 text-xs leading-[18px] font-medium">Subtasks</p>
+                {subtasks.length > 0 && (
+                  <ul className="mb-1.5 space-y-1">
+                    {subtasks.map((title, i) => (
+                      <li
+                        key={`${title}-${i}`}
+                        className="flex h-7.5 items-center gap-2 rounded-md border border-border px-2.5 text-[13px]"
+                      >
+                        <CircleDashed className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="min-w-0 flex-1 truncate">{title}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${title}`}
+                          onClick={() => setSubtasks((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <X className="size-3.5" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="relative">
+                  <Plus className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={subtaskDraft}
+                    onChange={(e) => setSubtaskDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.ctrlKey && !e.metaKey) {
+                        e.preventDefault()
+                        commitSubtask()
+                      }
+                    }}
+                    placeholder="Add a subtask and press Enter"
+                    aria-label="Add a subtask"
+                    className={cn("h-7.5 rounded-md pl-8 text-[13px] shadow-none md:text-[13px]", formFieldFocus)}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* ── Sticky Footer ── */}
-          <DialogFooter className="shrink-0 border-t px-5 py-4 sm:px-6 sm:justify-between">
-            <Button type="button" variant="outline" onClick={handleCancel} className="w-full sm:w-auto">
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
-              {submitting
-                ? (isEdit ? "Saving..." : "Creating...")
-                : (isEdit ? "Save Changes" : "Create Task")}
-            </Button>
-          </DialogFooter>
+          <FormDialogFooter
+            createMore={isEdit ? undefined : createMore}
+            onCreateMoreChange={isEdit ? undefined : setCreateMore}
+            onCancel={handleCancel}
+            submitting={submitting}
+            submitLabel={isEdit ? "Save changes" : "Create task"}
+            submittingLabel={isEdit ? "Saving..." : "Creating..."}
+          />
         </form>
       </DialogContent>
     </Dialog>
