@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { z } from "zod"
 import { Role } from "@/generated/prisma/client"
 import { sendInviteEmail } from "@/lib/mail"
@@ -27,10 +28,7 @@ export async function POST(req: Request) {
     }
 
     // Determine current user's workspace
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-      include: { workspace: true },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(
@@ -194,9 +192,7 @@ export async function GET() {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(

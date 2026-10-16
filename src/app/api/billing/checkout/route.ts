@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { headers, cookies } from "next/headers"
+import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { dodo, DODO_PRO_PRODUCT_ID } from "@/lib/dodo"
 
 const ACTIVE_STATUSES = ["PENDING", "ACTIVE", "ON_HOLD", "PAUSED", "PAST_DUE"]
@@ -24,18 +25,7 @@ export async function POST() {
       )
     }
 
-    const cookieStore = await cookies()
-    const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value
-
-    const membership =
-      (activeWorkspaceId
-        ? await prisma.workspaceMember.findFirst({
-            where: { userId: session.user.id, workspaceId: activeWorkspaceId },
-          })
-        : null) ??
-      (await prisma.workspaceMember.findFirst({
-        where: { userId: session.user.id },
-      }))
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(
@@ -73,7 +63,7 @@ export async function POST() {
         ? { customer_id: existing.dodoCustomerId }
         : { email: session.user.email, name: session.user.name ?? undefined },
       metadata: { workspaceId: membership.workspaceId },
-      return_url: `${appUrl}/agent?billing=success`,
+      return_url: `${appUrl}/${membership.workspace.slug}/agent?billing=success`,
     })
 
     return NextResponse.json({ success: true, url: checkoutSession.checkout_url })

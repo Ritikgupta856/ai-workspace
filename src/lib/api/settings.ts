@@ -2,13 +2,14 @@ import type {
   UpdateProfileValues,
   UpdateWorkspaceValues,
 } from "@/lib/validation/settings"
+import { apiFetch } from "@/lib/query/fetcher"
 
 type ApiResponse =
   | { success: true; [key: string]: unknown }
   | { success: false; error: string }
 
 async function send(url: string, method: string, body?: unknown) {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method,
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,

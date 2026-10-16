@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
+import { requireProject } from "@/lib/api/guards"
 import { prisma } from "@/lib/prisma"
 import { logActivity } from "@/lib/activity"
 import { formatProject, isProjectStatus, projectInclude } from "@/lib/projects"
@@ -10,29 +9,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id } = await params
+    const ctx = await requireProject(id)
+    if (ctx.error) return ctx.error
+    const { membership } = ctx
 
     const project = await prisma.project.findFirst({
       where: { id, workspaceId: membership.workspaceId },
@@ -86,29 +66,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id } = await params
+    const ctx = await requireProject(id)
+    if (ctx.error) return ctx.error
+    const { session, membership } = ctx
 
     const existing = await prisma.project.findFirst({
       where: { id, workspaceId: membership.workspaceId },
@@ -205,29 +166,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id } = await params
+    const ctx = await requireProject(id)
+    if (ctx.error) return ctx.error
+    const { session, membership } = ctx
 
     const existing = await prisma.project.findFirst({
       where: { id, workspaceId: membership.workspaceId },

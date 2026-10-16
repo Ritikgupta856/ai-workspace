@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
-import { requireWorkspace } from "@/lib/api/guards"
+import { requireTask } from "@/lib/api/guards"
+import { taskWriteProblem } from "@/lib/task-validation"
 import { commentSelect, formatComment } from "@/lib/task-comments"
 import { logActivity } from "@/lib/activity"
 import { notifyTaskAssignment, notifyTaskCompletion, notifyTaskUpdate } from "@/lib/notifications"
@@ -18,10 +17,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const ctx = await requireWorkspace()
+    const { id } = await params
+    const ctx = await requireTask(id)
     if (ctx.error) return ctx.error
 
-    const { id } = await params
     const panel = new URL(req.url).searchParams.get("panel") === "1"
     const userId = ctx.session.user.id
 
@@ -128,29 +127,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id } = await params
+    const ctx = await requireTask(id)
+    if (ctx.error) return ctx.error
+    const { session, membership } = ctx
 
     const existing = await prisma.task.findFirst({
       where: { id, workspaceId: membership.workspaceId },
@@ -176,9 +156,14 @@ export async function PATCH(
       parentTaskId,
     } = body
 
-    if (parentTaskId !== undefined && parentTaskId === id) {
+    const problem = await taskWriteProblem(
+      membership.workspaceId,
+      { status, priority, projectId, assigneeId, parentTaskId },
+      id
+    )
+    if (problem) {
       return NextResponse.json(
-        { success: false, error: "A task can't be its own parent." },
+        { success: false, error: problem },
         { status: 400 }
       )
     }
@@ -297,29 +282,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id } = await params
+    const ctx = await requireTask(id)
+    if (ctx.error) return ctx.error
+    const { session, membership } = ctx
 
     const existing = await prisma.task.findFirst({
       where: { id, workspaceId: membership.workspaceId },

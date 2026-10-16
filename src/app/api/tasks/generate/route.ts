@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
+import { taskWriteProblem } from "@/lib/task-validation"
 import { TaskPriority, TaskStatus } from "@/generated/prisma/enums"
 import { logActivity } from "@/lib/activity"
 
@@ -18,9 +20,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(
@@ -45,6 +45,20 @@ export async function POST(req: Request) {
     if (!title?.trim()) {
       return NextResponse.json(
         { success: false, error: "Title is required" },
+        { status: 400 }
+      )
+    }
+
+    const problem = await taskWriteProblem(membership.workspaceId, {
+      status,
+      priority,
+      projectId,
+      assigneeId,
+      parentTaskId,
+    })
+    if (problem) {
+      return NextResponse.json(
+        { success: false, error: problem },
         { status: 400 }
       )
     }

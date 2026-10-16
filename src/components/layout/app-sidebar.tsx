@@ -60,6 +60,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { apiFetch } from "@/lib/query/fetcher"
 
 export interface WorkspaceItem {
   id: string
@@ -195,7 +196,7 @@ export function AppSidebar({
   const handleSwitchWorkspace = async (w: WorkspaceItem) => {
     if (w.id === activeWorkspaceId) return
     try {
-      const res = await fetch("/api/workspaces", {
+      const res = await apiFetch("/api/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId: w.id }),
@@ -388,7 +389,7 @@ export function AppSidebar({
               <CollapsibleTrigger asChild>
                 <SidebarGroupLabel
                   asChild
-                  className="h-auto cursor-pointer gap-1.5 rounded-none px-1.5 pb-[3px] text-2xs font-semibold tracking-wider uppercase text-muted-foreground hover:text-foreground/80"
+                  className="h-auto cursor-pointer gap-1.5 rounded-none px-1.5 pb-[3px] text-[11px] font-semibold leading-4 tracking-wider uppercase text-muted-foreground hover:text-foreground/80"
                 >
                   <button type="button">
                     Favorites
@@ -444,7 +445,7 @@ export function AppSidebar({
           <SidebarGroupLabel
             asChild
             className={cn(
-              "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-2xs font-semibold tracking-wider uppercase hover:text-foreground/80",
+              "h-auto gap-1.5 rounded-none px-1.5 pb-[3px] text-[11px] font-semibold leading-4 tracking-wider uppercase hover:text-foreground/80",
               pathname === `${base}/projects` ? "text-foreground" : "text-muted-foreground"
             )}
           >

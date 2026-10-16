@@ -3,124 +3,110 @@ import { NextResponse } from "next/server"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { WORKSPACE_HEADER } from "@/lib/workspace-header"
+
+function fail(error: string, status: number) {
+  return { error: NextResponse.json({ success: false, error }, { status }) } as const
+}
 
 /**
- * Every project sub-route repeats the same three checks: is there a session,
- * is the user in a workspace, and does the project belong to it. This collapses
- * that into one call so a new route can't accidentally skip the scoping check.
+ * The membership for the workspace a request is about. The browser names it:
+ * every dashboard call carries the page's slug in `x-workspace-slug` (see
+ * `apiFetch`), and full-page navigations pass `slug` from `?workspace=`. A
+ * named workspace the user isn't in resolves to null, never to another one.
+ * Only a request that names none (an old tab, a script) falls back to the
+ * `activeWorkspaceId` cookie, then the user's oldest membership.
+ */
+export async function findActiveMembership(userId: string, slug?: string | null) {
+  const requested = slug || (await headers()).get(WORKSPACE_HEADER)
+  if (requested) {
+    return prisma.workspaceMember.findFirst({
+      where: { userId, workspace: { slug: requested } },
+      include: { workspace: true },
+    })
+  }
+
+  const activeWorkspaceId = (await cookies()).get("activeWorkspaceId")?.value
+  return (
+    (activeWorkspaceId
+      ? await prisma.workspaceMember.findFirst({
+          where: { userId, workspaceId: activeWorkspaceId },
+          include: { workspace: true },
+        })
+      : null) ??
+    (await prisma.workspaceMember.findFirst({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      include: { workspace: true },
+    }))
+  )
+}
+
+/** The user's membership in one specific workspace, for records that name their own. */
+export function findMembership(userId: string, workspaceId: string) {
+  return prisma.workspaceMember.findUnique({
+    where: { workspaceId_userId: { workspaceId, userId } },
+  })
+}
+
+/** Session + membership of the workspace the request names (see `findActiveMembership`). */
+export async function requireWorkspace(slug?: string | null) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return fail("Unauthorized", 401)
+
+  const membership = await findActiveMembership(session.user.id, slug)
+  if (!membership) return fail("No workspace found", 404)
+
+  return {
+    error: null,
+    session,
+    membership,
+    workspaceId: membership.workspaceId,
+  } as const
+}
+
+/**
+ * Session + the project + membership of the project's own workspace, so it
+ * holds whichever workspace page the request came from. "No such project" and
+ * "not your workspace" are the same 404, so ids can't be probed.
  */
 export async function requireProject(projectId: string) {
   const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return fail("Unauthorized", 401)
 
-  if (!session?.user) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      ),
-    } as const
-  }
-
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  })
-
-  if (!membership) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      ),
-    } as const
-  }
-
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId: membership.workspaceId },
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
     select: { id: true, name: true, workspaceId: true },
   })
-
-  if (!project) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      ),
-    } as const
-  }
+  const membership = project ? await findMembership(session.user.id, project.workspaceId) : null
+  if (!project || !membership) return fail("Project not found", 404)
 
   return {
     error: null,
     session,
     membership,
     project,
-    workspaceId: membership.workspaceId,
+    workspaceId: project.workspaceId,
   } as const
 }
 
-/**
- * The membership for the workspace the user is looking at (the
- * `activeWorkspaceId` cookie), falling back to their first one. Without the
- * cookie, a user in two workspaces gets whichever row Postgres returns first.
- */
-export async function findActiveMembership(userId: string) {
-  const activeWorkspaceId = (await cookies()).get("activeWorkspaceId")?.value
-  return (
-    (activeWorkspaceId
-      ? await prisma.workspaceMember.findFirst({ where: { userId, workspaceId: activeWorkspaceId } })
-      : null) ?? (await prisma.workspaceMember.findFirst({ where: { userId } }))
-  )
-}
-
-/** Session + workspace membership only, for routes that aren't scoped to one project. */
-export async function requireWorkspace() {
+/** Session + the task + membership of the task's own workspace (see `requireProject`). */
+export async function requireTask(taskId: string) {
   const session = await auth.api.getSession({ headers: await headers() })
+  if (!session?.user) return fail("Unauthorized", 401)
 
-  if (!session?.user) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      ),
-    } as const
-  }
-
-  const membership = await findActiveMembership(session.user.id)
-
-  if (!membership) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      ),
-    } as const
-  }
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { id: true, title: true, workspaceId: true, projectId: true, assigneeId: true, createdById: true },
+  })
+  const membership = task ? await findMembership(session.user.id, task.workspaceId) : null
+  if (!task || !membership) return fail("Task not found", 404)
 
   return {
     error: null,
     session,
     membership,
-    workspaceId: membership.workspaceId,
+    task,
+    workspaceId: task.workspaceId,
   } as const
-}
-
-/** Session + workspace membership + the task belongs to that workspace. */
-export async function requireTask(taskId: string) {
-  const ctx = await requireWorkspace()
-  if (ctx.error) return ctx
-
-  const task = await prisma.task.findFirst({
-    where: { id: taskId, workspaceId: ctx.workspaceId },
-    select: { id: true, title: true, workspaceId: true, projectId: true, assigneeId: true, createdById: true },
-  })
-
-  if (!task) {
-    return {
-      error: NextResponse.json(
-        { success: false, error: "Task not found" },
-        { status: 404 }
-      ),
-    } as const
-  }
-
-  return { ...ctx, error: null, task } as const
 }

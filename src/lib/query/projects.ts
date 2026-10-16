@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import type { ProjectDashboardResponse } from "@/components/projects/project-dashboard-context"
 import type { ProjectCardData } from "@/components/projects/project-card"
 import { fetchProjects } from "@/lib/api/projects"
-import { apiRequest, jsonRequest } from "@/lib/query/fetcher"
+import { apiFetch, apiRequest, jsonRequest } from "@/lib/query/fetcher"
 import { queryKeys } from "@/lib/query/keys"
 import { useInvalidateSidebar } from "@/lib/query/sidebar"
 
@@ -23,7 +23,7 @@ export function useProjectDashboard(projectId: string, initialData: ProjectDashb
   const { data } = useQuery({
     queryKey: key,
     queryFn: async (): Promise<ProjectDashboardResponse> => {
-      const res = await fetch(`/api/projects/${projectId}/dashboard`)
+      const res = await apiFetch(`/api/projects/${projectId}/dashboard`)
       const json: ProjectDashboardResponse = await res.json()
       if (!json.success) throw new Error(json.error || "Failed to load project")
       return json

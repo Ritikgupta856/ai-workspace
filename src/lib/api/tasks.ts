@@ -1,4 +1,5 @@
 import type { Task, TaskStatus, TaskPriority } from "@/components/tasks/tasks-view"
+import { apiFetch } from "@/lib/query/fetcher"
 
 type ApiResponse<T> = { success: true; task?: T; tasks?: T[]; message?: string } | { success: false; error: string }
 
@@ -13,7 +14,7 @@ export type TaskDetail = Task & {
 }
 
 export async function fetchTask(id: string): Promise<TaskDetail> {
-  const res = await fetch(`${BASE}/${id}`)
+  const res = await apiFetch(`${BASE}/${id}`)
   const json: ApiResponse<TaskDetail> = await res.json()
   if (!json.success) throw new Error(json.error)
   return json.task!
@@ -38,21 +39,21 @@ export type TaskPanel = {
 
 /** One request for everything the task panel shows. Cached and prefetched by `@/lib/query/tasks`. */
 export async function fetchTaskPanel(id: string): Promise<TaskPanel> {
-  const res = await fetch(`${BASE}/${id}?panel=1`)
+  const res = await apiFetch(`${BASE}/${id}?panel=1`)
   const json = await res.json()
   if (!json.success) throw new Error(json.error)
   return { task: json.task, comments: json.comments, members: json.members, favorited: json.favorited }
 }
 
 export async function fetchTasks(projectId?: string): Promise<Task[]> {
-  const res = await fetch(projectId ? `${BASE}?projectId=${projectId}` : BASE)
+  const res = await apiFetch(projectId ? `${BASE}?projectId=${projectId}` : BASE)
   const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()
   if (!json.success) throw new Error(json.error)
   return json.tasks ?? []
 }
 
 export async function fetchMyTasks(): Promise<Task[]> {
-  const res = await fetch(`${BASE}?assignee=me`)
+  const res = await apiFetch(`${BASE}?assignee=me`)
   const json: ApiResponse<Task> & { tasks?: Task[] } = await res.json()
   if (!json.success) throw new Error(json.error)
   return json.tasks ?? []
@@ -69,7 +70,7 @@ export async function createTask(data: {
   dueDate?: string | null
   parentTaskId?: string | null
 }): Promise<Task> {
-  const res = await fetch(`${BASE}/generate`, {
+  const res = await apiFetch(`${BASE}/generate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -93,7 +94,7 @@ export async function updateTask(
     parentTaskId: string | null
   }>
 ): Promise<Task> {
-  const res = await fetch(`${BASE}/${id}`, {
+  const res = await apiFetch(`${BASE}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -104,7 +105,7 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: "DELETE" })
+  const res = await apiFetch(`${BASE}/${id}`, { method: "DELETE" })
   const json: ApiResponse<never> = await res.json()
   if (!json.success) throw new Error(json.error)
 }

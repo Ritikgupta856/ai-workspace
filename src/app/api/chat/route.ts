@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { headers, cookies } from "next/headers"
+import { headers } from "next/headers"
 import {
   createIdGenerator,
   createUIMessageStream,
@@ -12,6 +12,7 @@ import {
 import { CHAT_MODEL, reasoningOptions } from "@/lib/ai/models"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { buildChatContext, type IncomingMessage } from "@/lib/ai/context-builder"
 import { planFor, routeChat } from "@/lib/ai/router"
 import { resolveWorkspaceTools } from "@/lib/integrations"
@@ -84,24 +85,10 @@ export async function POST(req: Request) {
   }
 
   if (session?.user) {
-    // Mirrors the activeWorkspaceId-cookie pattern used by /api/settings and
-    // /api/billing — without it, a user in more than one workspace could get
-    // tool results and RAG context bound to whichever membership row Postgres
-    // happened to return first, not the workspace they're currently viewing.
-    const cookieStore = await cookies()
-    const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value
-
-    const membership =
-      (activeWorkspaceId
-        ? await prisma.workspaceMember.findFirst({
-            where: { userId: session.user.id, workspaceId: activeWorkspaceId },
-            select: { workspaceId: true, workspace: { select: { name: true } } },
-          })
-        : null) ??
-      (await prisma.workspaceMember.findFirst({
-        where: { userId: session.user.id },
-        select: { workspaceId: true, workspace: { select: { name: true } } },
-      }))
+    // The workspace the user is viewing (see findActiveMembership). Without it,
+    // a user in more than one workspace could get tool results and RAG context
+    // from a different workspace than the one on screen.
+    const membership = await findActiveMembership(session.user.id)
 
     if (membership) {
       workspaceId = membership.workspaceId

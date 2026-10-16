@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 
 export async function GET(req: Request) {
   try {
@@ -16,9 +17,7 @@ export async function GET(req: Request) {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(

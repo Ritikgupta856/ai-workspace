@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma"
 import { requireProject } from "@/lib/api/guards"
 import { logActivity } from "@/lib/activity"
 import { notifyTaskAssignment } from "@/lib/notifications"
+import { taskWriteProblem } from "@/lib/task-validation"
 
 const STATUSES = ["TODO", "IN_PROGRESS", "IN_REVIEW", "DONE"] as const
-const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const
 
 function formatTask(task: {
   id: string
@@ -107,16 +107,14 @@ export async function POST(
       )
     }
 
-    if (status && !STATUSES.includes(status)) {
+    const problem = await taskWriteProblem(ctx.workspaceId, {
+      status: status || null,
+      priority: priority || null,
+      assigneeId: assigneeId || null,
+    })
+    if (problem) {
       return NextResponse.json(
-        { success: false, error: "Invalid task status" },
-        { status: 400 }
-      )
-    }
-
-    if (priority && !PRIORITIES.includes(priority)) {
-      return NextResponse.json(
-        { success: false, error: "Invalid task priority" },
+        { success: false, error: problem },
         { status: 400 }
       )
     }

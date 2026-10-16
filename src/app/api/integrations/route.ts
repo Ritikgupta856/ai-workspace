@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import type { IntegrationRuntime } from "@/components/integrations/integrations-view"
 
 export async function GET() {
@@ -11,9 +12,7 @@ export async function GET() {
     return NextResponse.json({ success: false, error: "Not authenticated" }, { status: 401 })
   }
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  })
+  const membership = await findActiveMembership(session.user.id)
   if (!membership) {
     return NextResponse.json({ success: false, error: "No workspace found" }, { status: 400 })
   }

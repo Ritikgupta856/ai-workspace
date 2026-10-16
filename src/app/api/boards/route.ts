@@ -3,16 +3,14 @@ import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { logActivity } from "@/lib/activity"
 
 async function currentWorkspace() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    select: { workspaceId: true },
-  })
+  const membership = await findActiveMembership(session.user.id)
   if (!membership) return null
 
   return { userId: session.user.id, workspaceId: membership.workspaceId }

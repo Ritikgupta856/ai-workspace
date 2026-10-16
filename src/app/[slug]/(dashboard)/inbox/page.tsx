@@ -288,7 +288,7 @@ function NotificationDetail({
                 size="icon-sm"
                 onClick={handleSend}
                 disabled={sending || !replyText.trim()}
-                className="size-9 rounded-lg bg-foreground text-background hover:bg-foreground/90"
+                className="size-9 rounded-lg bg-foreground text-background hover:bg-foreground/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
                 aria-label="Send reply"
               >
                 <Send className="size-3.5" />

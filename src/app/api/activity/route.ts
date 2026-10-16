@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { activityInclude, formatActivity } from "@/lib/activity"
 
 const DEFAULT_LIMIT = 25
@@ -30,9 +31,7 @@ export async function GET(req: Request) {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(

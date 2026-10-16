@@ -11,6 +11,7 @@ import "@excalidraw/excalidraw/index.css"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { apiFetch } from "@/lib/query/fetcher"
 
 /**
  * Excalidraw reads `window` at module scope, so it can only be loaded in the
@@ -56,7 +57,7 @@ export function BoardEditor({ board }: { board: BoardData }) {
     async (payload: Record<string, unknown>) => {
       setSaveState("saving")
       try {
-        const res = await fetch(`/api/boards/${board.id}`, {
+        const res = await apiFetch(`/api/boards/${board.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
@@ -112,7 +113,7 @@ export function BoardEditor({ board }: { board: BoardData }) {
   const backHref = board.projectId ? `/${slug}/projects/${board.projectId}/board` : `/${slug}/projects`
 
   const handleDelete = React.useCallback(async () => {
-    await fetch(`/api/boards/${board.id}`, { method: "DELETE" })
+    await apiFetch(`/api/boards/${board.id}`, { method: "DELETE" })
     router.push(backHref)
     router.refresh()
   }, [board.id, backHref, router])

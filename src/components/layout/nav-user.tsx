@@ -20,16 +20,18 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
 } from "@/components/ui/sidebar"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronsUpDown,
   Settings,
   LogOut,
+  User,
 } from "lucide-react"
 import { signOut } from "@/lib/auth-client"
-import { ThemeSubmenu } from "@/components/common/theme-menu"
+import { cn } from "@/lib/utils"
+import { ThemeSegmented } from "@/components/common/theme-menu"
+import { getInitials } from "@/components/projects/project-card"
 import type { Section } from "@/components/settings/settings-panels"
 
 const INTEGRATION_ERRORS: Record<string, string> = {
@@ -90,17 +92,33 @@ function SettingsQuerySync() {
   return null
 }
 
-export function NavUser({
-  user,
-}: {
-  user: {
-    name: string
-    email: string
-    avatar: string
-  }
-}) {
+type NavUserData = {
+  name: string
+  email: string
+  avatar: string
+}
+
+const MENU_ITEM =
+  "h-8 cursor-pointer gap-2.5 rounded-md px-2 text-sm text-foreground/90 [&_svg]:text-muted-foreground"
+
+function UserAvatar({ user, className, online }: { user: NavUserData; className?: string; online?: boolean }) {
+  return (
+    <span className="relative shrink-0">
+      <Avatar className={cn("size-6", className)}>
+        <AvatarImage src={user.avatar} alt={user.name} />
+        <AvatarFallback className="bg-indigo-100 font-medium text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+          {getInitials(user.name) || "U"}
+        </AvatarFallback>
+      </Avatar>
+      {online && (
+        <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-sidebar" />
+      )}
+    </span>
+  )
+}
+
+export function NavUser({ user }: { user: NavUserData }) {
   const router = useRouter()
-  const { isMobile } = useSidebar()
   const slug = useParams().slug as string
 
   return (
@@ -108,56 +126,45 @@ export function NavUser({
       <SidebarMenuItem>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">
-                  {user.name?.slice(0, 2).toUpperCase() || "CN"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-              </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+            <SidebarMenuButton className="h-9 gap-2.5 px-2 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:!p-1">
+              <UserAvatar user={user} className="text-[10px]" online />
+              <span className="min-w-0 flex-1 truncate font-medium">{user.name}</span>
+              <ChevronsUpDown className="ml-auto text-muted-foreground" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">
-                    {user.name?.slice(0, 2).toUpperCase() || "CN"}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">{user.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{user.email}</span>
-                </div>
+          <DropdownMenuContent side="top" align="start" sideOffset={6} className="w-60 rounded-xl p-0 shadow-lg">
+            <DropdownMenuLabel className="flex items-center gap-3 p-3 font-normal">
+              <UserAvatar user={user} className="size-9 text-sm" />
+              <div className="grid min-w-0 flex-1 leading-tight">
+                <span className="truncate text-sm font-semibold">{user.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{user.email}</span>
               </div>
             </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuItem onSelect={() => router.push(`/${slug}/settings`)}>
-                <Settings className="mr-2 size-4" />
-                Settings
+            <DropdownMenuSeparator className="m-0" />
+            <DropdownMenuGroup className="p-1.5">
+              <DropdownMenuItem className={MENU_ITEM} onSelect={() => router.push(`/${slug}/settings?section=profile`)}>
+                <User />
+                View profile
               </DropdownMenuItem>
-              <ThemeSubmenu />
+              <DropdownMenuItem className={MENU_ITEM} onSelect={() => router.push(`/${slug}/settings?section=preferences`)}>
+                <Settings />
+                Account settings
+              </DropdownMenuItem>
             </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => signOut().then(() => { router.push("/") })}>
-              <LogOut className="mr-2 size-4" />
-              Log out
-            </DropdownMenuItem>
+            <DropdownMenuSeparator className="m-0" />
+            <div className="p-1.5">
+              <DropdownMenuLabel className="px-2 pt-1 pb-1.5 text-[11px] font-semibold leading-4 tracking-wider text-muted-foreground uppercase">
+                Theme
+              </DropdownMenuLabel>
+              <ThemeSegmented />
+            </div>
+            <DropdownMenuSeparator className="m-0" />
+            <DropdownMenuGroup className="p-1.5">
+              <DropdownMenuItem className={MENU_ITEM} onSelect={() => signOut().then(() => router.push("/"))}>
+                <LogOut />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

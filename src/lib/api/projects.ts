@@ -1,5 +1,6 @@
 import type { ProjectCardData } from "@/components/projects/project-card"
 import type { ProjectStatus } from "@/lib/projects"
+import { apiFetch } from "@/lib/query/fetcher"
 
 type ApiResponse<T> =
   | ({ success: true; project?: T; projects?: T[]; message?: string } & Record<
@@ -11,7 +12,7 @@ type ApiResponse<T> =
 const BASE = "/api/projects"
 
 async function get<T>(url: string): Promise<T> {
-  const res = await fetch(url)
+  const res = await apiFetch(url)
   const json = await res.json()
   if (!json.success) throw new Error(json.error || "Request failed")
   return json as T
@@ -30,7 +31,7 @@ export async function createProject(data: {
   status?: ProjectStatus
   icon?: string
 }): Promise<ProjectCardData> {
-  const res = await fetch(BASE, {
+  const res = await apiFetch(BASE, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -49,7 +50,7 @@ export async function updateProject(
     icon: string
   }>
 ): Promise<ProjectCardData> {
-  const res = await fetch(`${BASE}/${id}`, {
+  const res = await apiFetch(`${BASE}/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -60,7 +61,7 @@ export async function updateProject(
 }
 
 export async function deleteProject(id: string): Promise<void> {
-  const res = await fetch(`${BASE}/${id}`, { method: "DELETE" })
+  const res = await apiFetch(`${BASE}/${id}`, { method: "DELETE" })
   const json: ApiResponse<never> = await res.json()
   if (!json.success) throw new Error(json.error)
 }
@@ -75,13 +76,13 @@ export type ProjectBoard = {
 }
 
 export async function fetchProjectBoards(projectId: string): Promise<ProjectBoard[]> {
-  const res = await fetch(`/api/boards?projectId=${projectId}`)
+  const res = await apiFetch(`/api/boards?projectId=${projectId}`)
   const json = await res.json()
   return json.boards ?? []
 }
 
 export async function createProjectBoard(projectId: string): Promise<{ id: string }> {
-  const res = await fetch("/api/boards", {
+  const res = await apiFetch("/api/boards", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ projectId }),
@@ -92,7 +93,7 @@ export async function createProjectBoard(projectId: string): Promise<{ id: strin
 }
 
 export async function deleteBoard(id: string): Promise<void> {
-  const res = await fetch(`/api/boards/${id}`, { method: "DELETE" })
+  const res = await apiFetch(`/api/boards/${id}`, { method: "DELETE" })
   if (!res.ok) {
     const json = await res.json().catch(() => ({}))
     throw new Error(json.error ?? "Could not delete board")

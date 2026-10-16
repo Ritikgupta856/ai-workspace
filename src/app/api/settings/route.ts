@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { headers, cookies } from "next/headers"
+import { headers } from "next/headers"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 
 export async function GET() {
   try {
@@ -15,20 +16,7 @@ export async function GET() {
       )
     }
 
-    const cookieStore = await cookies()
-    const activeWorkspaceId = cookieStore.get("activeWorkspaceId")?.value
-
-    const membership =
-      (activeWorkspaceId
-        ? await prisma.workspaceMember.findFirst({
-            where: { userId: session.user.id, workspaceId: activeWorkspaceId },
-            include: { workspace: true },
-          })
-        : null) ??
-      (await prisma.workspaceMember.findFirst({
-        where: { userId: session.user.id },
-        include: { workspace: true },
-      }))
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(

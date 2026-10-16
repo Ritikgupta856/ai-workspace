@@ -5,6 +5,7 @@ import { Loader2, Link2, Link2Off } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { disconnectIntegration } from "@/lib/actions/integrations"
+import { withWorkspace } from "@/lib/workspace-header"
 
 interface Props {
   provider: string
@@ -54,7 +55,7 @@ export function IntegrationConnectButton({
       size="sm"
       className="gap-1.5"
       onClick={() => {
-        window.location.href = `/api/integrations/connect/${provider}`
+        window.location.href = withWorkspace(`/api/integrations/connect/${provider}`)
       }}
       disabled={isPending}
     >

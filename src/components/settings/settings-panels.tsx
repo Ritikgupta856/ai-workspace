@@ -30,6 +30,8 @@ import {
 
 import { useTheme } from "next-themes"
 import { THEME_OPTIONS } from "@/components/common/theme-menu"
+import { apiFetch } from "@/lib/query/fetcher"
+import { withWorkspace } from "@/lib/workspace-header"
 
 type Profile = {
   name: string
@@ -520,7 +522,7 @@ export function BillingPanel({
   async function handleUpgrade() {
     setRedirecting(true)
     try {
-      const res = await fetch("/api/billing/checkout", { method: "POST" })
+      const res = await apiFetch("/api/billing/checkout", { method: "POST" })
       const json = await res.json()
       if (!json.success) throw new Error(json.error || "Failed to start checkout")
       window.location.href = json.url
@@ -532,7 +534,7 @@ export function BillingPanel({
 
   function handleManageBilling() {
     setRedirecting(true)
-    window.location.href = "/api/billing/portal"
+    window.location.href = withWorkspace("/api/billing/portal")
   }
 
   return (

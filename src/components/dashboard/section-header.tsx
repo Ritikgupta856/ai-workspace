@@ -57,7 +57,7 @@ export function HeaderButton({
   )
 }
 
-/** The black primary header button ("Add"). */
+/** The black primary header button ("Add"); brand blue in dark mode. */
 export function HeaderPrimaryButton({
   loading,
   className,
@@ -69,7 +69,7 @@ export function HeaderPrimaryButton({
       size="sm"
       disabled={loading || props.disabled}
       className={cn(
-        "h-8 gap-1.5 rounded-lg bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90",
+        "h-8 gap-1.5 rounded-lg bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90",
         className
       )}
       {...props}

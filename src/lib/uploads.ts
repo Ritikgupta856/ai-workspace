@@ -8,6 +8,8 @@
  * the server can enforce the same rules afterwards.
  */
 
+import { apiFetch } from "@/lib/query/fetcher"
+
 export type UploadPurpose = "document" | "attachment"
 
 /** Cloudinary's free plan caps a single file at 10 MB. */
@@ -51,7 +53,7 @@ export type UploadedFile = {
 type SignedUpload = { uploadUrl: string; fields: Record<string, string> }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, {
+  const res = await apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

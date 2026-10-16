@@ -4,26 +4,24 @@ import type { Prisma } from "@/generated/prisma/client"
 
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { findMembership } from "@/lib/api/guards"
 
 async function accessibleBoard(id: string) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session?.user) return null
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-    select: { workspaceId: true },
-  })
-  if (!membership) return null
-
   // Scoped by workspace, not by author: a board is a shared artefact, so any
-  // member of the workspace can open and edit it.
-  const board = await prisma.whiteboard.findFirst({
-    where: { id, workspaceId: membership.workspaceId },
-    select: { id: true },
+  // member of its workspace can open and edit it.
+  const board = await prisma.whiteboard.findUnique({
+    where: { id },
+    select: { workspaceId: true },
   })
   if (!board) return null
 
-  return { userId: session.user.id, workspaceId: membership.workspaceId }
+  const membership = await findMembership(session.user.id, board.workspaceId)
+  if (!membership) return null
+
+  return { userId: session.user.id, workspaceId: board.workspaceId }
 }
 
 export async function GET(

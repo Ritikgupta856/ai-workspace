@@ -1,4 +1,5 @@
 import { uploadFile } from "@/lib/uploads"
+import { apiFetch } from "@/lib/query/fetcher"
 
 export type PageSummary = {
   id: string
@@ -31,7 +32,7 @@ type ApiResponse<T> = ({ success: true } & T) | { success: false; error: string 
 const BASE = "/api/pages"
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
+  const res = await apiFetch(url, init)
   const json: ApiResponse<T> = await res.json()
   if (!json.success) throw new Error(json.error)
   return json

@@ -9,6 +9,7 @@ import { type IntegrationStatusKey } from "@/lib/constants"
 import { GitHubColor, NotionColor, LinearColor, FigmaColor } from "@/components/landing/brand-logos"
 import { IntegrationDetailSheet } from "@/components/integrations/integration-detail-sheet"
 import { disconnectIntegration } from "@/lib/actions/integrations"
+import { withWorkspace } from "@/lib/workspace-header"
 
 export interface IntegrationRuntime {
   id: string
@@ -116,7 +117,7 @@ function ConnectButton({
           startTransition(() => disconnectIntegration(formData))
           return
         }
-        window.location.href = `/api/integrations/connect/${provider}`
+        window.location.href = withWorkspace(`/api/integrations/connect/${provider}`)
       }}
       className={cn(
         "flex size-7 shrink-0 items-center justify-center rounded-full border transition-colors",

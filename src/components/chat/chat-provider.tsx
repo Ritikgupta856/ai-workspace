@@ -14,6 +14,7 @@ import { DefaultChatTransport, type ChatStatus, type FileUIPart } from "ai"
 import { toast } from "sonner"
 
 import type { ChatUIMessage } from "@/lib/ai/chat-message"
+import { apiFetch } from "@/lib/query/fetcher"
 
 export type ChatSummary = {
   id: string
@@ -55,7 +56,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const refreshChats = useCallback(async () => {
     try {
-      const res = await fetch("/api/chats")
+      const res = await apiFetch("/api/chats")
       if (!res.ok) return
       const data = (await res.json()) as { chats: ChatSummary[] }
       setChats(data.chats ?? [])
@@ -71,7 +72,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     void (async () => {
       try {
-        const res = await fetch("/api/chats")
+        const res = await apiFetch("/api/chats")
         if (!res.ok || cancelled) return
         const data = (await res.json()) as { chats: ChatSummary[] }
         if (!cancelled) setChats(data.chats ?? [])
@@ -93,7 +94,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         api: "/api/chat",
         // The server creates the chat on the first turn and reports its id here.
         fetch: async (input, init) => {
-          const response = await fetch(input, init)
+          const response = await apiFetch(input, init)
           const serverChatId = response.headers.get("X-Chat-Id")
           if (serverChatId) setChatId(serverChatId)
           return response
@@ -146,7 +147,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setChatId(id)
 
       try {
-        const res = await fetch(`/api/chats/${id}`)
+        const res = await apiFetch(`/api/chats/${id}`)
         if (!res.ok) throw new Error(`Failed to load chat ${id}`)
         const data = (await res.json()) as { messages: ChatUIMessage[] }
         if (openingRef.current === id) setMessages(data.messages)
@@ -164,7 +165,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setChats((prev) => prev.filter((c) => c.id !== id))
       if (chatId === id) newChat()
       try {
-        await fetch(`/api/chats/${id}`, { method: "DELETE" })
+        await apiFetch(`/api/chats/${id}`, { method: "DELETE" })
       } finally {
         refreshChats()
       }

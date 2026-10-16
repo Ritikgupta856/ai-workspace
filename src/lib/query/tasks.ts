@@ -14,7 +14,7 @@ import {
   type TaskComment,
   type TaskPanel,
 } from "@/lib/api/tasks"
-import { apiRequest, jsonRequest } from "@/lib/query/fetcher"
+import { apiFetch, apiRequest, jsonRequest } from "@/lib/query/fetcher"
 import { queryKeys } from "@/lib/query/keys"
 
 type ListScope = { assignedToMe?: boolean; projectId?: string }
@@ -90,7 +90,7 @@ export function useTaskComments(id: string, initial?: TaskComment[]) {
   return useQuery({
     queryKey: queryKeys.tasks.comments(id),
     queryFn: async (): Promise<TaskComment[]> => {
-      const res = await fetch(`/api/tasks/${id}/comments`)
+      const res = await apiFetch(`/api/tasks/${id}/comments`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       return json.comments
@@ -111,7 +111,7 @@ export function useAssignableMembers(
     enabled: options?.enabled ?? true,
     queryKey: queryKeys.members.assignable(projectId),
     queryFn: async (): Promise<TaskAssignee[]> => {
-      const res = await fetch(projectId ? `/api/projects/${projectId}/members` : "/api/workspaces/members")
+      const res = await apiFetch(projectId ? `/api/projects/${projectId}/members` : "/api/workspaces/members")
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       return projectId
@@ -138,7 +138,7 @@ export function useTaskActivity(id: string, options?: { enabled?: boolean }) {
     queryKey: queryKeys.tasks.activity(id),
     enabled: options?.enabled ?? true,
     queryFn: async (): Promise<ActivityDTO[]> => {
-      const res = await fetch(`/api/activity?taskId=${id}&limit=30`)
+      const res = await apiFetch(`/api/activity?taskId=${id}&limit=30`)
       const json = await res.json()
       if (!json.success) throw new Error(json.error)
       return json.activities

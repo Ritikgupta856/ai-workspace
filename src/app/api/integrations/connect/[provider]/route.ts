@@ -3,7 +3,8 @@ import { headers } from "next/headers"
 import crypto from "crypto"
 
 import { auth } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
+import { WORKSPACE_PARAM } from "@/lib/workspace-header"
 
 const PROVIDER_OAUTH: Record<
   string,
@@ -42,8 +43,9 @@ function buildState(payload: Record<string, string>) {
   return Buffer.from(JSON.stringify({ data, sig })).toString("base64url")
 }
 
+/** A full-page navigation, so the workspace comes as `?workspace=<slug>`, not a header. */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ provider: string }> }
 ) {
   const { provider } = await params
@@ -66,9 +68,10 @@ export async function GET(
     return NextResponse.redirect(new URL("/sign-in", process.env.NEXT_PUBLIC_APP_URL!))
   }
 
-  const membership = await prisma.workspaceMember.findFirst({
-    where: { userId: session.user.id },
-  })
+  const membership = await findActiveMembership(
+    session.user.id,
+    new URL(req.url).searchParams.get(WORKSPACE_PARAM)
+  )
   if (!membership) {
     return NextResponse.json({ error: "No workspace found" }, { status: 400 })
   }

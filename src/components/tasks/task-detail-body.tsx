@@ -274,7 +274,7 @@ export function TaskDetailBody({ task, initialComments, initialMembers, onChange
         <PropertyRow icon={UserRound} label="Assignee">
           <Select
             value={task.assigneeId ?? "unassigned"}
-            onValueChange={(v) => persist({ assigneeId: v === "unassigned" ? undefined : v })}
+            onValueChange={(v) => persist({ assigneeId: v === "unassigned" ? null : v })}
           >
             <SelectTrigger className={valueTrigger} aria-label="Assignee">
               <SelectValue>

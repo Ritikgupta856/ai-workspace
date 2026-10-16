@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
-import { headers } from "next/headers"
-import { prisma } from "@/lib/prisma"
+import { requireProject } from "@/lib/api/guards"
 import { buildProjectDashboard } from "@/lib/project-dashboard"
 
 export async function GET(
@@ -9,30 +7,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    })
-
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      )
-    }
-
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
-
-    if (!membership) {
-      return NextResponse.json(
-        { success: false, error: "No workspace found" },
-        { status: 404 }
-      )
-    }
-
     const { id: projectId } = await params
-    const response = await buildProjectDashboard(projectId, membership.workspaceId, session.user.id)
+    const ctx = await requireProject(projectId)
+    if (ctx.error) return ctx.error
+
+    const response = await buildProjectDashboard(projectId, ctx.workspaceId, ctx.session.user.id)
 
     if (!response) {
       return NextResponse.json(

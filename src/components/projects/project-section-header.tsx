@@ -163,7 +163,7 @@ export function ProjectSectionHeader({
             size="sm"
             onClick={action.onClick}
             disabled={action.loading}
-            className="h-8 gap-1.5 rounded-lg bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90"
+            className="h-8 gap-1.5 rounded-lg bg-foreground px-3 text-[13px] font-medium text-background hover:bg-foreground/90 dark:bg-primary dark:text-primary-foreground dark:hover:bg-primary/90"
           >
             {action.loading ? (
               <Loader2 className="size-3.5 animate-spin" />

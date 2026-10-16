@@ -3,12 +3,7 @@
 import { useCallback, useState } from "react"
 import { motion } from "framer-motion"
 import { Check, CircleAlert, Copy, RefreshCcw, RotateCw } from "lucide-react"
-import {
-  getToolOrDynamicToolName,
-  isToolOrDynamicToolUIPart,
-  type DynamicToolUIPart,
-  type ToolUIPart,
-} from "ai"
+import { isToolOrDynamicToolUIPart, type TextUIPart } from "ai"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -23,11 +18,10 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation"
 import { MessageAction, MessageActions } from "@/components/ai-elements/message"
-import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@/components/ai-elements/sources"
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool"
 import { messageText, type ChatUIMessage } from "@/lib/ai/chat-message"
 import { cn } from "@/lib/utils"
+import { AgentSteps, type AgentStepPart } from "./agent-steps"
 import { useChatContext } from "./chat-provider"
 import { MessageMarkdown } from "./message-markdown"
 import { ThinkingIndicator } from "./thinking-indicator"
@@ -36,17 +30,32 @@ import { ThinkingIndicator } from "./thinking-indicator"
 const REVEAL_ON_HOVER =
   "opacity-0 transition-opacity duration-150 group-hover/message:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100"
 
-const toolTitle = (name: string) => {
-  const words = name.replace(/[_-]+/g, " ").trim()
-  return words.charAt(0).toUpperCase() + words.slice(1)
+type Segment =
+  | { kind: "text"; key: string; part: TextUIPart }
+  | { kind: "steps"; key: string; parts: AgentStepPart[] }
+
+/**
+ * Answer text stays inline; each unbroken run of reasoning and tool calls
+ * between texts collapses into one chain-of-thought timeline.
+ */
+function segmentParts(parts: ChatUIMessage["parts"]) {
+  const segments: Segment[] = []
+  parts.forEach((part, index) => {
+    if (part.type === "text") {
+      if (part.text.trim()) segments.push({ kind: "text", key: `text-${index}`, part })
+      return
+    }
+    if ((part.type === "reasoning" && part.text) || isToolOrDynamicToolUIPart(part)) {
+      const previous = segments.at(-1)
+      if (previous?.kind === "steps") previous.parts.push(part)
+      else segments.push({ kind: "steps", key: `steps-${index}`, parts: [part] })
+    }
+  })
+  return segments
 }
 
 const hasVisibleParts = (message: ChatUIMessage | undefined) =>
-  Boolean(
-    message?.parts.some(
-      (part) => part.type === "text" || part.type === "reasoning" || isToolOrDynamicToolUIPart(part)
-    )
-  )
+  Boolean(message && segmentParts(message.parts).length > 0)
 
 function CopyAction({ text }: { text: string }) {
   const [copied, setCopied] = useState(false)
@@ -102,24 +111,6 @@ function UserMessage({ message }: { message: ChatUIMessage }) {
   )
 }
 
-function ToolCall({ part }: { part: ToolUIPart | DynamicToolUIPart }) {
-  const title = toolTitle(getToolOrDynamicToolName(part))
-
-  return (
-    <Tool className="mb-0">
-      {part.type === "dynamic-tool" ? (
-        <ToolHeader type={part.type} state={part.state} toolName={part.toolName} title={title} />
-      ) : (
-        <ToolHeader type={part.type} state={part.state} title={title} />
-      )}
-      <ToolContent>
-        <ToolInput input={part.input} />
-        <ToolOutput output={part.output} errorText={part.errorText} />
-      </ToolContent>
-    </Tool>
-  )
-}
-
 function AssistantMessage({
   message,
   isStreaming,
@@ -131,28 +122,28 @@ function AssistantMessage({
 }) {
   const { regenerate } = useChatContext()
   const text = messageText(message)
+  const segments = segmentParts(message.parts)
   // Only sources the answer actually cites, by the bold title the prompt asks for.
   const cited = (message.metadata?.sources ?? []).filter((source) => text.includes(source.title))
 
   return (
     <div className="group/message flex flex-col gap-3">
-      {message.parts.map((part, index) => {
-        if (part.type === "text") {
-          return <MessageMarkdown key={index} content={part.text} isStreaming={part.state === "streaming"} />
-        }
-        if (part.type === "reasoning" && part.text) {
-          return (
-            <Reasoning key={index} className="mb-0" isStreaming={part.state === "streaming"}>
-              <ReasoningTrigger />
-              <ReasoningContent>{part.text}</ReasoningContent>
-            </Reasoning>
-          )
-        }
-        if (isToolOrDynamicToolUIPart(part)) {
-          return <ToolCall key={part.toolCallId} part={part} />
-        }
-        return null
-      })}
+      {segments.map((segment, index) =>
+        segment.kind === "text" ? (
+          <MessageMarkdown
+            key={segment.key}
+            content={segment.part.text}
+            isStreaming={segment.part.state === "streaming"}
+          />
+        ) : (
+          // A run is in progress only until something follows it.
+          <AgentSteps
+            key={segment.key}
+            parts={segment.parts}
+            isActive={isStreaming && index === segments.length - 1}
+          />
+        )
+      )}
 
       {!isStreaming && cited.length > 0 && (
         <Sources className="mb-0">

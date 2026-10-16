@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { prisma } from "@/lib/prisma"
+import { findActiveMembership } from "@/lib/api/guards"
 import { logActivity } from "@/lib/activity"
 import { formatProject, projectInclude } from "@/lib/projects"
 
@@ -18,9 +19,7 @@ export async function GET() {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(
@@ -102,9 +101,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id },
-    })
+    const membership = await findActiveMembership(session.user.id)
 
     if (!membership) {
       return NextResponse.json(

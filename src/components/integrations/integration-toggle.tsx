@@ -4,6 +4,7 @@ import { useTransition } from "react"
 
 import { Switch } from "@/components/ui/switch"
 import { disconnectIntegration } from "@/lib/actions/integrations"
+import { withWorkspace } from "@/lib/workspace-header"
 
 interface Props {
   provider: string
@@ -21,7 +22,7 @@ export function IntegrationToggle({ provider, connected, integrationId }: Props)
       onClick={(e) => e.stopPropagation()}
       onCheckedChange={(checked) => {
         if (checked) {
-          window.location.href = `/api/integrations/connect/${provider}`
+          window.location.href = withWorkspace(`/api/integrations/connect/${provider}`)
           return
         }
         if (integrationId) {

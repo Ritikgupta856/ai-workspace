@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { QueryProvider } from "@/components/common/query-provider";
 import {
   SidebarInset,
   SidebarProvider,
@@ -89,6 +90,9 @@ export default async function DashboardLayout({
   const sidebar = await getSidebarData(session.user.id, membership.workspaceId, slug);
 
   return (
+    // A cache per workspace, keyed by slug: switching workspace starts empty
+    // rather than showing the last workspace's cached lists until they refetch.
+    <QueryProvider key={slug}>
     <TooltipProvider>
         <SidebarProvider className="overflow-hidden max-h-dvh">
         <AppSidebar
@@ -109,5 +113,6 @@ export default async function DashboardLayout({
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>
+    </QueryProvider>
   );
 }
